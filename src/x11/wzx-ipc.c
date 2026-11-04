@@ -441,6 +441,19 @@ wzx_command(wzx *z, const char *line, char *out, size_t outlen)
         preview(z, arg);
     } else if (!strcmp(cmd, "reload")) {
         wzx_apply_config(z);
+    } else if (!strcmp(cmd, "windows")) {
+        /* Para as regras: classe, instância e título das janelas abertas. */
+        for (int i = 0; i < z->nwin; i++) {
+            wzx_win *w = z->win[i];
+            if (w->special)
+                continue;
+            char title[200];
+            wzx_title(z, w, title, sizeof title);
+            for (char *p = title; *p; p++)
+                if (*p == '\t' || *p == '\n')
+                    *p = ' ';
+            outf(out, outlen, "%s\t%s\t%s\n", w->wm_class ? w->wm_class : "", w->instance ? w->instance : "", title);
+        }
     } else if (!strcmp(cmd, "log")) {
         outf(out, outlen, "%s", wz_log_text());
     } else if (!strcmp(cmd, "quit")) {
