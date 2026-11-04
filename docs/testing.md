@@ -48,8 +48,17 @@ preferências e editor com o tema OneStepBack, editor (dividir e salvar
 preservando comentários), dois monitores com layouts diferentes, overlay e
 dockapp no wlmaker (cliques e roda).
 
+## Sessão real numa VM (live ISO do Big WindowMaker, QEMU/KVM)
+
+* X11 (Window Maker + picom): arrasto do Thunar com o overlay translúcido,
+  encaixe na zona; área útil respeitando Dock, Clip e Dock com abas.
+* Wayland (wlmaker): arrasto real pelo ponteiro encaixando na zona,
+  `snap`, Super+Ctrl+setas, mosaico com Thunar e AshyTerm e desligar
+  devolvendo as posições, dockapp `wmake-zones-wl` no Clip, menus e atalhos
+  migrados pelo `big-wm-firstrun`.
+
 ## Não testado
 
-Hardware real, sessão real do Big WindowMaker (X11 e Wayland), monitores
-físicos e hotplug, HiDPI com escala fracionária, Thunar/Kate/Firefox/
-VSCodium/OBS e jogos. Os testes usaram xterm e janelas GTK 3.
+Hardware real, monitores físicos e hotplug, HiDPI com escala fracionária,
+Kate/Firefox/VSCodium/OBS e jogos, o mosaico do X11 numa sessão real (só no
+Xvfb). Os testes usaram xterm, Thunar, AshyTerm e janelas GTK 3.
