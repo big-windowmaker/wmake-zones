@@ -194,6 +194,19 @@ text_center(wzx *z, XftFont *f, unsigned rgb, const char *s, int cx, int cy, int
     XftColorFree(z->dpy, z->ov.visual, z->ov.cmap, &col);
 }
 
+/* Cor do destaque: a escolhida nas preferências ou a da barra de título. */
+static unsigned
+hl1(wzx *z)
+{
+    return z->cfg.highlight != WZ_COLOR_AUTO ? z->cfg.highlight : z->theme.ftitle1;
+}
+
+static unsigned
+hl2(wzx *z)
+{
+    return z->cfg.highlight != WZ_COLOR_AUTO ? wz_rgb_mix(z->cfg.highlight, 0, 90) : z->theme.ftitle2;
+}
+
 static int
 badge_size(wz_rect r)
 {
@@ -224,7 +237,7 @@ badge_argb(wzx *z, wz_rect zr, int idx, const char *name, int hl)
     int cx = zr.x + zr.w / 2, cy = zr.y + zr.h / 2;
     wz_rect b = { cx - s / 2, cy - s / 2, s, s };
     /* Ladrilho de ícone: degradê diagonal do IconBack, aproximado em faixas. */
-    unsigned c1 = hl ? z->theme.ftitle1 : z->theme.icon1, c2 = hl ? z->theme.ftitle2 : z->theme.icon2;
+    unsigned c1 = hl ? hl1(z) : z->theme.icon1, c2 = hl ? hl2(z) : z->theme.icon2;
     for (int i = 0; i < s; i += 2)
         fill(z, PictOpSrc, (wz_rect){ b.x, b.y + i, s, i + 2 <= s ? 2 : 1 }, wz_rgb_mix(c1, c2, i * 255 / s), 245);
     fill(z, PictOpOver, (wz_rect){ b.x, b.y, s, 1 }, 0xffffff, 230);
@@ -246,7 +259,7 @@ draw_zone_argb(wzx *z, int i, int hl)
     wz_rect r = local(z, z->ov.zones[i]);
     int op = z->cfg.opacity;
     if (hl)
-        panel_argb(z, r, z->theme.ftitle1, 90 + op * 13 / 10 > 235 ? 235 : 90 + op * 13 / 10, 1, 3);
+        panel_argb(z, r, hl1(z), 90 + op * 13 / 10 > 235 ? 235 : 90 + op * 13 / 10, 1, 3);
     else
         panel_argb(z, r, z->theme.menu_bg1, 30 + op, 1, 2);
     badge_argb(z, r, i, z->ov.names[i], hl);
@@ -281,7 +294,7 @@ redraw_argb(wzx *z)
     if (z->ov.has_target) {
         wz_rect t = local(z, z->ov.target);
         if (z->ov.hl_b >= 0)
-            panel_argb(z, t, z->theme.ftitle1, 120 + z->cfg.opacity, 1, 3);
+            panel_argb(z, t, hl1(z), 120 + z->cfg.opacity, 1, 3);
         else
             draw_zone_argb(z, z->ov.hl_a, 1);
         if (z->ov.hl_b >= 0) {
@@ -310,14 +323,14 @@ redraw_plain(wzx *z, int reshape)
         wz_rect r = local(z, z->ov.zones[i]);
         int hl = z->ov.has_target && (i == z->ov.hl_a || i == z->ov.hl_b);
         int th = hl ? 5 : 3;
-        XSetForeground(z->dpy, gc, wzx_pixel(z, hl ? z->theme.ftitle1 : z->theme.menu_bg1));
+        XSetForeground(z->dpy, gc, wzx_pixel(z, hl ? hl1(z) : z->theme.menu_bg1));
         XFillRectangle(z->dpy, z->ov.win, gc, r.x, r.y, (unsigned)r.w, (unsigned)r.h);
         for (int t = 0; t < th; t++)
             XDrawRectangle(z->dpy, mask, mgc, r.x + t, r.y + t, (unsigned)(r.w - 1 - 2 * t), (unsigned)(r.h - 1 - 2 * t));
         wzx_draw_bevel(z, z->ov.win, gc, r.x, r.y, r.w, r.h, 1);
         int s = badge_size(r);
         int bx = r.x + r.w / 2 - s / 2, by = r.y + r.h / 2 - s / 2;
-        XSetForeground(z->dpy, gc, wzx_pixel(z, hl ? z->theme.ftitle2 : z->theme.icon2));
+        XSetForeground(z->dpy, gc, wzx_pixel(z, hl ? hl2(z) : z->theme.icon2));
         XFillRectangle(z->dpy, z->ov.win, gc, bx, by, (unsigned)s, (unsigned)s);
         wzx_draw_bevel(z, z->ov.win, gc, bx, by, s, s, 1);
         XFillRectangle(z->dpy, mask, mgc, bx, by, (unsigned)s, (unsigned)s);

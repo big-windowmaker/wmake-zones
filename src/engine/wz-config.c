@@ -438,7 +438,7 @@ wz_config_defaults(wz_config *c)
     c->tile = (wz_tile_params){ .algo = WZ_TILE_MASTER, .master_ratio = 0.6, .nmaster = 1,
                                 .master_pos = WZ_POS_LEFT, .gap_in = 6, .gap_out = 6, .smart_gaps = 1 };
     c->theme = strdup("auto");
-    c->highlight = 0x4a7ab0;
+    c->highlight = WZ_COLOR_AUTO;
     c->opacity = 35;
     for (int i = 0; i < WZ_KEY_N; i++)
         c->keys[i] = strdup(key_table[i].def);
@@ -582,7 +582,7 @@ load_cb(const char *sec, const char *k, const char *v, void *ud)
         if (!strcmp(k, "Theme"))
             set_str(&c->theme, v);
         else if (!strcmp(k, "Highlight"))
-            c->highlight = parse_color(v, c->highlight);
+            c->highlight = !strcmp(v, "auto") ? WZ_COLOR_AUTO : parse_color(v, c->highlight);
         else if (!strcmp(k, "Opacity"))
             c->opacity = parse_int(v, c->opacity, 0, 100);
     } else if (!strcmp(sec, "Keys")) {

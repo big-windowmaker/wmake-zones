@@ -286,6 +286,8 @@ popup_redraw(wzx *z)
         }
     } else {
         title_bar(z, buf, xd, pg.w, pg.title_h, _("Layouts"));
+        /* Fundo do menu também nas células vazias da última linha. */
+        item_back(z, buf, 0, pg.title_h, pg.w, pg.h - pg.title_h, 0);
         const wz_layout_def *cur = current_layout(z);
         for (int i = 0; i < z->cfg.nlayouts; i++) {
             int cx = (i % pg.cols) * pg.cell_w, cy = pg.title_h + (i / pg.cols) * pg.cell_h;

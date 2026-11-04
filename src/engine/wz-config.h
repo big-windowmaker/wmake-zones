@@ -10,6 +10,8 @@
 
 #include "wz-tile.h"
 
+#define WZ_COLOR_AUTO 0xFFFFFFFFu
+
 typedef enum { WZ_ACTIVATE_DRAG = 0, WZ_ACTIVATE_MODIFIER, WZ_ACTIVATE_EDGE } wz_activation;
 typedef enum { WZ_MOD_SUPER = 0, WZ_MOD_ALT, WZ_MOD_CTRL, WZ_MOD_SHIFT } wz_modifier;
 typedef enum { WZ_RULE_FLOAT = 0, WZ_RULE_TILE, WZ_RULE_ZONE, WZ_RULE_IGNORE } wz_rule_action;
@@ -77,7 +79,7 @@ typedef struct {
     wz_tile_params tile;
     /* Aparência */
     char *theme;          /* auto, light, dark */
-    unsigned highlight;   /* 0xRRGGBB */
+    unsigned highlight;   /* 0xRRGGBB ou WZ_COLOR_AUTO (cor do tema) */
     int opacity;          /* 0..100 */
     /* Atalhos ("Super+Ctrl+Left"; vazio = sem atalho) */
     char *keys[WZ_KEY_N];
