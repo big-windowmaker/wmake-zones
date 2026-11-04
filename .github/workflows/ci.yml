@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+name: CI
+on:
+  push:
+  pull_request:
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - name: Dependências
+        run: |
+          pacman -Syu --noconfirm --needed base-devel git meson ninja \
+            libx11 libxi libxrandr libxext libxft libxrender fontconfig gtk3 cairo \
+            wayland wayland-protocols librsvg \
+            xorg-server-xvfb xdotool xorg-xprop xterm windowmaker
+      - uses: actions/checkout@v4
+      - name: Compilar
+        run: |
+          meson setup build -Dprefix=/usr
+          meson compile -C build
+      - name: Testes (núcleo e X11 com o wmaker num Xvfb)
+        run: meson test -C build --print-errorlogs
+      - name: Núcleo com sanitizers
+        run: |
+          meson setup asan -Db_sanitize=address,undefined -Db_lundef=false -Dprefs=disabled -Dwayland_dockapp=disabled
+          meson compile -C asan
+          ./asan/tests/test-engine
