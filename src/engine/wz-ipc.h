@@ -25,6 +25,10 @@ int wz_ipc_peer_ok(int fd);           /* mesmo uid? */
  * daemon. */
 int wz_ipc_request(const char *path, const char *cmd, char *out, size_t outlen);
 
+/* Pede ao serviço da sessão: tenta o socket preferido (pelo tipo da sessão)
+ * e, sem resposta, o outro. Devolve 0 se algum respondeu. */
+int wz_ipc_request_session(const char *cmd, char *out, size_t outlen);
+
 /* Registro curto em memória, para diagnóstico ("wmake-zones log"). */
 void wz_log_line(const char *line);
 const char *wz_log_text(void);

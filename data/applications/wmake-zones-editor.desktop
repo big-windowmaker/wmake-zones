@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Name=Zone Editor
+Name[pt_BR]=Editor de zonas
+Name[pt]=Editor de zonas
+Name[es]=Editor de zonas
+Comment=Create and edit window zone layouts
+Comment[pt_BR]=Crie e edite layouts de zonas de janelas
+Comment[es]=Crea y edita diseños de zonas de ventanas
+Exec=wmake-zones-prefs --editor
+Icon=wmake-zones
+Categories=Settings;DesktopSettings;
+OnlyShowIn=WindowMaker;wlmaker;
+NoDisplay=true
+StartupNotify=false

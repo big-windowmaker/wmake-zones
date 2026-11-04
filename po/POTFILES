@@ -1,0 +1,5 @@
+src/x11/wzx-overlay.c
+src/x11/wzx-dockapp.c
+src/prefs/wzp-main.c
+src/prefs/wzp-editor.c
+src/engine/wz-config.c

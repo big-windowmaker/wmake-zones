@@ -67,10 +67,7 @@ wzp_reload_config(void)
 int
 wzp_request(const char *cmd, char *out, size_t len)
 {
-    char *p = wz_ipc_session_path();
-    int r = wz_ipc_request(p, cmd, out, len);
-    free(p);
-    return r;
+    return wz_ipc_request_session(cmd, out, len);
 }
 
 void

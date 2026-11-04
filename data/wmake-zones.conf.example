@@ -1,0 +1,80 @@
+# wmake-zones: exemplo comentado de ~/.config/wmake-zones/wmake-zones.conf
+# Tudo aqui também se ajusta em wmake-zones-prefs; o arquivo é só texto INI
+# (compatível com GKeyFile). Chaves ausentes valem o padrão mostrado.
+
+[General]
+# Zonas ao arrastar janelas e mosaico automático. Os dois começam desligados:
+# o Window Maker continua flutuante até o usuário escolher.
+Zones=false
+Autotile=false
+# Quando mostrar as zonas: drag (ao arrastar), modifier (só segurando o
+# modificador), edge (perto das bordas da tela, ou com o modificador).
+Activation=drag
+Modifier=super
+ShowDelay=120
+MinDrag=24
+Edge=48
+# Perto da fronteira entre duas zonas (px), o alvo é a união das duas.
+Span=24
+ShowNumbers=true
+# Uma janela encaixada que é arrastada para fora volta ao tamanho de antes.
+RestoreSizeOnUnsnap=true
+# Não cobrir a coluna do Dock e do Clip do Window Maker.
+AvoidDock=true
+Rules=true
+# Serviço ativo mesmo com tudo desligado, para os atalhos.
+KeepRunning=false
+Layout=halves
+Gap=6
+OuterGap=6
+
+[Tiling]
+# master, grid, columns, rows, monocle, bsp, dwindle, spiral
+Algorithm=master
+MasterRatio=0.6
+Masters=1
+MasterPosition=left
+Gap=6
+OuterGap=6
+SmartGaps=true
+
+[Appearance]
+# auto = cor da barra de título do tema do Window Maker
+Highlight=auto
+Opacity=35
+
+[Keys]
+# Formato: Super+Ctrl+Shift+Alt+Tecla (nomes do X: Left, Return, equal...).
+# Vazio desliga o atalho.
+Picker=Super+z
+ToggleAutotile=Super+Shift+z
+Editor=Super+Alt+z
+NextLayout=Super+Ctrl+z
+MoveLeft=Super+Ctrl+Left
+FocusLeft=Super+Alt+Left
+SwapLeft=Super+Shift+Left
+Restore=Super+Ctrl+0
+ToggleFloat=Super+Ctrl+f
+Promote=Super+Ctrl+Return
+Grow=Super+Ctrl+equal
+Shrink=Super+Ctrl+minus
+Undo=Super+Ctrl+BackSpace
+
+# Layout próprio. Árvore: H(...) lado a lado, V(...) empilhado, números são
+# pesos, "nome" opcional por zona.
+[Layout estudio]
+Name=Estúdio
+Tree=H(1"Ferramentas",3:V(3"Prévia",1"Linha do tempo"))
+
+# Por monitor (nome do XRandR/wlroots) e por área de trabalho.
+[Monitor HDMI-A-1]
+Layout=ultrawide
+[Monitor HDMI-A-1 Workspace 2]
+Autotile=true
+Algorithm=bsp
+
+# Regras por aplicativo (classe do WM_CLASS no X11, app_id no Wayland).
+# Action: float, tile, zone (com Zone=N), ignore.
+[Rule obs]
+Class=obs
+Action=float

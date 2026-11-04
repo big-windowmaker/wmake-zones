@@ -156,6 +156,22 @@ wz_ipc_request(const char *path, const char *cmd, char *out, size_t outlen)
     return 0;
 }
 
+int
+wz_ipc_request_session(const char *cmd, char *out, size_t outlen)
+{
+    const char *t = getenv("XDG_SESSION_TYPE");
+    int wayland = getenv("WAYLAND_DISPLAY") && (!t || strcmp(t, "x11") != 0);
+    const char *order[2] = { wayland ? "wayland" : "x11", wayland ? "x11" : "wayland" };
+    for (int i = 0; i < 2; i++) {
+        char *p = wz_ipc_path(order[i]);
+        int r = p ? wz_ipc_request(p, cmd, out, outlen) : -1;
+        free(p);
+        if (r == 0)
+            return 0;
+    }
+    return -1;
+}
+
 /* ---- registro ----------------------------------------------------------- */
 
 #define LOG_LINES 48

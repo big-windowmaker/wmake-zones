@@ -1,0 +1,18 @@
+[Desktop Entry]
+Type=Application
+Name=Window Zones
+Name[pt_BR]=Organização de janelas
+Name[pt]=Organização de janelas
+Name[es]=Organización de ventanas
+GenericName=Window zones and tiling
+GenericName[pt_BR]=Zonas e mosaico de janelas
+GenericName[es]=Zonas y mosaico de ventanas
+Comment=Snap windows to zones and tile them automatically
+Comment[pt_BR]=Encaixe janelas em zonas e organize em mosaico
+Comment[es]=Ajusta ventanas a zonas y organízalas en mosaico
+Exec=wmake-zones-prefs
+Icon=wmake-zones
+Categories=Settings;DesktopSettings;
+Keywords=tiling;snap;zones;layout;mosaico;zonas;encaixe;
+OnlyShowIn=WindowMaker;wlmaker;
+StartupNotify=false

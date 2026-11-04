@@ -250,7 +250,7 @@ badge_argb(wzx *z, wz_rect zr, int idx, const char *name, int hl)
         text_center(z, z->font_big, 0xffffff, num, cx, cy, 1);
     }
     if (name && *name && zr.h > s + 40)
-        text_center(z, z->font_bold, hl ? z->theme.ftitle_fg : z->theme.menu_fg, name, cx, b.y + s + 14, 0);
+        text_center(z, z->font_bold, hl ? z->theme.ftitle_fg : z->theme.menu_fg, _(name), cx, b.y + s + 14, 0);
 }
 
 static void

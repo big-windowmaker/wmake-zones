@@ -306,7 +306,7 @@ client(int argc, char **argv)
     }
     char *path = wz_ipc_session_path();
     static char out[65536];
-    if (wz_ipc_request(path, cmd, out, sizeof out) != 0) {
+    if (wz_ipc_request_session(cmd, out, sizeof out) != 0) {
         /* Ligar algo com o serviço parado: grava e sobe o serviço (X11). */
         int is_on = argc >= 3 && (!strcmp(argv[1], "zones") || !strcmp(argv[1], "autotile")) &&
                     (!strcmp(argv[2], "on") || !strcmp(argv[2], "toggle"));
@@ -349,10 +349,8 @@ reset(void)
 {
     char *cfgp = wz_config_path();
     char out[256];
-    char *path = wz_ipc_session_path();
-    wz_ipc_request(path, "zones off", out, sizeof out);
-    wz_ipc_request(path, "autotile off", out, sizeof out);
-    free(path);
+    wz_ipc_request_session("zones off", out, sizeof out);
+    wz_ipc_request_session("autotile off", out, sizeof out);
     wz_ini_set(cfgp, "General", "Zones", "false");
     wz_ini_set(cfgp, "General", "Autotile", "false");
     if (wzx_snapping_marked(cfgp)) {

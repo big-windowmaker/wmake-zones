@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=wmake-zones (dockapp)
+Name[pt_BR]=wmake-zones (dockapp)
+Comment=Window zones tile for the Dock and the Clip
+Comment[pt_BR]=Ladrilho de organização de janelas para o Dock e o Clip
+Exec=wmake-zones --dockapp
+Icon=wmake-zones
+Categories=Utility;DockApp;
+OnlyShowIn=WindowMaker;wlmaker;
+NoDisplay=true

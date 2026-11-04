@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: GPL-2.0-or-later
+     wmake-zones: ladrilho do Dock (degradê do IconBack, chanfro) com uma
+     tela afundada mostrando um layout de zonas, uma delas destacada, e o
+     LED de estado. Mesmo desenho do dockapp. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#a6a6b6"/>
+      <stop offset="1" stop-color="#515561"/>
+    </linearGradient>
+    <linearGradient id="hl" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8fc0f0"/>
+      <stop offset="1" stop-color="#5f90c0"/>
+    </linearGradient>
+  </defs>
+  <!-- ladrilho com chanfro: luz em cima/esquerda, sombra embaixo/direita -->
+  <rect x="0" y="0" width="64" height="64" fill="url(#tile)"/>
+  <path d="M0 0H64V1H1V64H0Z" fill="#ffffff"/>
+  <path d="M64 64H0V63H63V0H64Z" fill="#000000"/>
+  <path d="M62 62H2V61H61V2H62Z" fill="#555555"/>
+  <!-- tela afundada -->
+  <rect x="5" y="5" width="54" height="40" fill="#1c2024"/>
+  <path d="M4 4H60V5H5V46H4Z" fill="#000000"/>
+  <path d="M60 46H4V45H59V4H60Z" fill="#ffffff"/>
+  <!-- zonas: editor (destacado), terminal, navegador -->
+  <rect x="8" y="8" width="29" height="24" fill="url(#hl)"/>
+  <path d="M8 8H37V9H9V32H8Z" fill="#ffffff"/>
+  <path d="M37 32H8V31H36V8H37Z" fill="#303030"/>
+  <rect x="8" y="34" width="29" height="8" fill="#c2c0c5"/>
+  <path d="M8 34H37V35H9V42H8Z" fill="#ffffff"/>
+  <path d="M37 42H8V41H36V34H37Z" fill="#303030"/>
+  <rect x="39" y="8" width="17" height="34" fill="#c2c0c5"/>
+  <path d="M39 8H56V9H40V42H39Z" fill="#ffffff"/>
+  <path d="M56 42H39V41H55V8H56Z" fill="#303030"/>
+  <!-- barra de estado com LED -->
+  <rect x="5" y="49" width="54" height="10" fill="#1c2024"/>
+  <path d="M4 48H60V49H5V60H4Z" fill="#000000"/>
+  <path d="M60 60H4V59H59V48H60Z" fill="#ffffff"/>
+  <rect x="8" y="51" width="5" height="5" fill="#40d040"/>
+  <g fill="#e8e8e8">
+    <!-- "ZONES" em fonte de pixels 3x5 -->
+    <path d="M17 51h3v1h-1v1h-1v1h-1v1h3v1h-3z"/>
+    <path d="M22 51h1v1h-1zm-1 1h1v3h-1zm2 0h1v3h-1zm-1 3h1v1h-1z"/>
+    <path d="M25 51h2v1h-2zm0 1h1v4h-1zm2 0h1v4h-1z"/>
+    <path d="M29 51h3v1h-3zm0 1h1v3h-1zm1 1h1v1h-1zm-1 2h3v1h-3z"/>
+    <path d="M34 51h2v1h-2zm-1 1h1v1h-1zm1 1h1v1h-1zm1 1h1v1h-1zm-2 1h2v1h-2z"/>
+  </g>
+</svg>

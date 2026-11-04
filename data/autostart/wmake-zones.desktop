@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=wmake-zones
+Comment=Window zones and tiling for Window Maker (only when turned on)
+Comment[pt_BR]=Zonas e mosaico de janelas do Window Maker (só quando ligado)
+# Sai na hora quando Zones e Auto Tiling estão desligados (o padrão).
+Exec=wmake-zones --session
+OnlyShowIn=WindowMaker;
+NoDisplay=true
+X-GNOME-Autostart-enabled=true

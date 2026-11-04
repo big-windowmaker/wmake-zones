@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #define _GNU_SOURCE
 #include "wz-config.h"
+#include "wz-i18n.h"
 
 #include <ctype.h>
 #include <errno.h>
@@ -60,22 +61,25 @@ wz_key_default(wz_key_action k)
 static const struct {
     const char *id, *label, *tree;
 } builtin[] = {
-    { "halves", "Halves", "H(1,1)" },
-    { "quarters", "Quarters", "V(H(1,1),H(1,1))" },
-    { "thirds", "Three columns", "H(1,1,1)" },
-    { "main-stack", "Main + stack", "H(3,2:V(1,1))" },
-    { "two-top", "Two top + one bottom", "V(H(1,1),1)" },
-    { "two-bottom", "One top + two bottom", "V(1,H(1,1))" },
-    { "grid-2x3", "Grid 2x3", "V(H(1,1,1),H(1,1,1))" },
-    { "grid-3x3", "Grid 3x3", "V(H(1,1,1),H(1,1,1),H(1,1,1))" },
-    { "main-70", "Main 70/30", "H(7,3)" },
-    { "ultrawide", "Ultrawide", "H(1,2,1)" },
-    { "ultrawide-4", "Ultrawide: four columns", "H(1,1,1,1)" },
-    { "development", "Development", "H(3:V(3\"Editor\",1\"Terminal\"),2\"Browser\")" },
-    { "small-screen", "Small screen 60/40", "H(3,2)" },
-    { "portrait", "Portrait: halves", "V(1,1)" },
-    { "portrait-thirds", "Portrait: three rows", "V(1,1,1)" },
+    { "halves", N_("Halves"), "H(1,1)" },
+    { "quarters", N_("Quarters"), "V(H(1,1),H(1,1))" },
+    { "thirds", N_("Three columns"), "H(1,1,1)" },
+    { "main-stack", N_("Main + stack"), "H(3,2:V(1,1))" },
+    { "two-top", N_("Two top + one bottom"), "V(H(1,1),1)" },
+    { "two-bottom", N_("One top + two bottom"), "V(1,H(1,1))" },
+    { "grid-2x3", N_("Grid 2x3"), "V(H(1,1,1),H(1,1,1))" },
+    { "grid-3x3", N_("Grid 3x3"), "V(H(1,1,1),H(1,1,1),H(1,1,1))" },
+    { "main-70", N_("Main 70/30"), "H(7,3)" },
+    { "ultrawide", N_("Ultrawide"), "H(1,2,1)" },
+    { "ultrawide-4", N_("Ultrawide: four columns"), "H(1,1,1,1)" },
+    { "development", N_("Development"), "H(3:V(3\"Editor\",1\"Terminal\"),2\"Browser\")" },
+    { "small-screen", N_("Small screen 60/40"), "H(3,2)" },
+    { "portrait", N_("Portrait: halves"), "V(1,1)" },
+    { "portrait-thirds", N_("Portrait: three rows"), "V(1,1,1)" },
 };
+/* Nomes das zonas dos layouts internos, traduzidos na hora de mostrar. */
+static const char *const builtin_zone_names[] __attribute__((unused)) = { N_("Editor"), N_("Terminal"), N_("Browser") };
+
 #define NBUILTIN (int)(sizeof builtin / sizeof builtin[0])
 
 const char *

@@ -101,10 +101,11 @@ wzp_draw_layout(cairo_t *cr, const char *tree, double x, double y, double w, dou
             if (leaf && leaf->name && zr[i].h > s + 40) {
                 cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
                 cairo_set_font_size(cr, 12);
-                cairo_text_extents(cr, leaf->name, &te);
+                const char *nm = _(leaf->name);
+                cairo_text_extents(cr, nm, &te);
                 wzp_rgb(cr, 0x000000, 1);
                 cairo_move_to(cr, zr[i].x + zr[i].w / 2.0 - te.width / 2 - te.x_bearing, by + s + 18);
-                cairo_show_text(cr, leaf->name);
+                cairo_show_text(cr, nm);
             }
         }
     }
