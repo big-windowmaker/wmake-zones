@@ -1,0 +1,6 @@
+option('x11', type: 'feature', value: 'auto', description: 'Serviço X11 (Window Maker)')
+option('prefs', type: 'feature', value: 'auto', description: 'Preferências e editor de zonas (GTK 3)')
+option('wayland_dockapp', type: 'feature', value: 'auto', description: 'Dockapp nativo do wlmaker')
+option('engine_lib', type: 'boolean', value: true, description: 'Instalar o núcleo (estático) para o wlmaker')
+option('nls', type: 'boolean', value: true, description: 'Traduções')
+option('tests', type: 'boolean', value: true, description: 'Testes')
