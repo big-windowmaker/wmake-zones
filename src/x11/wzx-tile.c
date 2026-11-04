@@ -236,6 +236,7 @@ apply_rules(wzx *z, wzx_win *w)
 void
 wzx_tile_run(wzx *z)
 {
+    long t0 = wzx_now_us();
     z->tile_dirty = 0;
     for (int i = 0; i < z->nwin; i++)
         if (!z->win[i]->rule_done && z->win[i]->mapped)
@@ -303,6 +304,8 @@ wzx_tile_run(wzx *z)
         }
     }
     XFlush(z->dpy);
+    if (getenv("WZ_DEBUG"))
+        wzx_log("tempo: mosaico calculado e pedido em %ld µs (%d janelas)", wzx_now_us() - t0, z->nwin);
 }
 
 void

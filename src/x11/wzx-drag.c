@@ -196,7 +196,12 @@ finish_move(wzx *z, int px, int py)
         w->outer = z->drag_start;
         wzx_history_push(z, &w, 1);
         w->outer = now;
+        long t0 = wzx_now_us();
         wzx_snap(z, w, z->ov.target, z->ov.hl_a, 0);
+        if (getenv("WZ_DEBUG")) {
+            XSync(z->dpy, False);
+            wzx_log("tempo: encaixe pedido em %ld µs", wzx_now_us() - t0);
+        }
         return;
     }
     /* Solta fora das zonas: uma janela encaixada volta ao tamanho de antes,
@@ -214,8 +219,6 @@ void
 wzx_drag_raw(wzx *z, XGenericEventCookie *c)
 {
     XIRawEvent *re = c->data;
-    if (getenv("WZ_DEBUG"))
-        wzx_log("raw ev=%d detail=%d dev=%d src=%d drag=%d", c->evtype, re->detail, re->deviceid, re->sourceid, z->drag);
     if (z->picker || z->popup)
         return;
     switch (c->evtype) {
@@ -288,8 +291,6 @@ wzx_drag_raw(wzx *z, XGenericEventCookie *c)
 void
 wzx_drag_configure(wzx *z, XConfigureEvent *e)
 {
-    if (getenv("WZ_DEBUG") && z->drag != DRAG_IDLE)
-        wzx_log("configure 0x%lx (frame 0x%lx) %d,%d %dx%d", e->window, z->drag_frame, e->x, e->y, e->width, e->height);
     if (z->drag == DRAG_IDLE || e->window != z->drag_frame || !z->drag_w)
         return;
     wzx_win *w = z->drag_w;
@@ -356,11 +357,16 @@ wzx_drag_flush(wzx *z)
             n = wzx_zones_for(z, mon, zones, names, WZX_MAX_ZONES);
         if (n <= 0)
             return;
+        long t0 = wzx_now_us();
         wzx_overlay_hide(z);
         wzx_overlay_set_zones(z, zones, names, n);
         for (int i = 0; i < n; i++)
             free(names[i]);
         wzx_overlay_show(z, mon, tile_mode ? 1 : 0);
+        if (getenv("WZ_DEBUG")) {
+            XSync(z->dpy, False);
+            wzx_log("tempo: overlay criado e desenhado em %ld µs (%d zonas)", wzx_now_us() - t0, n);
+        }
     }
     wz_rect target;
     int b = -1;

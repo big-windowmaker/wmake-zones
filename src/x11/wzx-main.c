@@ -37,6 +37,14 @@ wzx_now_ms(void)
     return ts.tv_sec * 1000L + ts.tv_nsec / 1000000L;
 }
 
+long
+wzx_now_us(void)
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec * 1000000L + ts.tv_nsec / 1000L;
+}
+
 void
 wzx_log(const char *fmt, ...)
 {
@@ -183,9 +191,6 @@ handle_event(wzx *z, XEvent *e)
         return;
     switch (e->type) {
     case ConfigureNotify:
-        if (getenv("WZ_DEBUG"))
-            wzx_log("CN ev=0x%lx win=0x%lx %d,%d or=%d", e->xconfigure.event, e->xconfigure.window, e->xconfigure.x,
-                    e->xconfigure.y, e->xconfigure.override_redirect);
         if (e->xconfigure.event == z->root) {
             XConfigureEvent *c = &e->xconfigure;
             /* Os quadros do Window Maker também são override-redirect. */
@@ -530,7 +535,24 @@ main(int argc, char **argv)
     if (!z->cfg.zones)
         wzx_wm_snapping(z, 0);
     wzx_ipc_close(z);
+    if (z->font) {
+        XftFontClose(z->dpy, z->font);
+        XftFontClose(z->dpy, z->font_bold);
+        XftFontClose(z->dpy, z->font_big);
+    }
     XCloseDisplay(z->dpy);
+    FcFini();
+    for (int i = 0; i < z->nwin; i++) {
+        free(z->win[i]->wm_class);
+        free(z->win[i]->instance);
+        free(z->win[i]);
+    }
+    for (int i = 0; i < 64; i++)
+        wz_bsp_clear(&z->tset[i].bsp);
+    for (int i = 0; i < WZX_MAX_ZONES; i++)
+        free(z->ov.names[i]);
+    wz_config_free(&z->cfg);
+    free(z->cfg_path);
     wzx_log("encerrado");
     return 0;
 }

@@ -49,7 +49,8 @@ xrandr = dependency('xrandr', version: '>= 1.5', required: get_option('x11'))
 xext = dependency('xext', required: get_option('x11'))
 xft = dependency('xft', required: get_option('x11'))
 xrender = dependency('xrender', required: get_option('x11'))
-have_x11 = x11.found() and xi.found() and xrandr.found() and xext.found() and xft.found() and xrender.found()
+fontconfig = dependency('fontconfig', required: get_option('x11'))
+have_x11 = x11.found() and xi.found() and xrandr.found() and xext.found() and xft.found() and xrender.found() and fontconfig.found()
 
 wl_client = dependency('wayland-client', required: get_option('wayland_dockapp'))
 cairo = dependency('cairo', required: get_option('wayland_dockapp'))
@@ -60,7 +61,7 @@ if have_x11
   executable('wmake-zones',
     files('src/x11/wzx-main.c', 'src/x11/wzx-wm.c', 'src/x11/wzx-drag.c', 'src/x11/wzx-overlay.c',
           'src/x11/wzx-tile.c', 'src/x11/wzx-keys.c', 'src/x11/wzx-ipc.c', 'src/x11/wzx-dockapp.c'),
-    dependencies: [engine_dep, x11, xi, xrandr, xext, xft, xrender],
+    dependencies: [engine_dep, x11, xi, xrandr, xext, xft, xrender, fontconfig],
     c_args: have_wl ? ['-DWZ_HAVE_WAYLAND_DOCKAPP'] : [],
     install: true)
 endif

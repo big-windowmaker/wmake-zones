@@ -196,6 +196,7 @@ struct wzx {
 
 /* wzx-main.c */
 long wzx_now_ms(void);
+long wzx_now_us(void);
 void wzx_log(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 void wzx_save_cfg(wzx *z, const char *section, const char *key, const char *value);
 void wzx_apply_config(wzx *z);
