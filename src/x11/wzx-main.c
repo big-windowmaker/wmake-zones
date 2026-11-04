@@ -17,6 +17,7 @@
 #include <X11/extensions/Xrandr.h>
 #include <X11/extensions/shape.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <locale.h>
 #include <poll.h>
 #include <signal.h>
@@ -281,6 +282,14 @@ start_daemon(char **argv)
         setsid();
         if (fork() != 0)
             _exit(0);
+        /* Solto do terminal/ssh que pediu: o registro fica em
+         * "wmake-zones log" (e no journal, quando iniciado pelo autostart). */
+        int fd = open("/dev/null", O_RDWR | O_CLOEXEC);
+        if (fd >= 0) {
+            dup2(fd, 0);
+            dup2(fd, 1);
+            dup2(fd, 2);
+        }
         execlp("wmake-zones", "wmake-zones", (char *)NULL);
         _exit(127);
     }
@@ -475,6 +484,10 @@ main(int argc, char **argv)
         z->quit = 1;
     wzx_log("iniciado (%d monitor(es), XInput2 %s, compositor %s)", z->nmon, z->has_xi ? "sim" : "não",
             wzx_compositing(z) ? "sim" : "não");
+
+    /* stderr pode ser um pipe que fechou (terminal, ssh): escrever nele
+     * não pode derrubar o serviço. */
+    signal(SIGPIPE, SIG_IGN);
 
     sigset_t mask;
     sigemptyset(&mask);
