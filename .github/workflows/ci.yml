@@ -13,7 +13,8 @@ jobs:
           pacman -Syu --noconfirm --needed base-devel git meson ninja \
             libx11 libxi libxrandr libxext libxft libxrender fontconfig gtk3 cairo \
             wayland wayland-protocols librsvg \
-            xorg-server-xvfb xdotool xorg-xprop xterm windowmaker
+            xorg-server-xvfb xdotool xorg-xprop xterm windowmaker \
+            python python-gobject appstream
       - uses: actions/checkout@v4
       - name: Compilar
         run: |
