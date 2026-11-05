@@ -87,6 +87,13 @@ drag_title() { # título dx dy passos [tecla]
 echo "TAP version 13"
 check "o wlmaker responde no socket das zonas" '"$WZ" ping | grep -q pong'
 check "backend wlmaker no status" '"$WZ" status | grep -q "^backend=wlmaker"'
+# Áreas de trabalho contadas a partir de 1, como no [Workspace N].
+check "primeira área de trabalho é a 1" '"$WZ" status | grep -qx "desktop=1"'
+printf '[Workspace 1]\nLayout=thirds\n' >>"$CONF"
+"$WZ" reload >/dev/null
+check "[Workspace 1] vale na primeira área de trabalho" '"$WZ" status | grep -q "layout=thirds"'
+sed -i '/^\[Workspace 1\]$/,/^Layout=thirds$/d' "$CONF"
+"$WZ" reload >/dev/null
 
 open_win alvo
 B0=$(box alvo)
