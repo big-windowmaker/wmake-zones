@@ -44,6 +44,7 @@ static const struct {
     [WZ_KEY_GROW] = { "Grow", "Super+Ctrl+equal" },
     [WZ_KEY_SHRINK] = { "Shrink", "Super+Ctrl+minus" },
     [WZ_KEY_UNDO] = { "Undo", "Super+Ctrl+BackSpace" },
+    [WZ_KEY_REDO] = { "Redo", "Super+Ctrl+Shift+BackSpace" },
 };
 
 const char *
@@ -472,7 +473,7 @@ void
 wz_config_defaults(wz_config *c)
 {
     memset(c, 0, sizeof *c);
-    c->zones = 0;
+    c->zones = 1;
     c->autotile = 0;
     c->activation = WZ_ACTIVATE_DRAG;
     c->modifier = WZ_MOD_SUPER;
@@ -487,6 +488,16 @@ wz_config_defaults(wz_config *c)
     c->layout = wz_xstrdup("halves");
     c->gap_in = 6;
     c->gap_out = 6;
+    c->drag_flow = WZ_FLOW_LAYOUTS;
+    c->dwell_ms = 250;
+    c->drag_layouts = wz_xstrdup("halves,quarters,thirds,main-stack,two-top,grid-2x3,ultrawide");
+    c->history_depth = 20;
+    c->focus_edge = WZ_FOCUS_CROSS;
+    c->last_mode = WZ_MODE_ZONES;
+    c->click[0] = WZ_CLICK_MODE;
+    c->click[1] = WZ_CLICK_ENABLE;
+    c->click[2] = WZ_CLICK_MENU;
+    c->click[3] = WZ_CLICK_CYCLE;
     c->tile = (wz_tile_params){ .algo = WZ_TILE_MASTER, .master_ratio = 0.6, .nmaster = 1,
                                 .master_pos = WZ_POS_LEFT, .gap_in = 6, .gap_out = 6, .smart_gaps = 1 };
     c->theme = wz_xstrdup("auto");
@@ -607,8 +618,24 @@ load_cb(const char *sec, const char *k, const char *v, void *ud)
             c->rules_enabled = parse_bool(v, c->rules_enabled);
         else if (!strcmp(k, "KeepRunning"))
             c->keep_running = parse_bool(v, c->keep_running);
-        else if (!strcmp(k, "Layout") && *v)
+        else if (!strcmp(k, "Layout") && *v) {
             set_str(&c->layout, v);
+            c->layout_set = 1;
+        } else if (!strcmp(k, "DragFlow"))
+            c->drag_flow = !strcmp(v, "zones") ? WZ_FLOW_ZONES
+                           : !strcmp(v, "layouts-modifier") ? WZ_FLOW_LAYOUTS_MODIFIER
+                           : !strcmp(v, "layouts-edge") ? WZ_FLOW_LAYOUTS_EDGE
+                                                        : WZ_FLOW_LAYOUTS;
+        else if (!strcmp(k, "LayoutDwell"))
+            c->dwell_ms = parse_int(v, c->dwell_ms, 0, 3000);
+        else if (!strcmp(k, "DragLayouts") && *v)
+            set_str(&c->drag_layouts, v);
+        else if (!strcmp(k, "HistoryDepth"))
+            c->history_depth = parse_int(v, c->history_depth, 1, 100);
+        else if (!strcmp(k, "FocusEdge"))
+            c->focus_edge = !strcmp(v, "stop") ? WZ_FOCUS_STOP : !strcmp(v, "wrap") ? WZ_FOCUS_WRAP : WZ_FOCUS_CROSS;
+        else if (!strcmp(k, "LastMode"))
+            c->last_mode = !strcmp(v, "tiling") ? WZ_MODE_TILING : WZ_MODE_ZONES;
         else if (!strcmp(k, "Gap"))
             c->gap_in = parse_int(v, c->gap_in, 0, 200);
         else if (!strcmp(k, "OuterGap"))
@@ -630,6 +657,20 @@ load_cb(const char *sec, const char *k, const char *v, void *ud)
             c->tile.gap_out = parse_int(v, c->tile.gap_out, 0, 200);
         else if (!strcmp(k, "SmartGaps"))
             c->tile.smart_gaps = parse_bool(v, c->tile.smart_gaps);
+    } else if (!strcmp(sec, "Dockapp")) {
+        static const char *const keys[4] = { "LeftClick", "MiddleClick", "RightClick", "Wheel" };
+        for (int i = 0; i < 4; i++)
+            if (!strcmp(k, keys[i])) {
+                wz_click a = !strcmp(v, "mode") ? WZ_CLICK_MODE
+                             : !strcmp(v, "enable") ? WZ_CLICK_ENABLE
+                             : !strcmp(v, "layouts") ? WZ_CLICK_LAYOUTS
+                             : !strcmp(v, "menu") ? WZ_CLICK_MENU
+                             : !strcmp(v, "zones") ? WZ_CLICK_ZONES
+                             : !strcmp(v, "autotile") ? WZ_CLICK_AUTOTILE
+                             : !strcmp(v, "layout") || !strcmp(v, "cycle") ? WZ_CLICK_CYCLE
+                                                                           : WZ_CLICK_NONE;
+                c->click[i] = a;
+            }
     } else if (!strcmp(sec, "Appearance")) {
         if (!strcmp(k, "Theme"))
             set_str(&c->theme, v);
@@ -667,7 +708,11 @@ load_cb(const char *sec, const char *k, const char *v, void *ud)
         else if (!strcmp(k, "Title"))
             set_str(&r->title, v);
         else if (!strcmp(k, "Action"))
-            r->action = !strcmp(v, "tile") ? WZ_RULE_TILE : !strcmp(v, "zone") ? WZ_RULE_ZONE : !strcmp(v, "ignore") ? WZ_RULE_IGNORE : WZ_RULE_FLOAT;
+            r->action = !strcmp(v, "tile")     ? WZ_RULE_TILE
+                        : !strcmp(v, "zone")   ? WZ_RULE_ZONE
+                        : !strcmp(v, "ignore") ? WZ_RULE_IGNORE
+                        : !strcmp(v, "none")   ? WZ_RULE_NONE
+                                               : WZ_RULE_FLOAT;
         else if (!strcmp(k, "Zone"))
             r->zone = parse_int(v, 0, 0, 64);
         else if (!strcmp(k, "Layout"))
@@ -714,6 +759,7 @@ void
 wz_config_free(wz_config *c)
 {
     free(c->layout);
+    free(c->drag_layouts);
     free(c->theme);
     for (int i = 0; i < WZ_KEY_N; i++)
         free(c->keys[i]);
@@ -782,6 +828,116 @@ wz_config_layout_for(const wz_config *c, const char *monitor, int workspace)
     }
     const wz_layout_def *l = wz_config_layout(c, c->layout);
     return l ? l : c->nlayouts ? &c->layouts[0] : NULL;
+}
+
+const wz_layout_def *
+wz_config_layout_for_size(const wz_config *c, const char *monitor, int workspace, int width, int height)
+{
+    for (int pass = 0; pass < 3; pass++) {
+        const wz_scope *s = scope_for(c, monitor, workspace, pass);
+        if (s && s->layout) {
+            const wz_layout_def *l = wz_config_layout(c, s->layout);
+            if (l)
+                return l;
+        }
+    }
+    if (!c->layout_set && width > 0 && height > 0) {
+        const char *id = (long)width * 9 >= (long)height * 21 ? "ultrawide"
+                         : height > width                    ? "portrait"
+                                                             : "halves";
+        const wz_layout_def *l = wz_config_layout(c, id);
+        if (l)
+            return l;
+    }
+    return wz_config_layout_for(c, monitor, workspace);
+}
+
+int
+wz_config_drag_layouts(const wz_config *c, const wz_layout_def **out, int max)
+{
+    int n = 0;
+    const char *p = c->drag_layouts ? c->drag_layouts : "";
+    while (*p && n < max) {
+        while (*p == ',' || *p == ' ')
+            p++;
+        const char *e = p;
+        while (*e && *e != ',')
+            e++;
+        size_t len = (size_t)(e - p);
+        while (len && p[len - 1] == ' ')
+            len--;
+        if (len) {
+            char id[128];
+            if (len < sizeof id) {
+                memcpy(id, p, len);
+                id[len] = 0;
+                const wz_layout_def *l = wz_config_layout(c, id);
+                int dup = 0;
+                for (int i = 0; i < n; i++)
+                    dup |= out[i] == l;
+                if (l && !dup)
+                    out[n++] = l;
+            }
+        }
+        p = e;
+    }
+    /* Os layouts do usuário vêm sempre, depois dos da lista. */
+    for (int i = 0; i < c->nlayouts && n < max; i++) {
+        if (c->layouts[i].builtin)
+            continue;
+        int dup = 0;
+        for (int j = 0; j < n; j++)
+            dup |= out[j] == &c->layouts[i];
+        if (!dup)
+            out[n++] = &c->layouts[i];
+    }
+    return n;
+}
+
+wz_mode
+wz_config_mode(const wz_config *c)
+{
+    return c->autotile ? WZ_MODE_TILING : c->zones ? WZ_MODE_ZONES : WZ_MODE_OFF;
+}
+
+const char *
+wz_mode_name(wz_mode m)
+{
+    return m == WZ_MODE_TILING ? "tiling" : m == WZ_MODE_ZONES ? "zones" : "off";
+}
+
+int
+wz_config_set_mode(wz_config *c, const char *path, const char *arg)
+{
+    wz_mode cur = wz_config_mode(c), m;
+    if (!arg)
+        return -1;
+    if (!strcmp(arg, "zones"))
+        m = WZ_MODE_ZONES;
+    else if (!strcmp(arg, "tiling") || !strcmp(arg, "mosaic"))
+        m = WZ_MODE_TILING;
+    else if (!strcmp(arg, "off"))
+        m = WZ_MODE_OFF;
+    else if (!strcmp(arg, "toggle"))
+        m = cur == WZ_MODE_ZONES ? WZ_MODE_TILING : cur == WZ_MODE_TILING ? WZ_MODE_ZONES : c->last_mode;
+    else if (!strcmp(arg, "enable"))
+        m = cur == WZ_MODE_OFF ? c->last_mode : WZ_MODE_OFF;
+    else
+        return -1;
+    if (m == WZ_MODE_OFF && cur != WZ_MODE_OFF)
+        c->last_mode = cur;
+    else if (m != WZ_MODE_OFF)
+        c->last_mode = m;
+    /* No mosaico as zonas continuam valendo para as janelas que o usuário
+     * tirou dele. */
+    c->zones = m != WZ_MODE_OFF;
+    c->autotile = m == WZ_MODE_TILING;
+    if (path) {
+        wz_ini_set(path, "General", "Zones", c->zones ? "true" : "false");
+        wz_ini_set(path, "General", "Autotile", c->autotile ? "true" : "false");
+        wz_ini_set(path, "General", "LastMode", wz_mode_name(c->last_mode));
+    }
+    return m;
 }
 
 int

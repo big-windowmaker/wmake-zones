@@ -94,6 +94,18 @@ int wz_target(const wz_rect *z, int n, int px, int py, int span_px,
 /* Vizinha mais natural na direção (WZ_LEFT...), -1 se não houver. */
 int wz_neighbor(const wz_rect *z, int n, int from, int dir);
 
+/* Foco espacial: a janela mais natural na direção dir a partir de from,
+ * entre n candidatas (que podem se sobrepor; from não deve estar entre
+ * elas). Só valem as que têm o centro adiante do centro de from. A nota
+ * soma a distância ao longo do eixo (da borda de from à borda da
+ * candidata, zero se sobrepostas, mais metade da distância entre os
+ * centros) e o dobro do vão no eixo perpendicular; se as faixas não se
+ * cruzam, também o desvio entre os centros: uma janela logo ao lado, mesmo
+ * um pouco desalinhada, vence uma alinhada lá longe, e uma que só encosta
+ * de lado não conta como "acima". Empate: a primeira da lista (o chamador passa na
+ * ordem de empilhamento, a de cima primeiro). -1 se nenhuma. */
+int wz_focus_pick(const wz_rect *cand, int n, wz_rect from, int dir);
+
 /* Números sem depender do locale (pt_BR usa vírgula decimal, e a vírgula
  * aqui separa itens). Só dígitos, ponto e sinal; sem expoente. */
 double wz_strtod(const char *s, char **end);
