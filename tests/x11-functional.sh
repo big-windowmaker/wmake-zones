@@ -275,6 +275,20 @@ check "zones off: o serviço sai sozinho" '! kill -0 $ZP 2>/dev/null'
 check "zones off: WindowSnapping do usuário de volta" '[ "$(wdread WindowMaker WindowSnapping)" = YES ]'
 check "nenhum overlay esquecido" '[ "$(overlay_count)" -eq 0 ]'
 
+# Fim da sessão: o servidor X some com o serviço rodando; o socket de
+# controle não pode ficar para trás.
+"$WZ" zones on >/dev/null
+for _ in $(seq 1 30); do ls "$XDG_RUNTIME_DIR"/wmake-zones/x11-*.sock >/dev/null 2>&1 && break; sleep 0.1; done
+ZP2=""
+for p in $(pgrep -x wmake-zones); do # só o deste teste (o do usuário tem outro runtime)
+	grep -qz "^XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR$" /proc/"$p"/environ 2>/dev/null && ZP2=$p
+done
+PIDS="$PIDS $ZP2"
+kill "$XPID" 2>/dev/null
+for _ in $(seq 1 30); do kill -0 "$ZP2" 2>/dev/null || break; sleep 0.1; done
+check "servidor X fechou: o serviço sai" '! kill -0 "$ZP2" 2>/dev/null'
+check "servidor X fechou: o socket de controle foi apagado" '! ls "$XDG_RUNTIME_DIR"/wmake-zones/x11-*.sock >/dev/null 2>&1'
+
 echo "1..$n"
 [ $fails -eq 0 ] || { echo "# log do serviço:"; sed 's/^/# /' "$TMP/wz.log"; }
 exit $((fails > 0))

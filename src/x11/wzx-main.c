@@ -78,11 +78,16 @@ x_error(Display *d, XErrorEvent *e)
     return 0;
 }
 
+static wzx *io_z; /* para o tratador de E/S apagar o socket */
+
 static int
 x_io_error(Display *d)
 {
     (void)d;
-    /* Servidor X fechou (fim da sessão): sai limpo. */
+    /* Servidor X fechou (fim da sessão): sai limpo, sem deixar o socket
+     * de controle para trás (o próximo login acharia um socket morto). */
+    if (io_z && io_z->sock_path)
+        wz_ipc_unlink(io_z->sock_path, &io_z->sock_stat);
     _exit(0);
 }
 
@@ -320,6 +325,14 @@ start_daemon(char **argv)
             dup2(fd, 1);
             dup2(fd, 2);
         }
+        /* O mesmo binário que recebeu o comando (não o primeiro do PATH,
+         * que pode ser outra versão). */
+        char self[4096];
+        ssize_t l = readlink("/proc/self/exe", self, sizeof self - 1);
+        if (l > 0) {
+            self[l] = 0;
+            execl(self, "wmake-zones", (char *)NULL);
+        }
         execlp("wmake-zones", "wmake-zones", (char *)NULL);
         _exit(127);
     }
@@ -478,6 +491,7 @@ main(int argc, char **argv)
         return 1;
     }
     XSetErrorHandler(x_error);
+    io_z = z;
     XSetIOErrorHandler(x_io_error);
     z->screen = DefaultScreen(z->dpy);
     z->root = RootWindow(z->dpy, z->screen);
