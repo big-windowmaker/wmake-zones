@@ -154,14 +154,16 @@ A layout is a tree of horizontal
 .RB ( H )
 and vertical
 .RB ( V )
-splits with weights, and optionally names:
+splits; each item is a weight with an optional quoted name, or
+.IB weight : node
+for a nested split:
 .PP
 .RS
 .nf
-H(1,1)                 two halves
-H(1,2,1)               centre column twice as wide
-H(2,V(1,1))            large left, two stacked on the right
-H("Code" 2, "Docs" 1)  named zones
+H(1,1)                     two halves
+H(1,2,1)                   centre column twice as wide
+H(2:Z,1:V(1,1))            large left, two stacked on the right
+H(2"Code",1"Docs")         named zones
 .fi
 .RE
 .PP

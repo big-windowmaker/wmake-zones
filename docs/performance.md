@@ -1,6 +1,6 @@
 # Desempenho
 
-Medições de 2026-11-04 num Xvfb 1920×1080 com o Window Maker 0.96
+Medições da versão 0.2.0, de 2026-11-05, num Xvfb 1920×1080 com o Window Maker 0.96
 (`tests/perf-x11.sh`) e no wlmaker aninhado num Xvfb pelo backend X11 do
 wlroots com o renderizador pixman (`tests/wayland-functional.sh` e os
 roteiros da mesma pasta). Valores do ambiente de teste, não de hardware real.
@@ -9,16 +9,16 @@ roteiros da mesma pasta). Valores do ambiente de teste, não de hardware real.
 
 | Medida | Valor |
 |---|---|
-| PSS em repouso, overlay nunca mostrado | 0,71 MiB |
-| PSS depois do primeiro overlay (Xft e fontconfig carregados) | 2,69 MiB |
-| PSS depois de mais 20 e de mais 60 ciclos (mosaico liga/desliga, troca de layout, prévia) | 2,69 MiB e 2,69 MiB |
-| Memória por janela gerenciada | ~0,6 KiB (10 → 50 janelas: +23 KiB) |
+| PSS em repouso, overlay nunca mostrado | 0,73 MiB |
+| PSS depois do primeiro overlay (Xft e fontconfig carregados) | 2,79 MiB |
+| PSS depois de mais 20 e de mais 60 ciclos (mosaico liga/desliga, troca de layout, prévia) | 2,79 MiB e 2,79 MiB |
+| Memória por janela gerenciada | ~0,2 KiB (10 → 50 janelas: +8 KiB) |
 | Acordadas em 10 s de repouso | 0 (antes e depois dos ciclos) |
 | Tiques de CPU em 10 s de repouso | 0 |
-| Mosaico: cálculo e pedidos, 10/30/50 janelas | 3,3 / 1,2 / 2,0 ms |
-| Overlay: primeira vez, com carga das fontes | 12,7 ms |
-| Encaixe: pedido ao Window Maker | 32 µs |
-| Vazamentos (ASan + LSan, sem supressões, 3 rodadas, cenário completo) | 0 relatórios |
+| Mosaico: cálculo e pedidos, 10/30/50 janelas | 2,6 / 5,5 / 5,2 ms |
+| Overlay: primeira vez, com carga das fontes | 11,4 ms |
+| Encaixe: pedido ao Window Maker | 34 µs |
+| Vazamentos (ASan + LSan, sem supressões, 3 rodadas, cenário completo; medido na 0.1.0) | 0 relatórios |
 
 Os tempos de mosaico e de encaixe medem o lado do wmake-zones (cálculo e
 envio dos pedidos); a janela chega ao lugar quando o Window Maker e o

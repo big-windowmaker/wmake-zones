@@ -38,7 +38,12 @@ completo fica em `/usr/share/doc/wmake-zones/wmake-zones.conf.example`.
 Valores inválidos ficam no padrão; um layout com árvore inválida é
 ignorado. O serviço só escreve o arquivo por comandos do usuário (ligar,
 trocar layout), nunca durante um arrasto, e preserva comentários e chaves
-desconhecidas (escrita atômica, `rename`).
+desconhecidas (escrita atômica, `rename`). Cada gravação trava um
+`wmake-zones.conf.lock` ao lado, para o serviço e as preferências não
+apagarem as mudanças um do outro; se o arquivo for um link simbólico
+(dotfiles), o alvo é que muda. Espaços nas pontas, tab e quebras de linha
+são gravados como `\s`, `\t`, `\r` e `\n`, como no GKeyFile. Comentários
+ficam em linhas próprias (`#` ou `;`), nunca depois de um valor.
 
 ## Comandos
 
@@ -50,7 +55,16 @@ execução de programa.
 `status`, `zones on|off|toggle`, `autotile on|off|toggle`,
 `layout ID|next|prev`, `layouts`, `algorithm NOME`, `picker`, `arrange`,
 `snap N`, `move|swap|focus left|right|up|down`, `restore`, `restore-all`,
-`float`, `promote`, `grow`, `shrink`, `undo`, `preview ÁRVORE`, `windows`,
-`editor`, `prefs`, `reload`, `log`, `quit`.
+`float`, `promote`, `grow`, `shrink`, `undo`, `preview ÁRVORE`,
+`windows [-l]`, `editor`, `prefs`, `reload`, `log`, `ping`, `quit`; `help`
+mostra a lista (sem falar com o serviço) e `man wmake-zones` descreve todos.
+
+`windows` dá classe, instância e título (o que as regras usam); `windows -l`
+dá o monitor, a zona, se está no mosaico e o quadro (`LxA+X+Y`, com a
+decoração), para conferir um encaixe:
+
+```
+DisplayPort-1	zone=0	tiled=0	846x1068+6886+6	codium	VSCodium
+```
 
 Ligar algo com o serviço parado (X11) grava o arquivo e sobe o serviço.

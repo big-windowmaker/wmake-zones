@@ -2,7 +2,7 @@
 
 Um cliente Wayland comum não pode observar nem mover as janelas dos outros.
 Por isso as zonas do Wayland moram **dentro do wlmaker**, como um módulo do
-compositor (`src/zones.c` do fork, patch 0104 do pacote `wlmaker`), que usa
+compositor (`src/zones.c` do fork, patches 0104 a 0109 do pacote `wlmaker`), que usa
 o mesmo núcleo estático e o mesmo arquivo de configuração do X11.
 
 ## Mudanças no toolkit do wlmaker

@@ -35,4 +35,9 @@ Nos testes funcionais (Xvfb): 1600×900; dois monitores (1280×800 e
 direita e travessia por teclado. Propriedades do núcleo: 1366×768,
 1920×1080, 2560×1080, 3440×1440, 1080×1920 (retrato) e 800×600 com todos os
 layouts incluídos e 400 layouts aleatórios. Hardware real com dois ou três
-monitores e hotplug: **não testado**.
+monitores e hotplug: **não testado** de forma sistemática.
+
+Uso real relatado (0.1.0): três monitores físicos lado a lado (HDMI-A-0
+3440×1440, DisplayPort-0 3440×1440 com o Dock e o Clip e DisplayPort-1
+2560×1080), cada um com a sua área útil (só o do Dock perde as colunas dele
+e a faixa do Dock com abas) e janelas encaixadas nos terços de cada um.

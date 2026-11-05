@@ -27,7 +27,7 @@ Opções: `x11`, `prefs`, `wayland_dockapp` (features), `engine_lib`, `nls`,
 
 O código das zonas no compositor está no fork
 `big-windowmaker/wlmaker`, branch `big-wm/zones` (sobre os patches do
-pacote), e chega ao pacote como os patches `0104` a `0106`. O CMake do wlmaker procura
+pacote), e chega ao pacote como os patches `0104` a `0109`. O CMake do wlmaker procura
 `wmake-zones-engine` pelo pkg-config; sem ele, `zones.c` vira stubs. Para
 compilar contra um núcleo local:
 
