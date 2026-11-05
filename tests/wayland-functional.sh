@@ -301,6 +301,26 @@ kill "$MUDO" 2>/dev/null
 wait "$MUDO" 2>/dev/null
 check "cliente mudo não trava o serviço (ping em ${dt} ms)" '[ "$dt" -lt 250 ]'
 
+# Bloqueio com o seletor aberto: as teclas são da tela de bloqueio (a senha),
+# não do seletor. Por último: o bloqueio fica até o fim do teste.
+if command -v swaylock >/dev/null; then
+	ativa=$("$WZ" status | sed -n 's/^active=//p')
+	"$WZ" picker >/dev/null
+	sleep 0.3
+	antes=$(zone "$ativa")
+	swaylock -c 000000 >"$TMP/swaylock.log" 2>&1 &
+	LOCK=$!
+	sleep 1
+	xdotool key 1
+	sleep 0.5
+	check "bloqueio: a tecla vai para a tela de bloqueio, o seletor fecha sem encaixar" '"$WZ" overlay | grep -q "picker=0" && [ "$(zone "$ativa")" = "$antes" ]'
+	"$WZ" picker >/dev/null
+	sleep 0.3
+	check "bloqueio: o seletor não abre com a sessão bloqueada" '"$WZ" overlay | grep -q "picker=0"'
+	kill "$LOCK" 2>/dev/null
+	wait "$LOCK" 2>/dev/null
+fi
+
 echo "1..$n"
 [ $fails -eq 0 ] || { echo "# log do wlmaker:"; tail -20 "$TMP/wlmaker.log" | sed 's/^/# /'; }
 exit $((fails > 0))

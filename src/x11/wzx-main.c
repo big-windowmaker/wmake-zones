@@ -577,11 +577,18 @@ main(int argc, char **argv)
     sigprocmask(SIG_BLOCK, &mask, NULL);
     int sfd = signalfd(-1, &mask, SFD_CLOEXEC | SFD_NONBLOCK);
 
+    const char *idle = getenv("WZX_GRAB_IDLE_MS");
+    z->grab_idle_ms = idle && atol(idle) > 0 ? atol(idle) : WZX_GRAB_IDLE_MS;
+
     while (!z->quit) {
         while (XPending(z->dpy)) {
             XEvent e;
             XNextEvent(z->dpy, &e);
             handle_event(z, &e);
+            /* Mexer no seletor ou no menu adia o fechamento por inatividade. */
+            if ((z->picker || z->popup) &&
+                (e.type == KeyPress || e.type == ButtonPress || e.type == MotionNotify))
+                z->grab_idle_at = 0;
         }
         if (z->monitors_dirty) {
             z->monitors_dirty = 0;
@@ -594,6 +601,16 @@ main(int argc, char **argv)
         if (z->ov_hide_at && now >= z->ov_hide_at && z->ov.mode == 3)
             wzx_overlay_hide(z);
         wzx_dockapp_timer(z, now);
+        if (!z->picker && !z->popup)
+            z->grab_idle_at = 0;
+        else if (!z->grab_idle_at)
+            z->grab_idle_at = now + z->grab_idle_ms;
+        else if (now >= z->grab_idle_at) {
+            wzx_log("seletor/menu parado por %ld ms: fechado (solta teclado e ponteiro)", z->grab_idle_ms);
+            wzx_picker_close(z);
+            wzx_dockapp_popup_close(z);
+            z->grab_idle_at = 0;
+        }
         XFlush(z->dpy);
         if (XPending(z->dpy))
             continue;
@@ -603,6 +620,8 @@ main(int argc, char **argv)
             due = z->tile_at;
         if (z->ov_hide_at && (due < 0 || z->ov_hide_at < due))
             due = z->ov_hide_at;
+        if (z->grab_idle_at && (due < 0 || z->grab_idle_at < due))
+            due = z->grab_idle_at;
         long dd = wzx_dockapp_due(z);
         if (dd >= 0 && (due < 0 || dd < due))
             due = dd;

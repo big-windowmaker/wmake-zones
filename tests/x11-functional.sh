@@ -71,7 +71,9 @@ if [ "${COMPOSITOR:-}" = picom ] && command -v picom >/dev/null; then
 	sleep 1
 fi
 
-"$WZ" >"$TMP/wz.log" 2>&1 &
+# Seletor e menu do dockapp fecham sozinhos depois de parados (30 s no uso
+# normal); aqui, 2 s.
+WZX_GRAB_IDLE_MS=2000 "$WZ" >"$TMP/wz.log" 2>&1 &
 ZP=$!
 PIDS="$PIDS $ZP"
 sleep 1
@@ -166,6 +168,19 @@ xdotool key 3
 sleep 0.6
 check "tecla 3 encaixa na zona 3" '[ "$(prop "$W1" _WMAKE_ZONES_ZONE)" = 2 ]'
 check "seletor fechado" '[ "$(overlay_count)" -eq 0 ]'
+
+# Seletor esquecido aberto: fecha sozinho e solta o teclado (a tela de
+# bloqueio precisa pegá-lo).
+xdotool key super+z
+sleep 0.6
+check "seletor aberto de novo" '[ "$(overlay_count)" -ge 1 ]'
+sleep 2.5
+check "seletor parado fecha sozinho" '[ "$(overlay_count)" -eq 0 ]'
+check "teclado livre depois de fechar sozinho" 'python3 -c "
+from Xlib import display, X
+d = display.Display(); r = d.screen().root
+s = r.grab_keyboard(True, X.GrabModeAsync, X.GrabModeAsync, X.CurrentTime)
+d.ungrab_keyboard(X.CurrentTime); d.sync(); raise SystemExit(s != X.GrabSuccess)"'
 
 # Primeiro o layout, depois a zona (padrão da 0.3): o painel de miniaturas
 # aparece no arrasto; soltar numa zona de uma miniatura encaixa direto, e

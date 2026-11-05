@@ -994,6 +994,12 @@ wzx_dockapp_due(wzx *z)
 }
 
 void
+wzx_dockapp_popup_close(wzx *z)
+{
+    popup_close(z);
+}
+
+void
 wzx_dockapp_timer(wzx *z, long now)
 {
     if (balloon_hide_at && now >= balloon_hide_at)

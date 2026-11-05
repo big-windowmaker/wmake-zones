@@ -6,6 +6,8 @@
 #ifndef WZX_H
 #define WZX_H
 
+#define WZX_GRAB_IDLE_MS 30000
+
 #include "wz-config.h"
 #include "wz-history.h"
 #include "wz-layout.h"
@@ -173,6 +175,12 @@ struct wzx {
     int picker;
     Window picker_target;
     int picker_sel;
+
+    /* Seletor e menu do dockapp seguram teclado e ponteiro: parados por
+     * muito tempo, fecham sozinhos (senão a tela de bloqueio não consegue
+     * pegar o teclado). */
+    long grab_idle_at;
+    long grab_idle_ms;     /* WZX_GRAB_IDLE_MS; os testes encurtam pelo ambiente */
 
     /* mosaico: um conjunto por monitor e área de trabalho */
     int tile_dirty;
@@ -342,6 +350,7 @@ int wzx_dockapp_event(wzx *z, XEvent *e);
 /* Prazos do balão e da dica (ms monotônico, -1 nenhum). */
 long wzx_dockapp_due(wzx *z);
 void wzx_dockapp_timer(wzx *z, long now);
+void wzx_dockapp_popup_close(wzx *z);
 
 /* Num processo filho, antes do exec: sinais como o programa espera. */
 void wzx_child_reset(void);
