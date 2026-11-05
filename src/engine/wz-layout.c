@@ -524,9 +524,13 @@ compute(const wz_node *n, wz_rect r, int gap, wz_rect *out, int max, int *idx, i
     for (int pass = 0; pass < 2; pass++) {
         int g = pass ? 0 : gap;
         long avail = (long)span - (long)(n->nchild - 1) * g;
+        if (pass == 0 && avail < n->nchild)
+            continue; /* nem 1 px por filho com o gap */
+        /* Todas as bordas sempre (a última passada não pode deixar nenhuma
+         * sem valor, mesmo com mais filhos que pixels). */
         double cum = 0;
-        int prev = base, bad = avail < n->nchild;
-        for (int i = 0; i < n->nchild && !bad; i++) {
+        int prev = base, bad = 0;
+        for (int i = 0; i < n->nchild; i++) {
             cum += n->child[i]->weight;
             int next = i == n->nchild - 1 ? base + span
                                           : base + (int)lround((double)avail * (cum / total)) + i * g;
@@ -536,7 +540,7 @@ compute(const wz_node *n, wz_rect r, int gap, wz_rect *out, int max, int *idx, i
                 bad = 1;
             prev = next + g;
         }
-        if (!bad || pass)
+        if (!bad)
             break;
     }
     for (int i = 0; i < n->nchild; i++) {
