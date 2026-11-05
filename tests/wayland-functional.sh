@@ -51,7 +51,7 @@ export HOME=$TMP/home XDG_RUNTIME_DIR=$TMP/run XDG_CONFIG_HOME=$TMP/home/.config
 mkdir -p "$XDG_CONFIG_HOME/wmake-zones" "$XDG_RUNTIME_DIR"
 chmod 700 "$XDG_RUNTIME_DIR"
 CONF=$XDG_CONFIG_HOME/wmake-zones/wmake-zones.conf
-printf '[General]\nZones=true\nLayout=quarters\nGap=0\nOuterGap=0\nMinDrag=10\n[Tiling]\nGap=0\nOuterGap=0\n' >"$CONF"
+printf '[General]\nZones=true\nLayout=quarters\nDragFlow=zones\nGap=0\nOuterGap=0\nMinDrag=10\n[Tiling]\nGap=0\nOuterGap=0\n' >"$CONF"
 unset WAYLAND_DISPLAY
 WLR_BACKENDS=x11 WLR_RENDERER=pixman WLR_X11_OUTPUTS=1 "$WLMAKER" >"$TMP/wlmaker.log" 2>&1 &
 PIDS="$PIDS $!"
@@ -104,6 +104,25 @@ xdotool mouseup 1
 sleep 1
 check "arrasto encaixa no quadrante 4 ($(box alvo))" '[ "$(box alvo)" = "512,352,512,352" ] && [ "$(zone alvo)" = 3 ]'
 
+# Movimento rápido: um evento só leva o ponteiro para longe da barra de
+# título, antes de a janela acompanhar. O arrasto continua.
+"$WZ" restore >/dev/null
+sleep 0.8
+drag_title alvo 5 5 3
+xdotool mousemove_relative -- -420 -260
+sleep 0.4
+check "um salto do ponteiro não termina o arrasto" '"$WZ" overlay | grep -q "^overlay=shown"'
+xdotool mousemove 100 100
+sleep 0.4
+xdotool mouseup 1
+sleep 1
+check "e a janela vai para onde o ponteiro foi: quadrante 1 ($(box alvo))" '[ "$(zone alvo)" = 0 ]'
+"$WZ" undo >/dev/null
+sleep 0.6
+"$WZ" layout quarters >/dev/null
+"$WZ" snap 4 >/dev/null
+sleep 0.6
+
 "$WZ" restore >/dev/null
 sleep 1
 check "restaurar devolve o tamanho de antes ($(box alvo) vs $B0)" '[ "$(box alvo | cut -d, -f3,4)" = "$(echo "$B0" | cut -d, -f3,4)" ]'
@@ -137,6 +156,138 @@ sleep 1
 check "mosaico desligado: ninguém no mosaico" '"$WZ" status | grep -q "tiled=0"'
 "$WZ" preview 'H(1,2,1)' >/dev/null
 check "prévia aceita" 'true'
+
+# Paridade com o X11 (0.3): identidade do aplicativo, regras, seletor
+# Super+Z, foco espacial, desfazer/refazer, modos, BSP e o painel de
+# layouts do arrasto.
+check "windows -l traz o app_id do cliente Wayland" 'win alvo | cut -f5 | grep -qx wmake-zones-teste'
+printf '[Rule teste]\nClass=wmake-zones-teste\nTitle=regra\nAction=zone\nZone=2\n' >>"$CONF"
+"$WZ" reload >/dev/null
+"$WZ" layout quarters >/dev/null
+open_win regra
+sleep 0.6
+check "regra pelo app_id: abre na zona 2 ($(box regra))" '[ "$(zone regra)" = 1 ] && [ "$(box regra)" = "512,0,512,352" ]'
+sed -i '/^\[Rule teste\]$/,/^Zone=2$/d' "$CONF"
+"$WZ" reload >/dev/null
+
+# Seletor Super+Z: o teclado inteiro vai para ele; 3 encaixa na zona 3.
+check "status mostra a janela ativa (regra)" '"$WZ" status | grep -qx "active=regra"'
+xdotool key super+z 2>/dev/null
+"$WZ" picker >/dev/null
+sleep 0.5
+check "Super+Z/picker abre o seletor" '"$WZ" overlay | grep -q "picker=1"'
+xdotool key 3
+sleep 0.6
+check "tecla 3 encaixa na zona 3 ($(box regra))" '[ "$(zone regra)" = 2 ] && [ "$(box regra)" = "0,352,512,352" ]'
+check "seletor fechado" '"$WZ" overlay | grep -q "^overlay=hidden.*picker=0"'
+"$WZ" picker >/dev/null
+sleep 0.3
+xdotool key Right
+sleep 0.3
+xdotool key Return
+sleep 0.6
+check "setas e Enter: zona à direita ($(box regra))" '[ "$(zone regra)" = 3 ]'
+"$WZ" picker >/dev/null
+sleep 0.3
+xdotool key Escape
+sleep 0.4
+check "Esc fecha o seletor sem mexer ($(box regra))" '[ "$(zone regra)" = 3 ] && "$WZ" overlay | grep -q "picker=0"'
+
+# Desfazer e refazer.
+"$WZ" undo >/dev/null
+sleep 0.6
+check "desfazer volta para a zona 3 ($(box regra))" '[ "$(zone regra)" = 2 ] && [ "$(box regra)" = "0,352,512,352" ]'
+"$WZ" redo >/dev/null
+sleep 0.6
+check "refazer vai de novo para a zona 4 ($(box regra))" '[ "$(zone regra)" = 3 ] && [ "$(box regra)" = "512,352,512,352" ]'
+
+# Foco espacial: regra no quadrante 4; alvo, dois e tres flutuando no meio,
+# empilhadas (tres por cima, um pouco mais à direita). Acima de regra, a
+# mais alinhada é tres.
+"$WZ" snap 4 >/dev/null
+sleep 0.4
+"$WZ" windows -l | sed 's/^/# /'
+"$WZ" focus up >/dev/null
+sleep 0.4
+check "focus up: da zona 4 para a janela acima mais alinhada ($("$WZ" status | sed -n 's/^active=//p'))" '"$WZ" status | grep -qx "active=tres"'
+"$WZ" focus down >/dev/null
+sleep 0.4
+check "focus down: de volta" '"$WZ" status | grep -qx "active=regra"'
+"$WZ" focus right >/dev/null
+sleep 0.4
+check "focus right na borda: nada muda (FocusEdge=cross, sem outro monitor)" '"$WZ" status | grep -qx "active=regra"'
+
+# Modos do dockapp: Zonas <-> Mosaico (esquerdo), desliga/religa (meio).
+check "mode: zonas" '"$WZ" mode | grep -qx "mode=zones"'
+"$WZ" mode toggle >/dev/null
+sleep 1.2
+check "mode toggle: mosaico, com as janelas no mosaico" '"$WZ" mode | grep -qx "mode=tiling" && "$WZ" status | grep -q "tiled=4"'
+"$WZ" mode enable >/dev/null
+sleep 1
+check "mode enable: desligado, ninguém no mosaico" '"$WZ" mode | grep -qx "mode=off" && "$WZ" status | grep -q "tiled=0" && grep -q "^LastMode=tiling" "$CONF"'
+"$WZ" mode enable >/dev/null
+sleep 1.2
+check "mode enable: religa no último modo (mosaico)" '"$WZ" mode | grep -qx "mode=tiling" && "$WZ" status | grep -q "tiled=4"'
+
+# BSP persistente: quatro janelas, sem sobreposição; a principal some e as
+# outras ficam onde estavam na árvore.
+"$WZ" algorithm bsp >/dev/null
+sleep 1
+overlap=0
+declare -a R
+for t in alvo dois tres regra; do R+=("$(box "$t" | tr , ' ')"); done
+for i in 0 1 2 3; do for j in 0 1 2 3; do
+	[ $i -ge $j ] && continue
+	read -r ax ay aw ah <<<"${R[$i]}"
+	read -r bx by bw bh <<<"${R[$j]}"
+	[ $ax -lt $((bx + bw)) ] && [ $bx -lt $((ax + aw)) ] && [ $ay -lt $((by + bh)) ] && [ $by -lt $((ay + ah)) ] && overlap=1
+done; done
+check "BSP: quatro janelas sem sobreposição" '[ $overlap -eq 0 ] && "$WZ" status | grep -q "tiled=4"'
+
+# Diálogo (filho de outra janela): fica fora do mosaico.
+python3 -I "$HERE/tools/janela.py" --dialogo dlg >/dev/null 2>&1 &
+PIDS="$PIDS $!"
+for _ in $(seq 1 50); do [ -n "$(win dlg)" ] && break; sleep 0.1; done
+sleep 1.2
+check "diálogo fica fora do mosaico (só a janela principal entra)" '"$WZ" status | grep -q "tiled=5" && win dlg | grep -q "tiled=0"'
+"$WZ" mode zones >/dev/null
+sleep 1
+check "mode zones: mosaico desligado" '"$WZ" status | grep -q "tiled=0"'
+
+# Primeiro o layout, depois a zona.
+sed -i 's/^DragFlow=zones$/DragFlow=layouts\nLayoutDwell=150/' "$CONF"
+"$WZ" reload >/dev/null
+"$WZ" layout quarters >/dev/null
+cell() { "$WZ" overlay | awk -v id="$1" -v f="$2" '$1 == "cell=" id { split(f == "thumb" ? substr($3, 7) : $2, a, /[x+]/); print a[1], a[2], a[3], a[4] }'; }
+# Janelas novas: ficam por cima, numa posição só delas.
+open_win faixa
+drag_title faixa 15 12 10
+check "painel de layouts no arrasto, ainda sem zonas" '"$WZ" overlay | grep -q "^overlay=shown .*zones=0 strip=1"'
+read -r tw th tx ty <<<"$(cell halves thumb)"
+xdotool mousemove $((tx + tw / 4)) $((ty + th / 2))
+sleep 0.4
+xdotool mousemove $((tx + tw / 4 + 1)) $((ty + th / 2))
+sleep 0.3
+xdotool mouseup 1
+sleep 1
+check "soltar na metade esquerda da miniatura encaixa nela ($(box faixa))" '[ "$(box faixa)" = "0,0,512,704" ] && [ "$(zone faixa)" = 0 ]'
+check "o layout do painel vira o do monitor" 'grep -q "^Layout=halves" "$CONF"'
+"$WZ" undo >/dev/null
+sleep 0.6
+check "desfazer volta o layout de antes junto" 'grep -q "^Layout=quarters" "$CONF"'
+open_win faixa2
+drag_title faixa2 -10 10 10
+read -r cw chh cx cy <<<"$(cell thirds cell)"
+xdotool mousemove $((cx + cw / 2)) $((cy + chh - 6))
+sleep 0.5
+xdotool mousemove $((cx + cw / 2 + 1)) $((cy + chh - 6))
+sleep 0.4
+check "parado sobre a miniatura: as zonas daquele layout aparecem" '"$WZ" overlay | grep -q "zones=3 strip=1 sel=thirds"'
+xdotool mousemove 900 500
+sleep 0.4
+xdotool mouseup 1
+sleep 1
+check "e a zona depois: terço da direita ($(box faixa2))" '[ "$(zone faixa2)" = 2 ] && [ "$(box faixa2 | cut -d, -f1)" -ge 680 ]'
 
 # Um cliente que conecta e não manda nada não pode travar o serviço.
 SOCK=$(ls "$XDG_RUNTIME_DIR"/wmake-zones/*.sock | head -1)

@@ -807,7 +807,11 @@ wz_focus_pick(const wz_rect *cand, int n, wz_rect from, int dir)
         /* Faixas que não se cruzam (só encostam ou estão separadas): soma o
          * desvio entre os centros no eixo perpendicular. Uma janela ao lado
          * nunca passa por "acima" só porque o centro dela é mais alto. */
-        long off = (b0 < a1 && a0 < b1) ? 0 : labs((a0 + a1) - (b0 + b1)) / 2;
+        long dev = labs((a0 + a1) - (b0 + b1)) / 2;
+        /* Faixas que se cruzam: um quarto do desvio desempata a favor da
+         * mais alinhada (a de cima no mesmo monitor vence a que só cruza
+         * a faixa pela ponta). */
+        long off = (b0 < a1 && a0 < b1) ? dev / 4 : dev;
         /* centers está em dobro: /2 dá a distância real. */
         long score = gap + centers / 4 + 2 * perp + off;
         if (best < 0 || score < bests) {

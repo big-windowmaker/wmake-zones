@@ -174,4 +174,8 @@ int wz_ini_parse_string(const char *text, wz_ini_cb cb, void *ud);
 /* Nome dos layouts internos (para traduzir com gettext no chamador). */
 const char *wz_builtin_label(const char *id);
 
+/* Versão do núcleo ("0.3.0"): o wlmaker mostra a do wmake-zones com que
+ * foi ligado. */
+const char *wz_version(void);
+
 #endif

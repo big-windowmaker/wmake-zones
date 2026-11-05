@@ -3,13 +3,17 @@
  * wmake-zones-wl: o ladrilho do wmake-zones no Clip/Dock do wlmaker, como
  * cliente Wayland do protocolo de ícones do wlmaker (sem XWayland).
  *
- *   clique esquerdo / roda   layout seguinte / anterior
- *   clique do meio           liga ou desliga as zonas
- *   clique direito           menu do wlmaker (ações do Dockapps.plist)
+ *   clique esquerdo   Zonas <-> Mosaico           ([Dockapp] LeftClick)
+ *   clique do meio    desliga / religa o último   ([Dockapp] MiddleClick)
+ *   roda              layout anterior / seguinte, com uma prévia breve das
+ *                     zonas no monitor                ([Dockapp] Wheel)
+ *   clique direito    menu do wlmaker (ações do Dockapps.plist)
  *
- * O desenho é o mesmo do dockapp do X11. O estado vem do arquivo de
- * configuração, vigiado por inotify (o wlmaker grava nele a cada troca):
- * parado, o processo dorme em poll() sem timeout.
+ * O desenho é o mesmo do dockapp do X11: a miniatura do layout do monitor
+ * e as teclas Z (zonas) e M (mosaico) com LED. O estado vem do arquivo de
+ * configuração, vigiado por inotify (o wlmaker grava nele a cada troca), e
+ * o layout em efeito, do status do wlmaker (o automático depende do
+ * monitor): parado, o processo dorme em poll() sem timeout.
  */
 #define _GNU_SOURCE
 #include "wz-config.h"
@@ -53,6 +57,7 @@ typedef struct {
     wz_config cfg;
     char *cfg_path;
     wz_theme theme;
+    char layout[128];   /* layout em efeito no primeiro monitor (status) */
     int quit;
 } app;
 
@@ -80,24 +85,38 @@ static const struct {
     char c;
     unsigned char rows[5];
 } glyphs[] = {
-    { 'E', { 7, 4, 6, 4, 7 } }, { 'F', { 7, 4, 6, 4, 4 } }, { 'I', { 7, 2, 2, 2, 7 } },
-    { 'L', { 4, 4, 4, 4, 7 } }, { 'N', { 6, 5, 5, 5, 5 } }, { 'O', { 2, 5, 5, 5, 2 } },
-    { 'S', { 3, 4, 2, 1, 6 } }, { 'T', { 7, 2, 2, 2, 2 } }, { 'Z', { 7, 1, 2, 4, 7 } },
-    { '+', { 0, 2, 7, 2, 0 } },
+    { 'M', { 5, 7, 7, 5, 5 } }, { 'Z', { 7, 1, 2, 4, 7 } },
 };
 
 static void
-pixtext(cairo_t *cr, const char *s, double x, double y, unsigned c)
+pixtext(cairo_t *cr, const char *s, double x, double y, unsigned c, double sc)
 {
     rgb(cr, c);
-    for (; *s; s++, x += 4)
+    for (; *s; s++, x += 4 * sc)
         for (size_t g = 0; g < sizeof glyphs / sizeof *glyphs; g++)
             if (glyphs[g].c == *s)
                 for (int r = 0; r < 5; r++)
                     for (int k = 0; k < 3; k++)
                         if (glyphs[g].rows[r] & (4 >> k))
-                            cairo_rectangle(cr, x + k, y + r, 1, 1);
+                            cairo_rectangle(cr, x + k * sc, y + r * sc, sc, sc);
     cairo_fill(cr);
+}
+
+/* Tecla com LED: afundada e escura apagada, acesa com a letra escura. */
+static void
+led_key(cairo_t *cr, double x, double y, const char *letter, int lit, unsigned color)
+{
+    const double w = 25, h = 14;
+    rgb(cr, lit ? color : 0x2a2e33);
+    cairo_rectangle(cr, x + 1, y + 1, w - 2, h - 2);
+    cairo_fill(cr);
+    bevel(cr, x, y, w, h, 0);
+    if (lit) {
+        rgb(cr, wz_rgb_mix(color, 0xffffff, 110));
+        cairo_rectangle(cr, x + 2, y + 2, w - 4, 1);
+        cairo_fill(cr);
+    }
+    pixtext(cr, letter, x + (w - 6) / 2, y + 2, lit ? 0x101010 : 0x7a7e84, 2);
 }
 
 static void
@@ -117,33 +136,27 @@ draw_face(app *a, cairo_t *cr, int W, int H)
     bevel(cr, 0, 0, 64, 64, 1);
 
     rgb(cr, 0x1c2024);
-    cairo_rectangle(cr, 5, 5, 54, 40);
+    cairo_rectangle(cr, 5, 5, 54, 36);
     cairo_fill(cr);
-    bevel(cr, 4, 4, 56, 42, 0);
-    int on = a->cfg.zones || a->cfg.autotile;
-    const wz_layout_def *l = wz_config_layout(&a->cfg, a->cfg.layout);
+    bevel(cr, 4, 4, 56, 38, 0);
+    wz_mode m = wz_config_mode(&a->cfg);
+    int on = m != WZ_MODE_OFF;
+    const wz_layout_def *l = wz_config_layout(&a->cfg, a->layout[0] ? a->layout : a->cfg.layout);
     if (l) {
         wz_node *t = wz_parse(l->tree, NULL);
         wz_rect zr[64];
-        int n = t ? wz_compute(t, (wz_rect){ 8, 8, 48, 34 }, 2, 0, zr, 64) : 0;
+        int n = t ? wz_compute(t, (wz_rect){ 8, 8, 48, 30 }, 2, 0, zr, 64) : 0;
         wz_free(t);
         for (int i = 0; i < n && i < 64; i++) {
-            rgb(cr, i == 0 && on ? (a->cfg.autotile ? 0xe0a030 : 0x7fb0e0) : on ? 0xc2c0c5 : 0x6a6a70);
+            rgb(cr, i == 0 && on ? (m == WZ_MODE_TILING ? 0xe0a030 : 0x7fb0e0) : on ? 0xc2c0c5 : 0x5e6066);
             cairo_rectangle(cr, zr[i].x, zr[i].y, zr[i].w, zr[i].h);
             cairo_fill(cr);
             if (zr[i].w >= 4 && zr[i].h >= 4)
                 bevel(cr, zr[i].x, zr[i].y, zr[i].w, zr[i].h, 1);
         }
     }
-    rgb(cr, 0x1c2024);
-    cairo_rectangle(cr, 5, 49, 54, 10);
-    cairo_fill(cr);
-    bevel(cr, 4, 48, 56, 12, 0);
-    rgb(cr, a->cfg.autotile ? 0xf0b030 : a->cfg.zones ? 0x40d040 : 0x505050);
-    cairo_rectangle(cr, 8, 51, 5, 5);
-    cairo_fill(cr);
-    const char *label = a->cfg.autotile && a->cfg.zones ? "Z+TILE" : a->cfg.autotile ? "TILE" : a->cfg.zones ? "ZONES" : "OFF";
-    pixtext(cr, label, 17, 51, on ? 0xe8e8e8 : 0x8a8a8a);
+    led_key(cr, 5, 45, "Z", m == WZ_MODE_ZONES, 0x58d858);
+    led_key(cr, 34, 45, "M", m == WZ_MODE_TILING, 0xf0b030);
     cairo_restore(cr);
 }
 
@@ -199,6 +212,26 @@ reload(app *a)
     wz_theme_load(&a->theme, NULL);
 }
 
+/* Layout em efeito no primeiro monitor, pelo status do wlmaker (sem
+ * resposta, o geral do arquivo). */
+static void
+query_layout(app *a)
+{
+    char out[4096];
+    a->layout[0] = 0;
+    if (wz_ipc_request_session("status", out, sizeof out) != 0)
+        return;
+    const char *p = strstr(out, " layout=");
+    if (!p)
+        return;
+    p += 8;
+    size_t n = strcspn(p, " \n");
+    if (n < sizeof a->layout) {
+        memcpy(a->layout, p, n);
+        a->layout[n] = 0;
+    }
+}
+
 static void
 command(app *a, const char *cmd)
 {
@@ -206,7 +239,37 @@ command(app *a, const char *cmd)
     if (wz_ipc_request_session(cmd, out, sizeof out) != 0)
         fprintf(stderr, "wmake-zones-wl: %s\n", _("wlmaker did not answer (zones disabled at build time?)"));
     reload(a);
+    query_layout(a);
     redraw(a);
+}
+
+/* Troca de layout pela roda: uma prévia breve das zonas mostra a escolha
+ * (o ladrilho é pequeno demais para o nome). */
+static void
+cycle(app *a, int step)
+{
+    command(a, step < 0 ? "layout prev" : "layout next");
+    const wz_layout_def *l = wz_config_layout(&a->cfg, a->layout[0] ? a->layout : a->cfg.layout);
+    if (l) {
+        char cmd[WZ_IPC_MAX];
+        char out[64];
+        snprintf(cmd, sizeof cmd, "preview %s", l->tree);
+        wz_ipc_request_session(cmd, out, sizeof out);
+    }
+}
+
+static void
+click(app *a, wz_click action, int step)
+{
+    switch (action) {
+    case WZ_CLICK_MODE: command(a, "mode toggle"); break;
+    case WZ_CLICK_ENABLE: command(a, "mode enable"); break;
+    case WZ_CLICK_ZONES: command(a, "zones toggle"); break;
+    case WZ_CLICK_AUTOTILE: command(a, "autotile toggle"); break;
+    case WZ_CLICK_CYCLE: cycle(a, step); break;
+    case WZ_CLICK_LAYOUTS: command(a, "picker"); break;
+    default: break; /* o menu é do wlmaker (clique direito) */
+    }
 }
 
 /* ---- protocolo de ícones ---------------------------------------------- */
@@ -251,9 +314,9 @@ p_button(void *data, struct wl_pointer *p, uint32_t serial, uint32_t t, uint32_t
     if (!a->pointer_inside || state != WL_POINTER_BUTTON_STATE_RELEASED)
         return;
     if (button == BTN_LEFT)
-        command(a, "layout next");
+        click(a, a->cfg.click[0], 1);
     else if (button == BTN_MIDDLE)
-        command(a, "zones toggle");
+        click(a, a->cfg.click[1], 1);
 }
 
 static void
@@ -261,7 +324,7 @@ p_axis(void *data, struct wl_pointer *p, uint32_t t, uint32_t axis, wl_fixed_t v
 {
     app *a = data;
     if (a->pointer_inside && axis == WL_POINTER_AXIS_VERTICAL_SCROLL && v != 0)
-        command(a, v > 0 ? "layout next" : "layout prev");
+        click(a, a->cfg.click[3], v > 0 ? 1 : -1);
 }
 
 static void p_frame(void *d, struct wl_pointer *p) {}
@@ -335,6 +398,7 @@ main(void)
     a.cfg_path = wz_config_path();
     wz_config_defaults(&a.cfg);
     reload(&a);
+    query_layout(&a);
     a.display = wl_display_connect(NULL);
     if (!a.display) {
         fprintf(stderr, "wmake-zones-wl: %s\n", _("no Wayland compositor"));
@@ -390,6 +454,7 @@ main(void)
             while (read(ifd, buf, sizeof buf) > 0)
                 ;
             reload(&a);
+            query_layout(&a);
             redraw(&a);
         }
         if (p[2].revents & POLLIN)

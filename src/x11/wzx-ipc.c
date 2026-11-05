@@ -416,6 +416,14 @@ status(wzx *z, char *out, size_t len)
         snapped += !z->win[i]->tiled && wzx_get_zone_prop(z, z->win[i]) >= 0;
     }
     outf(out, len, "windows=%d tiled=%d snapped=%d\n", z->nwin, tiled, snapped);
+    wzx_win *aw = wzx_find(z, z->active);
+    char at[200] = "";
+    if (aw)
+        wzx_title(z, aw, at, sizeof at);
+    for (char *p = at; *p; p++)
+        if (*p == '\n' || *p == '\t')
+            *p = ' ';
+    outf(out, len, "active=%s\n", at);
     for (int i = 0; i < WZ_KEY_N; i++)
         if (z->keys[i].conflict)
             outf(out, len, "conflict=%s %s\n", wz_key_name(i), z->cfg.keys[i]);

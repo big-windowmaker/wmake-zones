@@ -550,6 +550,10 @@ test_focus(void)
     wz_rect from = { 100, 100, 400, 300 };
     wz_rect c3[] = { { 3000, 100, 400, 300 }, { 560, 450, 400, 300 } };
     CHECK(wz_focus_pick(c3, 2, from, WZ_RIGHT) == 1, "perto vence alinhada longe");
+    /* Duas acima quase à mesma distância: a alinhada vence. */
+    wz_rect up_from = { 512, 352, 512, 352 };
+    wz_rect c7[] = { { 361, 235, 302, 233 }, { 512, 0, 512, 704 } };
+    CHECK(wz_focus_pick(c7, 2, up_from, WZ_UP) == 1, "acima: a alinhada vence a deslocada");
     /* Sobrepostas: o centro decide a direção. */
     wz_rect c4[] = { { 300, 120, 400, 300 } };
     CHECK(wz_focus_pick(c4, 1, from, WZ_RIGHT) == 0, "sobreposta à direita");

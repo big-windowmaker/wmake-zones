@@ -85,6 +85,16 @@ static const char *const builtin_zone_names[] __attribute__((unused)) = { N_("Ed
 
 #define NBUILTIN (int)(sizeof builtin / sizeof builtin[0])
 
+#ifndef WZ_VERSION
+#define WZ_VERSION "?"
+#endif
+
+const char *
+wz_version(void)
+{
+    return WZ_VERSION;
+}
+
 const char *
 wz_builtin_label(const char *id)
 {
