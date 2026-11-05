@@ -616,9 +616,12 @@ test_history(void)
     CHECK(h.nundo == 1, "janelas fechadas esquecidas: %d", h.nundo);
     /* Passo só de configuração não some ao esquecer janelas. */
     wz_hist_entry *c = wz_history_begin(&h);
-    wz_hist_set_cfg(c, "General", "Layout", "thirds");
+    wz_hist_add_cfg(c, "General", "Layout", "thirds");
+    wz_hist_add_cfg(c, "General", "Layout", "halves");
+    wz_hist_add_cfg(c, "General", "Zones", NULL);
     wz_history_forget(&h, 20);
-    CHECK(h.nundo == 1 && h.undo[0].has_cfg && !strcmp(h.undo[0].value, "thirds"), "configuração mantida");
+    CHECK(h.nundo == 1 && h.undo[0].ncfg == 2 && !strcmp(h.undo[0].cfg[0].value, "thirds") && !h.undo[0].cfg[1].value,
+          "configuração mantida (a primeira de cada chave)");
     /* Profundidade menor descarta os mais antigos; maior não perde nada. */
     wz_history_commit(&h);
     for (int i = 0; i < 3; i++) {

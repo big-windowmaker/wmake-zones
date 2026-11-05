@@ -19,11 +19,13 @@
  * Eventos de teclado brutos só são pedidos enquanto há um arrasto.
  */
 #define _GNU_SOURCE
+#include "wz-alloc.h"
 #include "wzx.h"
 
 #include <X11/XKBlib.h>
 #include <X11/extensions/XInput2.h>
 #include <X11/keysym.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -93,6 +95,12 @@ reset_drag(wzx *z)
     z->drag_cancel = 0;
     z->drag_dirty = 0;
     z->drag_show_at = 0;
+    z->dwell_at = 0;
+    z->strip_wait_leave = 0;
+    z->strip_latched = 0;
+    free(z->drag_layout);
+    free(z->drag_tree);
+    z->drag_layout = z->drag_tree = NULL;
     wzx_overlay_hide(z);
     if (z->raw_keys_selected)
         wzx_xi_select(z);
@@ -100,44 +108,133 @@ reset_drag(wzx *z)
 
 /* ---- histórico ---------------------------------------------------------- */
 
+static void
+item_of(wzx *z, wzx_win *w, wz_hist_item *it)
+{
+    memset(it, 0, sizeof *it);
+    it->win = (uintptr_t)w->client;
+    it->r = w->outer;
+    it->zone = (int)wzx_get_zone_prop(z, w);
+    it->order = w->order;
+    it->flags = (w->tiled ? WZ_HIST_TILED : 0) | (w->user_float ? WZ_HIST_USER_FLOAT : 0);
+    if (wzx_get_restore(z, w, &it->restore))
+        it->flags |= WZ_HIST_HAS_RESTORE;
+}
+
+wz_hist_entry *
+wzx_history_begin(wzx *z)
+{
+    wz_history_set_depth(&z->history, z->cfg.history_depth);
+    return wz_history_begin(&z->history);
+}
+
+void
+wzx_history_add(wzx *z, wz_hist_entry *e, wzx_win *w)
+{
+    if (!e || !w)
+        return;
+    wz_hist_item it;
+    item_of(z, w, &it);
+    wz_hist_add(e, &it);
+}
+
+void
+wzx_history_end(wzx *z)
+{
+    wz_history_commit(&z->history);
+}
+
 void
 wzx_history_push(wzx *z, wzx_win **ws, int n)
 {
     if (n <= 0)
         return;
-    if (z->nhist == WZX_HISTORY) {
-        memmove(&z->hist[0], &z->hist[1], sizeof z->hist[0] * (WZX_HISTORY - 1));
-        z->nhist--;
-    }
-    int k = z->nhist++;
-    z->hist[k].n = 0;
-    for (int i = 0; i < n && z->hist[k].n < 64; i++) {
-        if (!ws[i])
-            continue;
-        z->hist[k].w[z->hist[k].n] = ws[i]->client;
-        z->hist[k].r[z->hist[k].n] = ws[i]->outer;
-        z->hist[k].n++;
-    }
+    wz_hist_entry *e = wzx_history_begin(z);
+    for (int i = 0; i < n; i++)
+        wzx_history_add(z, e, ws[i]);
+    wzx_history_end(z);
 }
 
-void
-wzx_history_undo(wzx *z)
+/* Um retângulo de um monitor que saiu volta para dentro do mais perto: o
+ * histórico nunca deixa uma janela fora de alcance. */
+static wz_rect
+reachable(wzx *z, wz_rect r)
 {
-    if (z->nhist == 0)
-        return;
-    int k = --z->nhist;
-    for (int i = 0; i < z->hist[k].n; i++) {
-        wzx_win *w = wzx_find(z, z->hist[k].w[i]);
+    for (int i = 0; i < z->nmon; i++)
+        if (wz_rect_contains(z->mon[i].geom, r.x + r.w / 2, r.y + r.h / 2))
+            return r;
+    int m = wzx_monitor_of(z, r);
+    if (m < 0 || m >= z->nmon)
+        return r;
+    wz_rect a = z->mon[m].work;
+    if (r.w > a.w)
+        r.w = a.w;
+    if (r.h > a.h)
+        r.h = a.h;
+    r.x = r.x < a.x ? a.x : r.x + r.w > a.x + a.w ? a.x + a.w - r.w : r.x;
+    r.y = r.y < a.y ? a.y : r.y + r.h > a.y + a.h ? a.y + a.h - r.h : r.y;
+    return r;
+}
+
+int
+wzx_history_step(wzx *z, int redo)
+{
+    wz_hist_entry e;
+    if (!wz_history_pop(&z->history, redo, &e))
+        return 0;
+    wz_hist_entry *inv = wz_history_push_inverse(&z->history, !redo);
+    for (int i = 0; i < e.ncfg; i++) {
+        char *cur = wzx_cfg_get(z, e.cfg[i].section, e.cfg[i].key);
+        wz_hist_add_cfg(inv, e.cfg[i].section, e.cfg[i].key, cur);
+        free(cur);
+        wzx_save_cfg(z, e.cfg[i].section, e.cfg[i].key, e.cfg[i].value);
+    }
+    if (e.has_aux && e.n > 0) {
+        wzx_win *w = wzx_find(z, (Window)e.items[0].win);
+        double *ratio = w ? wzx_tile_ratio_of(z, w) : NULL;
+        if (ratio) {
+            wz_hist_set_aux(inv, (long)(*ratio * 10000 + 0.5));
+            *ratio = e.aux / 10000.0;
+        }
+    }
+    if (e.ncfg)
+        wzx_apply_config(z);
+    wzx_update_workarea(z);
+    for (int i = 0; i < e.n; i++) {
+        const wz_hist_item *it = &e.items[i];
+        wzx_win *w = wzx_find(z, (Window)it->win);
         if (!w)
             continue;
-        if (w->tiled) {
-            /* Desfazer tira do mosaico: a janela volta a flutuar onde estava. */
-            w->user_float = 1;
-            w->tiled = 0;
+        wzx_refresh_geom(z, w);
+        wzx_history_add(z, inv, w);
+        w->order = it->order;
+        w->expect_valid = 0;
+        if (it->flags & WZ_HIST_TILED) {
+            /* Volta para o mosaico: a célula vem do layout, na ordem antiga. */
+            w->user_float = 0;
+            w->rule_float = 0;
+            continue;
         }
-        wzx_move_outer(z, w, z->hist[k].r[i]);
+        wz_rect r = reachable(z, it->r);
+        int mon = wzx_monitor_of(z, r);
+        w->user_float = (it->flags & WZ_HIST_USER_FLOAT) || (wzx_tile_active_for(z, mon) && !w->rule_float);
+        if (w->tiled) {
+            w->tiled = 0;
+            w->tile_mon = -1;
+            wzx_tile_forget(z, w);
+        }
+        wzx_move_outer(z, w, r);
+        wzx_set_zone_prop(z, w, it->zone);
+        if (it->flags & WZ_HIST_HAS_RESTORE)
+            wzx_set_restore(z, w, it->restore);
+        else
+            wzx_clear_restore(z, w);
     }
+    wz_history_commit(&z->history);
+    wz_hist_entry_free(&e);
     wzx_tile_mark(z);
+    wzx_dockapp_redraw(z);
+    return 1;
 }
 
 /* ---- encaixe ------------------------------------------------------------ */
@@ -188,6 +285,25 @@ finish_move(wzx *z, int px, int py)
         wzx_tile_drop(z, w, px, py);
         return;
     }
+    /* Solta sobre o painel de layouts: numa zona de uma miniatura, encaixa
+     * direto nela; no resto do painel, fica onde foi solta. */
+    if (z->ov.shown && z->ov.strip && !w->tiled) {
+        int mini = -1;
+        int i = wzx_strip_hit(z, px, py, &mini);
+        if (i >= 0 && mini >= 0) {
+            wz_rect zones[WZX_MAX_ZONES];
+            int n = wzx_zones_of_tree(z, z->ov.mon, z->ov.strip_tree[i], zones, NULL, WZX_MAX_ZONES);
+            if (mini < n) {
+                free(z->drag_layout);
+                z->drag_layout = wz_xstrdup(z->ov.strip_id[i]);
+                z->ov.target = zones[mini];
+                z->ov.hl_a = mini;
+                z->ov.has_target = 1;
+            }
+        } else if (i != -1) {
+            return;
+        }
+    }
     if (w->tiled) {
         /* Arrastada sem as células na tela (atraso, modificador): volta. */
         wzx_tile_mark(z);
@@ -197,13 +313,39 @@ finish_move(wzx *z, int px, int py)
         wz_rect pre;
         if (!wzx_get_restore(z, w, &pre))
             wzx_set_restore(z, w, z->drag_start);
-        /* Para desfazer, o estado de antes do arrasto. */
+        /* Para desfazer, o estado de antes do arrasto e, se o layout veio
+         * do painel e mudou, o layout de antes: um passo só. */
         wz_rect now = w->outer;
         w->outer = z->drag_start;
-        wzx_history_push(z, &w, 1);
+        wz_hist_entry *he = wzx_history_begin(z);
+        wzx_history_add(z, he, w);
+        const wz_layout_def *cur = wzx_layout_of(z, z->ov.mon);
+        int change = z->drag_layout && (!cur || strcmp(cur->id, z->drag_layout));
+        const char *sec = "General";
+        char msec[96];
+        if (change) {
+            for (int i = 0; i < z->cfg.nscopes; i++) {
+                wz_scope *sc = &z->cfg.scopes[i];
+                if (sc->monitor && sc->workspace == 0 && sc->layout && !strcmp(sc->monitor, z->mon[z->ov.mon].name)) {
+                    snprintf(msec, sizeof msec, "Monitor %s", sc->monitor);
+                    sec = msec;
+                }
+            }
+            char *before = wzx_cfg_get(z, sec, "Layout");
+            wz_hist_add_cfg(he, sec, "Layout", before);
+            free(before);
+        }
+        wzx_history_end(z);
         w->outer = now;
+        /* Aplicar a configuração esconde o overlay: o alvo vai antes. */
+        wz_rect target = z->ov.target;
+        long zone = z->ov.hl_a;
+        if (change) {
+            wzx_save_cfg(z, sec, "Layout", z->drag_layout);
+            wzx_apply_config(z);
+        }
         long t0 = wzx_now_us();
-        wzx_snap(z, w, z->ov.target, z->ov.hl_a, 0);
+        wzx_snap(z, w, target, zone, 0);
         if (getenv("WZ_DEBUG")) {
             XSync(z->dpy, False);
             wzx_log("tempo: encaixe pedido em %ld µs", wzx_now_us() - t0);
@@ -363,32 +505,128 @@ wzx_drag_flush(wzx *z)
         wzx_overlay_hide(z);
         return;
     }
-    if (!z->ov.shown || z->ov.mon != mon || z->ov.mode != (tile_mode ? 1 : 0)) {
+    /* Primeiro o layout (painel de miniaturas), depois a zona. */
+    int strip = 0;
+    if (!tile_mode) {
+        switch (z->cfg.drag_flow) {
+        case WZ_FLOW_LAYOUTS:
+            strip = 1;
+            break;
+        case WZ_FLOW_LAYOUTS_MODIFIER:
+            strip = is_mod_down(z) || z->drag_layout;
+            break;
+        case WZ_FLOW_LAYOUTS_EDGE:
+            if (py < z->mon[mon].geom.y + z->cfg.edge_px)
+                z->strip_latched = 1;
+            strip = z->strip_latched;
+            break;
+        default:
+            break;
+        }
+    }
+    /* O layout escolhido vale no monitor onde foi escolhido. */
+    if (z->drag_layout && z->ov.shown && z->ov.mon != mon) {
+        free(z->drag_layout);
+        free(z->drag_tree);
+        z->drag_layout = z->drag_tree = NULL;
+    }
+    const char *tree = NULL;
+    if (tile_mode)
+        tree = NULL;
+    else if (strip)
+        tree = z->drag_tree; /* nenhum ainda: só o painel */
+    else {
+        const wz_layout_def *l = wzx_layout_of(z, mon);
+        tree = l ? l->tree : NULL;
+    }
+    int mode = tile_mode ? 1 : 0;
+    int rebuild = !z->ov.shown || z->ov.mon != mon || z->ov.mode != mode || z->ov.strip != strip;
+    static const char *shown_tree;
+    static char *shown_copy;
+    int zones_changed = rebuild || (tree != shown_tree && (!tree || !shown_copy || strcmp(tree, shown_copy)));
+    if (zones_changed) {
         wz_rect zones[WZX_MAX_ZONES];
         char *names[WZX_MAX_ZONES] = { 0 };
-        int n;
+        int n = 0;
         if (tile_mode)
             n = wzx_tile_cells(z, mon, zones, NULL, WZX_MAX_ZONES);
-        else
-            n = wzx_zones_for(z, mon, zones, names, WZX_MAX_ZONES);
-        if (n <= 0)
+        else if (tree)
+            n = wzx_zones_of_tree(z, mon, tree, zones, names, WZX_MAX_ZONES);
+        if (n <= 0 && !strip)
             return;
         long t0 = wzx_now_us();
-        wzx_overlay_hide(z);
-        wzx_overlay_set_zones(z, zones, names, n);
+        if (rebuild) {
+            int keep_sel = z->ov.strip_sel, keep_hover = z->ov.strip_hover;
+            wzx_overlay_hide(z);
+            wzx_overlay_set_zones(z, zones, names, n);
+            if (strip) {
+                /* Longe do ponteiro: embaixo se ele está no terço de cima
+                 * (a não ser pela borda de cima, que pede o painel lá). */
+                wz_rect g = z->mon[mon].geom;
+                int bottom = z->cfg.drag_flow != WZ_FLOW_LAYOUTS_EDGE && py < g.y + g.h / 3;
+                wzx_strip_build(z, mon, bottom);
+                z->strip_wait_leave = wz_rect_contains(z->ov.strip_box, px, py);
+                if (z->drag_layout)
+                    for (int i = 0; i < z->ov.strip_n; i++)
+                        if (!strcmp(z->ov.strip_id[i], z->drag_layout))
+                            z->ov.strip_sel = i;
+                (void)keep_sel;
+                (void)keep_hover;
+            }
+            wzx_overlay_show(z, mon, mode);
+        } else {
+            wzx_overlay_set_zones(z, zones, names, n);
+        }
         for (int i = 0; i < n; i++)
             free(names[i]);
-        wzx_overlay_show(z, mon, tile_mode ? 1 : 0);
+        free(shown_copy);
+        shown_copy = tree ? wz_xstrdup(tree) : NULL;
+        shown_tree = tree;
         if (getenv("WZ_DEBUG")) {
             XSync(z->dpy, False);
-            wzx_log("tempo: overlay criado e desenhado em %ld µs (%d zonas)", wzx_now_us() - t0, n);
+            wzx_log("tempo: overlay criado e desenhado em %ld µs (%d zonas%s)", wzx_now_us() - t0, n,
+                    strip ? ", painel" : "");
         }
+    }
+    if (strip) {
+        int mini = -1;
+        int hit = wzx_strip_hit(z, px, py, &mini);
+        if (z->strip_wait_leave) {
+            if (hit != -1)
+                hit = -2, mini = -1;
+            else
+                z->strip_wait_leave = 0;
+        }
+        if (hit != -1) {
+            /* Sobre o painel: nada de zona destacada embaixo dele. */
+            if (z->ov.hl_a >= 0)
+                wzx_overlay_highlight(z, -1, -1, NULL);
+            int hover = hit >= 0 ? hit : -1;
+            if (hover != z->ov.strip_hover)
+                z->dwell_at = hover >= 0 ? wzx_now_ms() + z->cfg.dwell_ms : 0;
+            int sel = z->ov.strip_sel;
+            if (hover >= 0 && hover != sel && z->dwell_at && wzx_now_ms() >= z->dwell_at) {
+                sel = hover;
+                z->dwell_at = 0;
+                free(z->drag_layout);
+                free(z->drag_tree);
+                z->drag_layout = wz_xstrdup(z->ov.strip_id[sel]);
+                z->drag_tree = wz_xstrdup(z->ov.strip_tree[sel]);
+                z->drag_dirty = 1; /* refaz as zonas no próximo lote */
+            }
+            wzx_strip_set(z, hover, hover >= 0 ? mini : -1, sel);
+            return;
+        }
+        z->dwell_at = 0;
+        wzx_strip_set(z, -1, -1, z->ov.strip_sel);
     }
     wz_rect target;
     int b = -1;
-    int a = wz_target(z->ov.zones, z->ov.nzones, px, py, tile_mode ? 0 : z->cfg.span_px, &target, &b);
+    int a = z->ov.nzones > 0
+                ? wz_target(z->ov.zones, z->ov.nzones, px, py, tile_mode ? 0 : z->cfg.span_px, &target, &b)
+                : -1;
     if (a != z->ov.hl_a || b != z->ov.hl_b)
-        wzx_overlay_highlight(z, a, b, &target);
+        wzx_overlay_highlight(z, a, b, a >= 0 ? &target : NULL);
 }
 
 void
@@ -398,4 +636,14 @@ wzx_drag_timer(wzx *z)
         z->drag_dirty = 1;
         wzx_drag_flush(z);
     }
+}
+
+long
+wzx_drag_due(wzx *z)
+{
+    if (z->drag != DRAG_MOVING)
+        return -1;
+    if (z->drag_dirty && z->drag_show_at > wzx_now_ms())
+        return z->drag_show_at;
+    return z->dwell_at ? z->dwell_at : -1;
 }

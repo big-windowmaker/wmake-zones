@@ -7,6 +7,7 @@
 #define WZX_H
 
 #include "wz-config.h"
+#include "wz-history.h"
 #include "wz-layout.h"
 #include "wz-tile.h"
 #include "wz-theme.h"
@@ -21,7 +22,7 @@
 #define WZX_MAX_ZONES 128
 #define WZX_MAX_WIN 512
 #define WZX_MAX_OR 256
-#define WZX_HISTORY 12
+#define WZX_STRIP_MAX 12
 
 enum {
     A_NET_SUPPORTED, A_NET_CLIENT_LIST, A_NET_ACTIVE_WINDOW, A_NET_CURRENT_DESKTOP,
@@ -80,6 +81,8 @@ typedef struct {
     int expect_valid;
     int seen;             /* marca para diff da lista */
     int rule_done;
+    int rule_ignore;      /* regra: fora de tudo (zonas e mosaico) */
+    int rule_tile;        /* regra: no mosaico mesmo fixa em todas as áreas, acima... */
 } wzx_win;
 
 typedef enum { DRAG_IDLE = 0, DRAG_ARMED, DRAG_MOVING, DRAG_RESIZING } wzx_drag_state;
@@ -103,6 +106,19 @@ typedef struct {
     wz_rect target;
     int has_target;
     int mode;             /* 0 zonas, 1 mosaico, 2 seletor, 3 prévia */
+    /* Painel de layouts do arrasto (primeiro o layout, depois a zona). */
+    int strip;            /* visível */
+    int strip_n;
+    char *strip_id[WZX_STRIP_MAX];
+    char *strip_tree[WZX_STRIP_MAX];
+    char *strip_label[WZX_STRIP_MAX];
+    wz_rect strip_box;    /* coordenadas da raiz */
+    wz_rect strip_cell[WZX_STRIP_MAX];
+    wz_rect strip_thumb[WZX_STRIP_MAX];
+    int strip_title_h;
+    int strip_hover;      /* miniatura sob o ponteiro, -1 */
+    int strip_mini;       /* zona da miniatura sob o ponteiro, -1 */
+    int strip_sel;        /* layout escolhido, -1 */
 } wzx_overlay;
 
 struct wzx {
@@ -140,6 +156,11 @@ struct wzx {
     int drag_cancel;
     int drag_mod;          /* modificador segurado */
     long drag_show_at;     /* ms monotônico para mostrar o overlay */
+    long dwell_at;         /* painel: escolher a miniatura sob o ponteiro em */
+    int strip_wait_leave;  /* o painel surgiu sob o ponteiro: só vale depois de sair */
+    int strip_latched;     /* painel pela borda: fica até o fim do arrasto */
+    char *drag_layout;     /* layout escolhido no painel (id) */
+    char *drag_tree;
     int drag_dirty;
     int super_down, alt_down, ctrl_down, shift_down;
     int raw_keys_selected;
@@ -163,13 +184,8 @@ struct wzx {
         double ratio;
     } tset[64];
 
-    /* histórico (desfazer) */
-    struct {
-        int n;
-        Window w[64];
-        wz_rect r[64];
-    } hist[WZX_HISTORY];
-    int nhist;
+    /* histórico (desfazer e refazer) */
+    wz_history history;
 
     /* atalhos */
     struct {
@@ -201,6 +217,8 @@ long wzx_now_ms(void);
 long wzx_now_us(void);
 void wzx_log(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 void wzx_save_cfg(wzx *z, const char *section, const char *key, const char *value);
+/* Valor atual de uma chave no arquivo (malloc), NULL se ausente. */
+char *wzx_cfg_get(wzx *z, const char *section, const char *key);
 void wzx_apply_config(wzx *z);
 
 /* wzx-wm.c */
@@ -223,12 +241,17 @@ long wzx_get_zone_prop(wzx *z, wzx_win *w);
 int wzx_tileable(wzx *z, wzx_win *w);
 int wzx_snappable(wzx *z, wzx_win *w);
 void wzx_activate(wzx *z, wzx_win *w);
+void wzx_send_to_desktop(wzx *z, wzx_win *w, long d);
 const char *wzx_title(wzx *z, wzx_win *w, char *buf, size_t len);
 int wzx_compositing(wzx *z);
 void wzx_or_event(wzx *z, Window w, int x, int y, int wd, int ht, int mapped, int destroyed);
 void wzx_wm_snapping(wzx *z, int disable);
 int wzx_snapping_marked(const char *cfg_path);
 int wzx_zones_for(wzx *z, int mon, wz_rect *out, char **names, int max);
+/* Zonas de uma árvore na área útil do monitor. */
+int wzx_zones_of_tree(wzx *z, int mon, const char *tree, wz_rect *out, char **names, int max);
+/* Layout efetivo do monitor (escopos, geral ou o automático pelo tamanho). */
+const wz_layout_def *wzx_layout_of(wzx *z, int mon);
 long wzx_desktop_of(wzx *z, wzx_win *w);
 
 /* wzx-drag.c */
@@ -238,9 +261,17 @@ void wzx_drag_raw(wzx *z, XGenericEventCookie *c);
 void wzx_drag_configure(wzx *z, XConfigureEvent *e);
 void wzx_drag_flush(wzx *z);
 void wzx_drag_timer(wzx *z);
+/* Próximo prazo do arrasto (ms monotônico), -1 se nenhum. */
+long wzx_drag_due(wzx *z);
 void wzx_snap(wzx *z, wzx_win *w, wz_rect target, long zone, int record);
 void wzx_history_push(wzx *z, wzx_win **ws, int n);
-void wzx_history_undo(wzx *z);
+/* Passo aberto: o chamador acrescenta janelas (wzx_history_add) e uma
+ * chave da configuração; wzx_history_end fecha. */
+wz_hist_entry *wzx_history_begin(wzx *z);
+void wzx_history_add(wzx *z, wz_hist_entry *e, wzx_win *w);
+void wzx_history_end(wzx *z);
+/* Desfaz (redo = 0) ou refaz (redo = 1) o último passo. 0 = nada. */
+int wzx_history_step(wzx *z, int redo);
 
 /* wzx-overlay.c */
 void wzx_overlay_show(wzx *z, int mon, int mode);
@@ -252,6 +283,16 @@ void wzx_fonts(wzx *z);
 void wzx_theme_reload(wzx *z);
 unsigned long wzx_pixel(wzx *z, unsigned rgb);
 void wzx_draw_bevel(wzx *z, Drawable d, GC gc, int x, int y, int w, int h, int raised);
+/* Painel de layouts no overlay do monitor mon (ainda não mostrado ou já
+ * mostrado nele); bottom: embaixo em vez de em cima. */
+void wzx_strip_build(wzx *z, int mon, int bottom);
+void wzx_strip_clear(wzx *z);
+/* Miniatura sob o ponto (-1 fora do painel, -2 no painel fora das
+ * miniaturas); *mini recebe a zona da miniatura ou -1. */
+int wzx_strip_hit(wzx *z, int px, int py, int *mini);
+void wzx_strip_set(wzx *z, int hover, int mini, int sel);
+/* Redesenha o overlay inteiro (zonas e painel). */
+void wzx_overlay_redraw(wzx *z);
 
 /* wzx-picker (wzx-overlay.c) */
 void wzx_picker_open(wzx *z);
@@ -271,6 +312,8 @@ void wzx_tile_swap_dir(wzx *z, wzx_win *w, int dir);
 void wzx_tile_promote(wzx *z, wzx_win *w);
 void wzx_tile_ratio(wzx *z, wzx_win *w, double delta);
 void wzx_tile_toggle_float(wzx *z, wzx_win *w);
+/* Proporção da principal no conjunto da janela (para o histórico). */
+double *wzx_tile_ratio_of(wzx *z, wzx_win *w);
 void wzx_tile_forget(wzx *z, wzx_win *w);
 
 /* wzx-keys.c */
@@ -292,6 +335,9 @@ void wzx_cycle_layout(wzx *z, int step, int mon);
 void wzx_dockapp_create(wzx *z);
 void wzx_dockapp_redraw(wzx *z);
 int wzx_dockapp_event(wzx *z, XEvent *e);
+/* Prazos do balão e da dica (ms monotônico, -1 nenhum). */
+long wzx_dockapp_due(wzx *z);
+void wzx_dockapp_timer(wzx *z, long now);
 
 /* Num processo filho, antes do exec: sinais como o programa espera. */
 void wzx_child_reset(void);

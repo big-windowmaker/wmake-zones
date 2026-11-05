@@ -38,6 +38,7 @@ static const char *const key_cmd[WZ_KEY_N] = {
     [WZ_KEY_GROW] = "grow",
     [WZ_KEY_SHRINK] = "shrink",
     [WZ_KEY_UNDO] = "undo",
+    [WZ_KEY_REDO] = "redo",
 };
 
 int

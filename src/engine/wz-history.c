@@ -14,9 +14,11 @@ wz_hist_entry_free(wz_hist_entry *e)
     if (!e)
         return;
     free(e->items);
-    free(e->section);
-    free(e->key);
-    free(e->value);
+    for (int i = 0; i < e->ncfg; i++) {
+        free(e->cfg[i].section);
+        free(e->cfg[i].key);
+        free(e->cfg[i].value);
+    }
     memset(e, 0, sizeof *e);
 }
 
@@ -141,17 +143,17 @@ wz_hist_add(wz_hist_entry *e, const wz_hist_item *it)
 }
 
 void
-wz_hist_set_cfg(wz_hist_entry *e, const char *section, const char *key, const char *value)
+wz_hist_add_cfg(wz_hist_entry *e, const char *section, const char *key, const char *value)
 {
-    if (!e || !section || !key)
+    if (!e || !section || !key || e->ncfg >= WZ_HIST_CFG_MAX)
         return;
-    free(e->section);
-    free(e->key);
-    free(e->value);
-    e->section = wz_xstrdup(section);
-    e->key = wz_xstrdup(key);
-    e->value = value ? wz_xstrdup(value) : NULL;
-    e->has_cfg = 1;
+    for (int i = 0; i < e->ncfg; i++)
+        if (!strcmp(e->cfg[i].section, section) && !strcmp(e->cfg[i].key, key))
+            return;
+    wz_hist_cfg *c = &e->cfg[e->ncfg++];
+    c->section = wz_xstrdup(section);
+    c->key = wz_xstrdup(key);
+    c->value = value ? wz_xstrdup(value) : NULL;
 }
 
 void
@@ -166,7 +168,7 @@ wz_hist_set_aux(wz_hist_entry *e, long aux)
 static int
 entry_empty(const wz_hist_entry *e)
 {
-    return e->n == 0 && !e->has_cfg && !e->has_aux;
+    return e->n == 0 && e->ncfg == 0 && !e->has_aux;
 }
 
 void

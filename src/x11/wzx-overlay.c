@@ -285,6 +285,245 @@ draw_hint_argb(wzx *z)
     text_center(z, z->font, z->theme.title_fg, msg, bar.x + w / 2, bar.y + h / 2, 0);
 }
 
+/* ---- painel de layouts (arrasto) ---------------------------------------- */
+
+/* Pintura comum aos dois modos: XRender com compositor, GC sem ele. */
+static void
+pfill(wzx *z, GC gc, wz_rect r, unsigned rgb, int alpha)
+{
+    if (r.w <= 0 || r.h <= 0)
+        return;
+    wz_rect l = local(z, r);
+    if (z->ov.argb) {
+        fill(z, alpha >= 255 ? PictOpSrc : PictOpOver, l, rgb, alpha);
+        return;
+    }
+    XSetForeground(z->dpy, gc, wzx_pixel(z, rgb));
+    XFillRectangle(z->dpy, z->ov.win, gc, l.x, l.y, (unsigned)l.w, (unsigned)l.h);
+}
+
+static void
+pbevel(wzx *z, GC gc, wz_rect r, int raised)
+{
+    unsigned lt = raised ? 0xffffff : 0x000000, dk = raised ? 0x000000 : 0xffffff;
+    pfill(z, gc, (wz_rect){ r.x, r.y, r.w, 1 }, lt, 255);
+    pfill(z, gc, (wz_rect){ r.x, r.y, 1, r.h }, lt, 255);
+    pfill(z, gc, (wz_rect){ r.x, r.y + r.h - 1, r.w, 1 }, dk, 255);
+    pfill(z, gc, (wz_rect){ r.x + r.w - 1, r.y, 1, r.h }, dk, 255);
+    /* Segunda linha escura, como os botões do WPrefs. */
+    pfill(z, gc, raised ? (wz_rect){ r.x + 1, r.y + r.h - 2, r.w - 2, 1 } : (wz_rect){ r.x + 1, r.y + 1, r.w - 2, 1 },
+          0x555555, 255);
+    pfill(z, gc, raised ? (wz_rect){ r.x + r.w - 2, r.y + 1, 1, r.h - 2 } : (wz_rect){ r.x + 1, r.y + 1, 1, r.h - 2 },
+          0x555555, 255);
+}
+
+/* Degradê horizontal em faixas de 2 pixels. */
+static void
+pgrad(wzx *z, GC gc, wz_rect r, unsigned c1, unsigned c2)
+{
+    for (int i = 0; i < r.w; i += 2)
+        pfill(z, gc, (wz_rect){ r.x + i, r.y, i + 2 <= r.w ? 2 : 1, r.h }, wz_rgb_mix(c1, c2, i * 255 / (r.w > 1 ? r.w : 1)),
+              255);
+}
+
+static void
+text_at(wzx *z, XftFont *f, unsigned rgb, const char *s, int x, int y)
+{
+    if (!f || !z->ov.xft || !s || !*s)
+        return;
+    wz_rect l = local(z, (wz_rect){ x, y, 0, 0 });
+    XftColor col;
+    XRenderColor xr = rc(rgb, 255);
+    XftColorAllocValue(z->dpy, z->ov.visual, z->ov.cmap, &xr, &col);
+    XftDrawStringUtf8(z->ov.xft, &col, f, l.x, l.y, (const FcChar8 *)s, (int)strlen(s));
+    XftColorFree(z->dpy, z->ov.visual, z->ov.cmap, &col);
+}
+
+static int
+text_width(wzx *z, XftFont *f, const char *s)
+{
+    XGlyphInfo gi;
+    XftTextExtentsUtf8(z->dpy, f, (const FcChar8 *)s, (int)strlen(s), &gi);
+    return gi.xOff;
+}
+
+/* Corta o texto (por caractere UTF-8) até caber, com reticências. */
+static void
+fit_text(wzx *z, XftFont *f, char *buf, size_t len, const char *src, int maxw)
+{
+    snprintf(buf, len, "%s", src);
+    while (strlen(buf) > 3 && text_width(z, f, buf) > maxw) {
+        size_t l = strlen(buf) - 1;
+        while (l > 0 && (buf[l] & 0xc0) == 0x80)
+            l--;
+        buf[l] = 0;
+        if (l > 3) {
+            size_t k = l - 1;
+            while (k > 0 && (buf[k] & 0xc0) == 0x80)
+                k--;
+            snprintf(buf + k, len - k, "…");
+        }
+    }
+}
+
+/* Zonas da miniatura i, em coordenadas da raiz. */
+static int
+strip_minis(wzx *z, int i, wz_rect *out, int max)
+{
+    wz_node *t = wz_parse(z->ov.strip_tree[i], NULL);
+    if (!t)
+        return 0;
+    wz_rect b = z->ov.strip_thumb[i];
+    int n = wz_compute(t, (wz_rect){ b.x + 3, b.y + 3, b.w - 6, b.h - 6 }, 2, 0, out, max);
+    wz_free(t);
+    return n > max ? max : n;
+}
+
+void
+wzx_strip_clear(wzx *z)
+{
+    for (int i = 0; i < z->ov.strip_n; i++) {
+        free(z->ov.strip_id[i]);
+        free(z->ov.strip_tree[i]);
+        free(z->ov.strip_label[i]);
+        z->ov.strip_id[i] = z->ov.strip_tree[i] = z->ov.strip_label[i] = NULL;
+    }
+    z->ov.strip_n = 0;
+    z->ov.strip = 0;
+    z->ov.strip_hover = z->ov.strip_mini = z->ov.strip_sel = -1;
+}
+
+void
+wzx_strip_build(wzx *z, int mon, int bottom)
+{
+    wzx_strip_clear(z);
+    wzx_fonts(z);
+    if (!z->font || !z->font_bold || mon < 0 || mon >= z->nmon)
+        return;
+    wzx_update_workarea(z);
+    wz_rect work = z->mon[mon].work, geom = z->mon[mon].geom;
+    /* Escala pela fonte do tema: acompanha o Xft.dpi (HiDPI). */
+    double sc = z->font->height / 15.0;
+    sc = sc < 1 ? 1 : sc > 3 ? 3 : sc;
+    int cell_w = (int)(100 * sc), thumb_w = (int)(78 * sc);
+    int thumb_h = geom.w > 0 ? thumb_w * geom.h / geom.w : thumb_w * 9 / 16;
+    if (thumb_h < (int)(30 * sc))
+        thumb_h = (int)(30 * sc);
+    if (thumb_h > (int)(66 * sc))
+        thumb_h = (int)(66 * sc);
+    int label_h = z->font->height + 4, pad = (int)(6 * sc);
+    int cell_h = pad + thumb_h + 4 + label_h + pad / 2;
+    int title_h = z->font_bold->height + 8;
+    const wz_layout_def *ls[WZX_STRIP_MAX];
+    int n = wz_config_drag_layouts(&z->cfg, ls, WZX_STRIP_MAX);
+    int fit = (work.w - 32 - 2 * pad) / cell_w;
+    if (n > fit)
+        n = fit;
+    if (n <= 0)
+        return;
+    int w = n * cell_w + 2 * pad, h = title_h + cell_h + 2 * pad;
+    int x = work.x + (work.w - w) / 2;
+    int y = bottom ? work.y + work.h - h - (int)(16 * sc) : work.y + (int)(16 * sc);
+    z->ov.strip_box = (wz_rect){ x, y, w, h };
+    z->ov.strip_title_h = title_h;
+    for (int i = 0; i < n; i++) {
+        z->ov.strip_id[i] = wz_xstrdup(ls[i]->id);
+        z->ov.strip_tree[i] = wz_xstrdup(ls[i]->tree);
+        const char *lab = ls[i]->label ? ls[i]->label : wz_builtin_label(ls[i]->id);
+        z->ov.strip_label[i] = wz_xstrdup(lab ? (ls[i]->label ? lab : _(lab)) : ls[i]->id);
+        wz_rect c = { x + pad + i * cell_w, y + title_h + pad, cell_w, cell_h };
+        z->ov.strip_cell[i] = c;
+        z->ov.strip_thumb[i] = (wz_rect){ c.x + (cell_w - thumb_w) / 2, c.y + pad, thumb_w, thumb_h };
+    }
+    z->ov.strip_n = n;
+    z->ov.strip = 1;
+}
+
+int
+wzx_strip_hit(wzx *z, int px, int py, int *mini)
+{
+    if (mini)
+        *mini = -1;
+    if (!z->ov.strip || !wz_rect_contains(z->ov.strip_box, px, py))
+        return -1;
+    for (int i = 0; i < z->ov.strip_n; i++) {
+        if (!wz_rect_contains(z->ov.strip_cell[i], px, py))
+            continue;
+        if (mini && wz_rect_contains(z->ov.strip_thumb[i], px, py)) {
+            wz_rect m[64];
+            int k = strip_minis(z, i, m, 64);
+            for (int j = 0; j < k; j++)
+                if (wz_rect_contains(m[j], px, py))
+                    *mini = j;
+        }
+        return i;
+    }
+    return -2;
+}
+
+static void
+draw_strip(wzx *z, GC gc)
+{
+    if (!z->ov.strip || z->ov.strip_n <= 0 || !z->font || !z->font_bold)
+        return;
+    wz_rect b = z->ov.strip_box;
+    int th = z->ov.strip_title_h;
+    /* Barra de título do Window Maker e corpo de menu, com chanfro. */
+    pgrad(z, gc, (wz_rect){ b.x, b.y, b.w, th }, z->theme.title_bg1, z->theme.title_bg2);
+    pbevel(z, gc, (wz_rect){ b.x, b.y, b.w, th }, 1);
+    char buf[160];
+    fit_text(z, z->font_bold, buf, sizeof buf, _("Window layout: choose a layout, then a zone"), b.w - 16);
+    text_at(z, z->font_bold, z->theme.title_fg, buf, b.x + 8, b.y + (th + z->font_bold->ascent - z->font_bold->descent) / 2);
+    wz_rect body = { b.x, b.y + th, b.w, b.h - th };
+    pgrad(z, gc, body, z->theme.menu_bg1, z->theme.menu_bg2);
+    pbevel(z, gc, body, 1);
+    for (int i = 0; i < z->ov.strip_n; i++) {
+        wz_rect c = z->ov.strip_cell[i];
+        int sel = i == z->ov.strip_sel, hov = i == z->ov.strip_hover;
+        wz_rect btn = { c.x + 2, c.y + 2, c.w - 4, c.h - 4 };
+        if (sel) {
+            /* Botão afundado: o layout escolhido. */
+            pfill(z, gc, btn, wz_rgb_mix(z->theme.menu_bg1, 0x000000, 40), 255);
+            pbevel(z, gc, btn, 0);
+        } else if (hov) {
+            pfill(z, gc, btn, z->theme.hl_bg, 255);
+            pbevel(z, gc, btn, 1);
+        }
+        wz_rect t = z->ov.strip_thumb[i];
+        pfill(z, gc, t, 0x1c2024, 255);
+        pbevel(z, gc, (wz_rect){ t.x - 1, t.y - 1, t.w + 2, t.h + 2 }, 0);
+        wz_rect m[64];
+        int k = strip_minis(z, i, m, 64);
+        for (int j = 0; j < k; j++) {
+            int on = (hov || sel) && j == z->ov.strip_mini && hov;
+            unsigned col = on ? hl1(z) : sel ? wz_rgb_mix(hl1(z), 0xffffff, 120) : 0xc2c0c5;
+            pfill(z, gc, m[j], col, 255);
+            if (m[j].w >= 4 && m[j].h >= 4) {
+                pfill(z, gc, (wz_rect){ m[j].x, m[j].y, m[j].w, 1 }, 0xffffff, 255);
+                pfill(z, gc, (wz_rect){ m[j].x, m[j].y, 1, m[j].h }, 0xffffff, 255);
+                pfill(z, gc, (wz_rect){ m[j].x, m[j].y + m[j].h - 1, m[j].w, 1 }, 0x303030, 255);
+                pfill(z, gc, (wz_rect){ m[j].x + m[j].w - 1, m[j].y, 1, m[j].h }, 0x303030, 255);
+            }
+        }
+        fit_text(z, sel ? z->font_bold : z->font, buf, sizeof buf, z->ov.strip_label[i], c.w - 8);
+        XftFont *f = sel ? z->font_bold : z->font;
+        int tw = text_width(z, f, buf);
+        text_at(z, f, hov && !sel ? z->theme.hl_fg : z->theme.menu_fg, buf, c.x + (c.w - tw) / 2,
+                t.y + t.h + 4 + f->ascent);
+    }
+}
+
+void
+wzx_strip_set(wzx *z, int hover, int mini, int sel)
+{
+    if (hover == z->ov.strip_hover && mini == z->ov.strip_mini && sel == z->ov.strip_sel)
+        return;
+    z->ov.strip_hover = hover;
+    z->ov.strip_mini = mini;
+    z->ov.strip_sel = sel;
+    wzx_overlay_redraw(z);
+}
+
 static void
 redraw_argb(wzx *z)
 {
@@ -304,6 +543,7 @@ redraw_argb(wzx *z)
         }
     }
     draw_hint_argb(z);
+    draw_strip(z, None);
 }
 
 /* Sem compositor: janela comum recortada pela forma. A forma só muda quando
@@ -351,6 +591,11 @@ redraw_plain(wzx *z, int reshape)
         for (int k = 0; k < 6; k++)
             XDrawRectangle(z->dpy, mask, mgc, t.x + k, t.y + k, (unsigned)(t.w - 1 - 2 * k), (unsigned)(t.h - 1 - 2 * k));
     }
+    if (z->ov.strip) {
+        wz_rect sb = local(z, z->ov.strip_box);
+        XFillRectangle(z->dpy, mask, mgc, sb.x, sb.y, (unsigned)sb.w, (unsigned)sb.h);
+        draw_strip(z, gc);
+    }
     if (reshape)
         XShapeCombineMask(z->dpy, z->ov.win, ShapeBounding, 0, 0, mask, ShapeSet);
     XFreeGC(z->dpy, gc);
@@ -372,6 +617,12 @@ redraw_full(wzx *z, int reshape)
 
 static void
 redraw(wzx *z)
+{
+    redraw_full(z, 1);
+}
+
+void
+wzx_overlay_redraw(wzx *z)
 {
     redraw_full(z, 1);
 }
@@ -490,6 +741,7 @@ wzx_overlay_hide(wzx *z)
     z->ov.has_target = 0;
     z->ov.hl_a = z->ov.hl_b = -1;
     z->ov_hide_at = 0;
+    wzx_strip_clear(z);
     XFlush(z->dpy);
 }
 

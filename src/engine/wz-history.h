@@ -41,13 +41,20 @@ typedef struct {
     unsigned flags;
 } wz_hist_item;
 
+/* Chaves da configuração por passo (modo: Zones, Autotile, LastMode). */
+#define WZ_HIST_CFG_MAX 4
+
+typedef struct {
+    char *section, *key;
+    char *value; /* o valor que volta; NULL = apagar a chave */
+} wz_hist_cfg;
+
 typedef struct {
     int n;
     wz_hist_item *items;
-    /* Mudança de configuração (opcional): seção, chave e o valor que
-     * volta (NULL = apagar a chave). */
-    char *section, *key, *value;
-    int has_cfg;
+    /* Mudanças de configuração (opcional). */
+    wz_hist_cfg cfg[WZ_HIST_CFG_MAX];
+    int ncfg;
     /* Dado livre do backend (ex.: proporção da principal x 10000). */
     long aux;
     int has_aux;
@@ -71,7 +78,8 @@ void wz_history_set_depth(wz_history *h, int depth);
 wz_hist_entry *wz_history_begin(wz_history *h);
 /* Acrescenta uma janela ao passo (repetida: a primeira vale). */
 void wz_hist_add(wz_hist_entry *e, const wz_hist_item *it);
-void wz_hist_set_cfg(wz_hist_entry *e, const char *section, const char *key, const char *value);
+/* Acrescenta uma chave (repetida: a primeira vale). */
+void wz_hist_add_cfg(wz_hist_entry *e, const char *section, const char *key, const char *value);
 void wz_hist_set_aux(wz_hist_entry *e, long aux);
 /* Descarta o passo aberto se ficou vazio (nada a desfazer). */
 void wz_history_commit(wz_history *h);
