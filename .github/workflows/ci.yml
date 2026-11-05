@@ -21,7 +21,9 @@ jobs:
           meson setup build -Dprefix=/usr
           meson compile -C build
       - name: Testes (núcleo e X11 com o wmaker num Xvfb)
-        run: meson test -C build --print-errorlogs
+        run: |
+          # A saída TAP (qual verificação falhou) fica no testlog.txt.
+          meson test -C build --print-errorlogs || { cat build/meson-logs/testlog.txt; exit 1; }
       - name: Núcleo com sanitizers
         run: |
           meson setup asan -Db_sanitize=address,undefined -Db_lundef=false -Dprefs=disabled -Dwayland_dockapp=disabled
