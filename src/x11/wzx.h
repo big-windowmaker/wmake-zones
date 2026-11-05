@@ -85,6 +85,7 @@ typedef struct {
     int rule_done;
     int rule_ignore;      /* regra: fora de tudo (zonas e mosaico) */
     int rule_tile;        /* regra: no mosaico mesmo fixa em todas as áreas, acima... */
+    int resnap_mon;       /* monitores mudaram: voltar à zona neste monitor (-1 nada) */
 } wzx_win;
 
 typedef enum { DRAG_IDLE = 0, DRAG_ARMED, DRAG_MOVING, DRAG_RESIZING } wzx_drag_state;
@@ -140,6 +141,7 @@ struct wzx {
     int nmon;
     int work_dirty;
     int monitors_dirty;    /* RandR: refazer monitores depois do lote */
+    long resnap_at;        /* reencaixar depois que o wmaker mover o Dock */
 
     wzx_or ors[WZX_MAX_OR];
     int nor;
@@ -236,6 +238,7 @@ void wzx_update_monitors(wzx *z);
 /* Monitores mudaram (hotplug): refaz a lista e, se ela mudou de fato, o
  * mosaico; janelas fora de todos os monitores voltam para o mais perto. */
 void wzx_monitors_changed(wzx *z);
+void wzx_resnap_run(wzx *z);
 void wzx_update_workarea(wzx *z);
 void wzx_sync_clients(wzx *z);
 wzx_win *wzx_find(wzx *z, Window w);

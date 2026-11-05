@@ -601,6 +601,8 @@ main(int argc, char **argv)
         if (z->ov_hide_at && now >= z->ov_hide_at && z->ov.mode == 3)
             wzx_overlay_hide(z);
         wzx_dockapp_timer(z, now);
+        if (z->resnap_at && now >= z->resnap_at)
+            wzx_resnap_run(z);
         if (!z->picker && !z->popup)
             z->grab_idle_at = 0;
         else if (!z->grab_idle_at)
@@ -620,6 +622,8 @@ main(int argc, char **argv)
             due = z->tile_at;
         if (z->ov_hide_at && (due < 0 || z->ov_hide_at < due))
             due = z->ov_hide_at;
+        if (z->resnap_at && (due < 0 || z->resnap_at < due))
+            due = z->resnap_at;
         if (z->grab_idle_at && (due < 0 || z->grab_idle_at < due))
             due = z->grab_idle_at;
         long dd = wzx_dockapp_due(z);
