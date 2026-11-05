@@ -1,0 +1,206 @@
+.\" SPDX-License-Identifier: GPL-2.0-or-later
+.TH WMAKE-ZONES 1 "2026-11-05" "wmake-zones 0.2.0" "User Commands"
+.SH NAME
+wmake-zones \- window zones and automatic tiling for Window Maker and wlmaker
+.SH SYNOPSIS
+.B wmake-zones
+.RB [ \-\-dockapp | \-\-session | \-\-reset ]
+.br
+.B wmake-zones
+.I command
+.RI [ argument ]
+.br
+.B wmake-zones-prefs
+.RB [ \-\-editor | \-\-about | \-\-\fIsection\fR ]
+.br
+.B wmake-zones-wl
+.SH DESCRIPTION
+.B wmake-zones
+adds snap zones and automatic tiling to the Big WindowMaker desktop
+while keeping Window Maker a floating window manager by default.
+.PP
+.B Zones:
+while a window is dragged, the zones of the monitor under the pointer
+appear as bevelled panels; releasing the button snaps the window into the
+highlighted zone.
+Near the border between two zones the target becomes both of them.
+.B Esc
+during the drag cancels it and puts the window back.
+A snapped window dragged out again gets its previous size back.
+.PP
+.B Auto Tiling:
+the windows of a monitor and workspace are arranged with one of the
+algorithms
+.BR master ,
+.BR columns ,
+.BR rows ,
+.BR grid ,
+.BR bsp ,
+.BR monocle ,
+.B spiral
+or
+.BR dwindle .
+Dropping a tiled window over another swaps them; turning tiling off puts
+every window back where it was.
+.PP
+On X11 the work is done by the
+.B wmake-zones
+service, which talks to Window Maker through EWMH and XInput 2.
+On Wayland it is done inside the wlmaker compositor, which links the same
+geometry engine and reads the same configuration file;
+.B wmake-zones-wl
+is the dock app for wlmaker.
+The same commands work in both sessions.
+.PP
+The service uses no CPU while idle: it wakes up only for X events,
+commands and the timers of an ongoing drag.
+With zones and tiling off it does not run at all.
+.SH OPTIONS
+.TP
+.B (none)
+Start the service (X11).
+.TP
+.BR \-d ", " \-\-dockapp
+Start the service with its 64\(mu64 tile for the Window Maker Dock or Clip.
+Left click opens the layouts, the wheel cycles them, the middle button
+turns zones on and off and the right button opens the menu.
+In a Wayland session this runs
+.BR wmake-zones-wl .
+.TP
+.B \-\-session
+Used by the autostart entry at login: the service stays only when zones,
+tiling or
+.B KeepRunning
+is on.
+.TP
+.B \-\-reset
+Turn zones and tiling off and give Window Maker back its own
+.B WindowSnapping
+setting.
+.TP
+.BR \-h ", " \-\-help
+Show a summary of the options and commands.
+.TP
+.B \-\-version
+Show the version.
+.SH COMMANDS
+Commands are sent to the running service of the session (X11 or wlmaker)
+through a socket in
+.IR $XDG_RUNTIME_DIR/wmake-zones/ .
+Turning zones or tiling on while the X11 service is not running saves the
+setting and starts the service.
+.TP
+.B status
+State, monitors with their work areas and effective layouts, windows and
+shortcut conflicts.
+.TP
+.BR zones " " on | off | toggle
+Snap zones while dragging.
+.TP
+.BR autotile " " on | off | toggle
+Automatic tiling.
+.TP
+.BR layout " " \fIID\fR | next | prev
+Zone layout of the monitor under the pointer (its own layout when it has
+one, otherwise the general one).
+.TP
+.B layouts
+Available layouts (built in and from the configuration file).
+.TP
+.BI algorithm " name"
+Tiling algorithm.
+.TP
+.BI snap " n"
+Put the active window in zone
+.I n
+(1 is the first).
+.TP
+.BR move | swap | focus " " left | right | up | down
+Move the active window to the neighbouring zone (crossing to the next
+monitor when there is none), swap it with the window there, or focus it.
+.TP
+.BR restore ", " restore\-all
+Give the active window (or every snapped window) its size and place from
+before snapping.
+.TP
+.BR float ", " promote ", " grow ", " shrink ", " arrange
+Take the active window out of tiling or back in; make it the master;
+change the master ratio; snap every window to its nearest zone.
+.TP
+.B undo
+Undo the last snap, restore or tiling change.
+.TP
+.B picker
+Choose a zone with the keyboard: digits or arrows, Enter, Tab for the
+next layout, Esc (X11).
+.TP
+.BI preview " tree"
+Show a layout for a moment, for example
+.BR "H(2,1)" .
+.TP
+.BR windows " [" \-l ]
+Class, instance and title of the open windows; with
+.BR \-l ,
+monitor, zone, tiling and frame geometry.
+.TP
+.BR editor ", " prefs
+Open the zone editor or the preferences.
+.TP
+.BR reload ", " log ", " ping ", " quit
+Read the configuration again, show the last log lines, check that the
+service answers, stop it.
+.SH LAYOUTS
+A layout is a tree of horizontal
+.RB ( H )
+and vertical
+.RB ( V )
+splits with weights, and optionally names:
+.PP
+.RS
+.nf
+H(1,1)                 two halves
+H(1,2,1)               centre column twice as wide
+H(2,V(1,1))            large left, two stacked on the right
+H("Code" 2, "Docs" 1)  named zones
+.fi
+.RE
+.PP
+Zones of the same weight have the same size; the gaps between them are
+taken from the space before it is divided.
+.SH FILES
+.TP
+.I ~/.config/wmake-zones/wmake-zones.conf
+Configuration (INI, compatible with GKeyFile).
+Changes made by the service or the preferences keep comments and unknown
+keys and are written atomically.
+Settings can be given per monitor
+.RB ( "[Monitor DP-1]" ),
+per workspace
+.RB ( "[Workspace 2]" )
+or both, and per application with
+.B [Rule ...]
+sections.
+.TP
+.I /usr/share/doc/wmake-zones/wmake-zones.conf.example
+Every key with comments.
+.TP
+.I /etc/xdg/autostart/wmake-zones.desktop
+Starts the X11 service at login when it is needed.
+.SH ENVIRONMENT
+.TP
+.B WZ_DEBUG
+When set, the service logs the time taken by the overlay, snapping and
+tiling.
+.SH EXAMPLES
+.nf
+wmake-zones zones on
+wmake-zones layout thirds
+wmake-zones autotile on && wmake-zones algorithm bsp
+wmake-zones snap 2
+wmake-zones windows \-l
+.fi
+.SH SEE ALSO
+.BR wmaker (1),
+.BR wlmaker (1)
+.PP
+https://github.com/big-windowmaker/wmake-zones

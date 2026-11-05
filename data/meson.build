@@ -7,3 +7,12 @@ install_data('applications/wmake-zones-prefs.desktop', 'applications/wmake-zones
              'applications/wmake-zones-dockapp.desktop', install_dir: datadir / 'applications')
 install_data('autostart/wmake-zones.desktop', install_dir: get_option('sysconfdir') / 'xdg/autostart')
 install_data('wmake-zones.conf.example', install_dir: datadir / 'doc/wmake-zones')
+install_man('man/wmake-zones.1')
+install_data('metainfo/io.github.big_windowmaker.wmake_zones.metainfo.xml', install_dir: datadir / 'metainfo')
+
+# Validação dos metadados quando as ferramentas existem (sem rede).
+appstreamcli = find_program('appstreamcli', required: false)
+if appstreamcli.found() and get_option('tests')
+  test('metainfo', appstreamcli, args: ['validate', '--no-net', '--pedantic',
+       meson.current_source_dir() / 'metainfo/io.github.big_windowmaker.wmake_zones.metainfo.xml'])
+endif

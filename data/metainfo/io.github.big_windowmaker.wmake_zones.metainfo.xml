@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: CC0-1.0 -->
+<component type="desktop-application">
+  <id>io.github.big_windowmaker.wmake_zones</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-2.0-or-later</project_license>
+  <name>Window Zones</name>
+  <name xml:lang="pt-BR">Organização de janelas</name>
+  <summary>Snap windows to zones and tile them, the Window Maker way</summary>
+  <summary xml:lang="pt-BR">Encaixe janelas em zonas e organize em mosaico, do jeito do Window Maker</summary>
+  <developer id="io.github.big_windowmaker">
+    <name>Big WindowMaker</name>
+  </developer>
+  <description>
+    <p>
+      Window Zones (wmake-zones) adds snap zones and automatic tiling to the Big WindowMaker desktop,
+      on X11 with Window Maker and on Wayland with wlmaker, while Window Maker stays a
+      floating window manager until you turn them on.
+    </p>
+    <p xml:lang="pt-BR">
+      O wmake-zones acrescenta zonas de encaixe e mosaico automático ao Big WindowMaker,
+      no X11 com o Window Maker e no Wayland com o wlmaker; o Window Maker continua
+      flutuante até você ligar.
+    </p>
+    <ul>
+      <li>Zones while dragging: drop a window on a zone, or between two to use both; Esc cancels</li>
+      <li xml:lang="pt-BR">Zonas ao arrastar: solte numa zona, ou entre duas para usar as duas; Esc cancela</li>
+      <li>Fifteen layouts (halves, thirds, quarters, grids, ultrawide, portrait) and a visual editor for your own</li>
+      <li xml:lang="pt-BR">Quinze layouts (metades, terços, quartos, grades, ultrawide, retrato) e um editor visual para os seus</li>
+      <li>Auto Tiling with master and stack, columns, rows, grid, BSP, monocle, spiral and dwindle</li>
+      <li xml:lang="pt-BR">Mosaico automático com principal e pilha, colunas, linhas, grade, BSP, monocle, espiral e dwindle</li>
+      <li>Per monitor and per workspace layouts, per application rules and keyboard shortcuts</li>
+      <li xml:lang="pt-BR">Layouts por monitor e por área de trabalho, regras por aplicativo e atalhos de teclado</li>
+      <li>A dock app for the Dock or Clip and the NeXTSTEP look of the Window Maker theme, light or dark</li>
+      <li xml:lang="pt-BR">Um dockapp para o Dock ou o Clip e o visual NeXTSTEP do tema do Window Maker, claro ou escuro</li>
+      <li>No CPU while idle and well under 3 MiB of memory</li>
+      <li xml:lang="pt-BR">Nenhuma CPU em repouso e bem menos de 3 MiB de memória</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">wmake-zones-prefs.desktop</launchable>
+  <url type="homepage">https://github.com/big-windowmaker/wmake-zones</url>
+  <url type="bugtracker">https://github.com/big-windowmaker/wmake-zones/issues</url>
+  <url type="vcs-browser">https://github.com/big-windowmaker/wmake-zones</url>
+  <screenshots>
+    <screenshot type="default">
+      <caption>Zones while dragging a window</caption>
+      <image>https://raw.githubusercontent.com/big-windowmaker/wmake-zones/v0.2.0/docs/screenshots/x11-zones.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Automatic tiling</caption>
+      <image>https://raw.githubusercontent.com/big-windowmaker/wmake-zones/v0.2.0/docs/screenshots/x11-tiling.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Zone editor</caption>
+      <image>https://raw.githubusercontent.com/big-windowmaker/wmake-zones/v0.2.0/docs/screenshots/editor.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Preferences</caption>
+      <image>https://raw.githubusercontent.com/big-windowmaker/wmake-zones/v0.2.0/docs/screenshots/prefs.png</image>
+    </screenshot>
+  </screenshots>
+  <categories>
+    <category>Settings</category>
+    <category>DesktopSettings</category>
+  </categories>
+  <keywords>
+    <keyword>tiling</keyword>
+    <keyword>snap</keyword>
+    <keyword>zones</keyword>
+    <keyword>window manager</keyword>
+    <keyword xml:lang="pt-BR">mosaico</keyword>
+    <keyword xml:lang="pt-BR">zonas</keyword>
+  </keywords>
+  <provides>
+    <binary>wmake-zones</binary>
+    <binary>wmake-zones-prefs</binary>
+    <binary>wmake-zones-wl</binary>
+  </provides>
+  <requires>
+    <display_length compare="ge">768</display_length>
+  </requires>
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </supports>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="0.2.0" date="2026-11-05">
+      <description>
+        <p>Equal zones with gaps, sturdier service and editor, left-handed mice, and a manual page.</p>
+        <ul>
+          <li>Zones of the same weight now have the same size when there is a gap</li>
+          <li>Drags work with swapped mouse buttons and never get stuck</li>
+          <li>The service and the preferences no longer overwrite each other's settings; symbolic links are kept</li>
+          <li>Programs opened by the service can be closed normally</li>
+          <li>Keyboard layout changes update the shortcuts</li>
+          <li>New commands: help and windows -l</li>
+        </ul>
+      </description>
+    </release>
+    <release version="0.1.0" date="2026-11-04">
+      <description>
+        <p>First release: zones, automatic tiling, zone editor, preferences and dock apps for X11 and Wayland.</p>
+      </description>
+    </release>
+  </releases>
+</component>
