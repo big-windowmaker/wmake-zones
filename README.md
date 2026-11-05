@@ -79,10 +79,12 @@ Sessão real do Big WindowMaker numa VM (live ISO), com o tema padrão.
 | Mosaico no Wayland: a mesma geometria do X11 | Sem compositor: contornos e o destino em listras |
 | ![Preferências do wmake-zones](docs/screenshots/preferencias.png) | ![Editor de zonas](docs/screenshots/editor.png) |
 | Preferências, com as seções do WPrefs | Editor de zonas |
-| ![Painel de layouts do dockapp](docs/screenshots/dockapp-layouts.png) | ![Menu do dockapp](docs/screenshots/dockapp-menu.png) |
-| Clique esquerdo no ladrilho: os layouts | Clique direito: o menu, como os do Window Maker |
-| <img src="docs/screenshots/dockapp.png" width="128" alt="Ladrilho do wmake-zones no X11: miniatura do layout com a zona ativa em azul e o LED verde de ZONES"> | <img src="docs/screenshots/wayland-dockapp.png" width="210" alt="Ladrilho wmake-zones-wl no wlmaker, ao lado do Clip, com as zonas desligadas"> |
-| O ladrilho no X11: layout e modo no LED | O ladrilho nativo do wlmaker, ao lado do Clip |
+| ![Painel de layouts no arrasto, no X11: parado sobre Principal + pilha, as zonas desse layout aparecem](docs/screenshots/x11-painel-layouts.png) | ![O mesmo painel no Wayland, desenhado pelo wlmaker: parado sobre Três colunas](docs/screenshots/wayland-painel-layouts.png) |
+| Arrastar: primeiro o layout, depois a zona (X11) | O mesmo arrasto no Wayland |
+| ![Seletor Super+Z no Wayland: zonas numeradas e a dica embaixo](docs/screenshots/wayland-seletor.png) | ![Menu do dockapp com o submenu do algoritmo do mosaico](docs/screenshots/dockapp-menu.png) |
+| Super+Z: escolher a zona pelo teclado (Wayland) | Clique direito no ladrilho: o menu, como os do Window Maker |
+| <img src="docs/screenshots/dockapp.png" width="128" alt="Ladrilho do wmake-zones no X11: miniatura do layout e as teclas Z (acesa) e M"> | <img src="docs/screenshots/wayland-dockapp.png" width="128" alt="Ladrilho wmake-zones-wl no Dock do wlmaker, com Z aceso"> |
+| O ladrilho no X11: clique esquerdo alterna Z (zonas) e M (mosaico) | O ladrilho nativo do wlmaker, com os mesmos cliques |
 
 ## Instalar
 
