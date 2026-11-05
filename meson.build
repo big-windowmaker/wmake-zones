@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 project('wmake-zones', 'c',
-  version: '0.2.0',
+  version: '0.3.0',
   license: 'GPL-2.0-or-later',
   meson_version: '>= 0.62',
   default_options: ['c_std=gnu11', 'warning_level=2', 'buildtype=debugoptimized', 'b_ndebug=if-release'])
@@ -28,6 +28,7 @@ engine_src = files(
   'src/engine/wz-config.c',
   'src/engine/wz-theme.c',
   'src/engine/wz-ipc.c',
+  'src/engine/wz-history.c',
 )
 engine_inc = include_directories('src/engine')
 engine_lib = static_library('wmake-zones-engine', engine_src,
@@ -36,7 +37,7 @@ engine_lib = static_library('wmake-zones-engine', engine_src,
 engine_dep = declare_dependency(link_with: engine_lib, include_directories: engine_inc, dependencies: [m])
 if get_option('engine_lib')
   install_headers('src/engine/wz-layout.h', 'src/engine/wz-tile.h', 'src/engine/wz-config.h',
-                  'src/engine/wz-theme.h', 'src/engine/wz-ipc.h', subdir: 'wmake-zones')
+                  'src/engine/wz-theme.h', 'src/engine/wz-ipc.h', 'src/engine/wz-history.h', subdir: 'wmake-zones')
   pkg = import('pkgconfig')
   pkg.generate(engine_lib, name: 'wmake-zones-engine',
                description: 'Núcleo de geometria e configuração do wmake-zones',

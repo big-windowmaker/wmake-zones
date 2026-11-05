@@ -52,7 +52,7 @@ cat >"$GNUSTEP_USER_ROOT/Defaults/WindowMaker" <<'EOF'
 }
 EOF
 CONF=$XDG_CONFIG_HOME/wmake-zones/wmake-zones.conf
-printf '[General]\nZones=true\nLayout=quarters\nShowDelay=0\nGap=0\nOuterGap=0\n' >"$CONF"
+printf '[General]\nZones=true\nLayout=quarters\nDragFlow=zones\nShowDelay=0\nGap=0\nOuterGap=0\n' >"$CONF"
 
 # O servidor escolhe um display livre (-displayfd): nunca o de outro.
 exec 9>"$TMP/displayfd"
@@ -71,7 +71,9 @@ if [ "${COMPOSITOR:-}" = picom ] && command -v picom >/dev/null; then
 	sleep 1
 fi
 
-"$WZ" >"$TMP/wz.log" 2>&1 &
+# Seletor e menu do dockapp fecham sozinhos depois de parados (30 s no uso
+# normal); aqui, 2 s.
+WZX_GRAB_IDLE_MS=2000 "$WZ" >"$TMP/wz.log" 2>&1 &
 ZP=$!
 PIDS="$PIDS $ZP"
 sleep 1
@@ -166,6 +168,66 @@ xdotool key 3
 sleep 0.6
 check "tecla 3 encaixa na zona 3" '[ "$(prop "$W1" _WMAKE_ZONES_ZONE)" = 2 ]'
 check "seletor fechado" '[ "$(overlay_count)" -eq 0 ]'
+
+# Seletor esquecido aberto: fecha sozinho e solta o teclado (a tela de
+# bloqueio precisa pegá-lo).
+xdotool key super+z
+sleep 0.6
+check "seletor aberto de novo" '[ "$(overlay_count)" -ge 1 ]'
+sleep 2.5
+check "seletor parado fecha sozinho" '[ "$(overlay_count)" -eq 0 ]'
+check "teclado livre depois de fechar sozinho" 'python3 -c "
+from Xlib import display, X
+d = display.Display(); r = d.screen().root
+s = r.grab_keyboard(True, X.GrabModeAsync, X.GrabModeAsync, X.CurrentTime)
+d.ungrab_keyboard(X.CurrentTime); d.sync(); raise SystemExit(s != X.GrabSuccess)"'
+
+# Primeiro o layout, depois a zona (padrão da 0.3): o painel de miniaturas
+# aparece no arrasto; soltar numa zona de uma miniatura encaixa direto, e
+# parar sobre uma miniatura mostra as zonas daquele layout.
+sed -i 's/^DragFlow=zones$/DragFlow=layouts\nLayoutDwell=150/' "$CONF"
+"$WZ" reload >/dev/null
+cell() { "$WZ" overlay | awk -v id="$1" -v f="$2" '$1 == "cell=" id { split(f == "thumb" ? substr($3, 7) : $2, a, /[x+]/); print a[1], a[2], a[3], a[4] }'; }
+eval "$(geom "$W1")"
+drag "$W1" 15 15 12
+check "painel de layouts no arrasto, ainda sem zonas" '"$WZ" overlay | grep -q "^overlay=shown .*zones=0 strip=1"'
+read -r tw th tx ty <<<"$(cell halves thumb)"
+echo "# miniatura de metades: ${tw}x${th}+${tx}+${ty}"
+xdotool mousemove $((tx + tw * 3 / 4)) $((ty + th / 2))
+sleep 0.4
+xdotool mousemove $((tx + tw * 3 / 4 + 1)) $((ty + th / 2))
+sleep 0.3
+xdotool mouseup 1
+sleep 0.8
+eval "$(geom "$W1")"
+check "soltar na metade direita da miniatura encaixa na metade direita ($X,$WIDTH)" '[ "$(prop "$W1" _WMAKE_ZONES_ZONE)" = 1 ] && [ "$X" -ge 790 ] && [ "$WIDTH" -le 810 ]'
+check "o layout escolhido no painel vira o do monitor" 'grep -q "^Layout=halves" "$CONF"'
+"$WZ" undo >/dev/null
+sleep 0.6
+check "desfazer: o layout de antes volta junto (um passo só)" 'grep -q "^Layout=quarters" "$CONF"'
+check "desfazer: a zona de antes volta" '[ "$(prop "$W1" _WMAKE_ZONES_ZONE)" = 2 ]'
+"$WZ" redo >/dev/null
+sleep 0.6
+check "refazer: metade direita e layout de novo" '[ "$(prop "$W1" _WMAKE_ZONES_ZONE)" = 1 ] && grep -q "^Layout=halves" "$CONF"'
+drag "$W1" -15 15 12
+read -r cw chh cx cy <<<"$(cell thirds cell)"
+xdotool mousemove $((cx + cw / 2)) $((cy + chh - 6))
+sleep 0.5
+xdotool mousemove $((cx + cw / 2 + 1)) $((cy + chh - 6))
+sleep 0.4
+check "parado sobre a miniatura: as zonas daquele layout aparecem" '"$WZ" overlay | grep -q "zones=3 strip=1 sel=thirds"'
+xdotool mousemove 120 450
+sleep 0.4
+xdotool mouseup 1
+sleep 0.8
+eval "$(geom "$W1")"
+check "e a zona escolhida depois: terço da esquerda ($X,$WIDTH)" '[ "$(prop "$W1" _WMAKE_ZONES_ZONE)" = 0 ] && [ "$X" -le 5 ] && [ "$WIDTH" -le 540 ]'
+drag "$W1" 15 15 12
+xdotool key Escape
+sleep 0.3
+check "Esc fecha o painel" '[ "$(overlay_count)" -eq 0 ]'
+xdotool mouseup 1
+sleep 0.6
 
 "$WZ" layout thirds >/dev/null
 check "layout trocado e gravado" 'grep -q "^Layout=thirds" "$CONF"'

@@ -3,13 +3,16 @@
  * Dockapp wmake-zones: ladrilho de 64x64 no Dock/Clip do Window Maker,
  * dentro do próprio daemon (um processo só, sem serviço duplicado).
  *
- *   clique esquerdo   painel de layouts (miniaturas)
- *   clique direito    menu no estilo do Window Maker
- *   roda              layout anterior/seguinte
+ *   clique esquerdo   Zonas <-> Mosaico          ([Dockapp] LeftClick)
+ *   clique do meio    desliga / religa o último   ([Dockapp] MiddleClick)
+ *   clique direito    menu no estilo do Window Maker, com submenus
+ *   roda              layout anterior/seguinte    ([Dockapp] Wheel)
  *
  * O ladrilho mostra a miniatura do layout ativo numa "tela" afundada e,
- * embaixo, um LED com o modo: apagado, ZONAS (verde) ou MOSAICO (âmbar).
- * Só redesenha quando algo muda; parado, não acorda.
+ * embaixo, duas teclas com LED: Z (zonas, verde) e M (mosaico, âmbar);
+ * nenhuma acesa = desligado. Cada troca mostra um balão discreto com o modo
+ * e o layout, que some sozinho (a dica ao parar o ponteiro é o balão do
+ * próprio Window Maker, com o nome do dockapp). Só redesenha quando algo muda; parado, não acorda.
  */
 #define _GNU_SOURCE
 #include "wzx.h"
@@ -27,11 +30,6 @@
 
 enum { POP_NONE = 0, POP_LAYOUTS, POP_MENU };
 
-enum {
-    MI_ZONES, MI_AUTOTILE, MI_LAYOUT_INFO, MI_NEXT, MI_CHOOSE, MI_ARRANGE, MI_RESTORE, MI_UNDO,
-    MI_EDITOR, MI_PREFS, MI_ABOUT, MI_COUNT
-};
-
 static Pixmap face;
 static GC dgc;
 
@@ -41,25 +39,21 @@ static const struct {
     char c;
     unsigned char rows[5];
 } glyphs[] = {
-    { 'A', { 2, 5, 7, 5, 5 } }, { 'C', { 3, 4, 4, 4, 3 } }, { 'D', { 6, 5, 5, 5, 6 } },
-    { 'E', { 7, 4, 6, 4, 7 } }, { 'F', { 7, 4, 6, 4, 4 } }, { 'I', { 7, 2, 2, 2, 7 } },
-    { 'L', { 4, 4, 4, 4, 7 } }, { 'M', { 5, 7, 7, 5, 5 } }, { 'N', { 6, 5, 5, 5, 5 } },
-    { 'O', { 2, 5, 5, 5, 2 } }, { 'S', { 3, 4, 2, 1, 6 } }, { 'T', { 7, 2, 2, 2, 2 } },
-    { 'Z', { 7, 1, 2, 4, 7 } }, { '+', { 0, 2, 7, 2, 0 } }, { ' ', { 0, 0, 0, 0, 0 } },
+    { 'M', { 5, 7, 7, 5, 5 } }, { 'Z', { 7, 1, 2, 4, 7 } },
 };
 
 static void
-pixtext(wzx *z, Drawable d, const char *s, int x, int y, unsigned rgb)
+pixtext(wzx *z, Drawable d, const char *s, int x, int y, unsigned rgb, int scale)
 {
     XSetForeground(z->dpy, dgc, wzx_pixel(z, rgb));
-    for (; *s; s++, x += 4)
+    for (; *s; s++, x += 4 * scale)
         for (size_t g = 0; g < sizeof glyphs / sizeof *glyphs; g++) {
             if (glyphs[g].c != *s)
                 continue;
             for (int r = 0; r < 5; r++)
                 for (int c = 0; c < 3; c++)
                     if (glyphs[g].rows[r] & (4 >> c))
-                        XDrawPoint(z->dpy, d, dgc, x + c, y + r);
+                        XFillRectangle(z->dpy, d, dgc, x + c * scale, y + r * scale, (unsigned)scale, (unsigned)scale);
         }
 }
 
@@ -89,15 +83,20 @@ draw_mini(wzx *z, Drawable d, GC gc, const char *tree, wz_rect box, unsigned til
     }
 }
 
-static const wz_layout_def *
-current_layout(wzx *z)
+static int
+pointer_mon(wzx *z)
 {
     Window r, c;
     int x = 0, y = 0, wx, wy;
     unsigned m;
     XQueryPointer(z->dpy, z->root, &r, &c, &x, &y, &wx, &wy, &m);
-    int mon = wzx_monitor_at(z, x, y);
-    return wz_config_layout_for(&z->cfg, z->mon[mon].name, (int)z->current_desktop + 1);
+    return wzx_monitor_at(z, x, y);
+}
+
+static const wz_layout_def *
+current_layout(wzx *z)
+{
+    return wzx_layout_of(z, pointer_mon(z));
 }
 
 static const char *
@@ -109,6 +108,47 @@ layout_label(const wz_layout_def *l)
         return l->label;
     const char *b = wz_builtin_label(l->id);
     return b ? _(b) : l->id;
+}
+
+static const char *
+mode_label(wz_mode m)
+{
+    return m == WZ_MODE_TILING ? _("Tiling") : m == WZ_MODE_ZONES ? _("Zones") : _("Off");
+}
+
+static const char *const algo_ids[] = { "master", "columns", "rows", "grid", "bsp", "monocle", "spiral", "dwindle" };
+#define NALGO (int)(sizeof algo_ids / sizeof *algo_ids)
+
+static const char *
+algo_label(const char *id)
+{
+    static const struct {
+        const char *id, *label;
+    } t[] = {
+        { "master", N_("Main + stack") }, { "columns", N_("Columns") },  { "rows", N_("Rows") },
+        { "grid", N_("Grid") },           { "bsp", N_("BSP (binary tree)") }, { "monocle", N_("Monocle") },
+        { "spiral", N_("Spiral") },       { "dwindle", N_("Dwindle") },
+    };
+    for (size_t i = 0; i < sizeof t / sizeof *t; i++)
+        if (!strcmp(t[i].id, id))
+            return _(t[i].label);
+    return id;
+}
+
+/* Tecla com LED: afundada e escura apagada, acesa com a letra escura. */
+static void
+led_key(wzx *z, int x, int y, const char *letter, int lit, unsigned color)
+{
+    const int w = 25, h = 14;
+    XSetForeground(z->dpy, dgc, wzx_pixel(z, lit ? color : 0x2a2e33));
+    XFillRectangle(z->dpy, face, dgc, x + 1, y + 1, w - 2, h - 2);
+    wzx_draw_bevel(z, face, dgc, x, y, w, h, 0);
+    if (lit) {
+        /* brilho no alto do LED */
+        XSetForeground(z->dpy, dgc, wzx_pixel(z, wz_rgb_mix(color, 0xffffff, 110)));
+        XDrawLine(z->dpy, face, dgc, x + 2, y + 2, x + w - 3, y + 2);
+    }
+    pixtext(z, face, letter, x + (w - 6) / 2, y + 2, lit ? 0x101010 : 0x7a7e84, 2);
 }
 
 void
@@ -129,25 +169,19 @@ wzx_dockapp_redraw(wzx *z)
     }
     wzx_draw_bevel(z, face, dgc, 0, 0, TILE, TILE, 1);
     /* Tela afundada com a miniatura do layout. */
-    wz_rect scr = { 5, 5, 54, 40 };
+    wz_rect scr = { 5, 5, 54, 36 };
     XSetForeground(z->dpy, dgc, wzx_pixel(z, 0x1c2024));
     XFillRectangle(z->dpy, face, dgc, scr.x, scr.y, (unsigned)scr.w, (unsigned)scr.h);
     wzx_draw_bevel(z, face, dgc, scr.x - 1, scr.y - 1, scr.w + 2, scr.h + 2, 0);
+    wz_mode m = wz_config_mode(&z->cfg);
     const wz_layout_def *l = current_layout(z);
-    int on = z->cfg.zones || z->cfg.autotile;
-    unsigned tile = on ? 0xc2c0c5 : 0x6a6a70;
+    unsigned tile = m != WZ_MODE_OFF ? 0xc2c0c5 : 0x5e6066;
     if (l)
         draw_mini(z, face, dgc, l->tree, (wz_rect){ scr.x + 3, scr.y + 3, scr.w - 6, scr.h - 6 }, tile,
-                  on ? 0 : -1, z->cfg.autotile ? 0xe0a030 : 0x7fb0e0);
-    /* LED e rótulo do modo. */
-    unsigned led = z->cfg.autotile ? 0xf0b030 : z->cfg.zones ? 0x40d040 : 0x505050;
-    const char *label = z->cfg.autotile && z->cfg.zones ? "Z+TILE" : z->cfg.autotile ? "TILE" : z->cfg.zones ? "ZONES" : "OFF";
-    XSetForeground(z->dpy, dgc, wzx_pixel(z, 0x1c2024));
-    XFillRectangle(z->dpy, face, dgc, 5, 49, 54, 10);
-    wzx_draw_bevel(z, face, dgc, 4, 48, 56, 12, 0);
-    XSetForeground(z->dpy, dgc, wzx_pixel(z, led));
-    XFillRectangle(z->dpy, face, dgc, 8, 51, 5, 5);
-    pixtext(z, face, label, 17, 51, on ? 0xe8e8e8 : 0x8a8a8a);
+                  m != WZ_MODE_OFF ? 0 : -1, m == WZ_MODE_TILING ? 0xe0a030 : 0x7fb0e0);
+    /* Teclas Z e M: a do modo ativo acesa. */
+    led_key(z, 5, 45, "Z", m == WZ_MODE_ZONES, 0x58d858);
+    led_key(z, 34, 45, "M", m == WZ_MODE_TILING, 0xf0b030);
     XCopyArea(z->dpy, face, z->dock_icon, dgc, 0, 0, TILE, TILE, 0, 0);
     XFlush(z->dpy);
 }
@@ -156,7 +190,8 @@ void
 wzx_dockapp_create(wzx *z)
 {
     XSetWindowAttributes a = { 0 };
-    a.event_mask = ExposureMask | ButtonPressMask | ButtonReleaseMask | StructureNotifyMask;
+    a.event_mask = ExposureMask | ButtonPressMask | ButtonReleaseMask | StructureNotifyMask | EnterWindowMask |
+                   LeaveWindowMask;
     a.background_pixmap = ParentRelative;
     z->dock_win = XCreateWindow(z->dpy, z->root, 0, 0, TILE, TILE, 0, CopyFromParent, InputOutput, CopyFromParent,
                                 CWEventMask, &a);
@@ -179,14 +214,7 @@ wzx_dockapp_create(wzx *z)
     z->dockapp = 1;
 }
 
-/* ---- popups ------------------------------------------------------------- */
-
-typedef struct {
-    int x, y, w, h;
-    int title_h, item_h, cols, cell_w, cell_h;
-} popup_geom;
-
-static popup_geom pg;
+/* ---- texto -------------------------------------------------------------- */
 
 static void
 xft_text(wzx *z, XftDraw *xd, XftFont *f, unsigned rgb, int x, int y, const char *s)
@@ -211,25 +239,210 @@ text_w(wzx *z, XftFont *f, const char *s)
     return gi.xOff;
 }
 
-static const char *
-menu_label(wzx *z, int i, char *buf, size_t len)
+/* Posição na raiz do ladrilho e o monitor onde ele está. */
+static int
+tile_origin(wzx *z, int *ix, int *iy)
 {
-    switch (i) {
-    case MI_ZONES: return _("Zones");
-    case MI_AUTOTILE: return _("Auto Tiling");
-    case MI_LAYOUT_INFO:
-        snprintf(buf, len, _("Layout: %s"), layout_label(current_layout(z)));
-        return buf;
-    case MI_NEXT: return _("Next layout");
-    case MI_CHOOSE: return _("Choose layout...");
-    case MI_ARRANGE: return _("Arrange windows now");
-    case MI_RESTORE: return _("Restore windows");
-    case MI_UNDO: return _("Undo last arrangement");
-    case MI_EDITOR: return _("Edit zones...");
-    case MI_PREFS: return _("Preferences...");
-    case MI_ABOUT: return _("About wmake-zones");
+    Window child;
+    *ix = *iy = 0;
+    XTranslateCoordinates(z->dpy, z->dock_icon, z->root, 0, 0, ix, iy, &child);
+    return wzx_monitor_at(z, *ix + TILE / 2, *iy + TILE / 2);
+}
+
+/* Ao lado do ladrilho (lado com espaço), dentro do monitor. */
+static void
+place_beside(wzx *z, int w, int h, int *x, int *y)
+{
+    int ix, iy;
+    int mon = tile_origin(z, &ix, &iy);
+    wz_rect g = z->mon[mon].geom;
+    *x = ix + TILE + w <= g.x + g.w ? ix + TILE : ix - w;
+    *y = iy;
+    if (*y + h > g.y + g.h)
+        *y = g.y + g.h - h;
+    if (*y < g.y)
+        *y = g.y;
+    if (*x < g.x)
+        *x = g.x;
+}
+
+/* ---- balão -------------------------------------------------------------- */
+
+static Window balloon;
+static long balloon_hide_at, tip_at;
+
+static void
+balloon_hide(void)
+{
+    balloon_hide_at = 0;
+}
+
+static void
+balloon_close(wzx *z)
+{
+    if (balloon) {
+        XDestroyWindow(z->dpy, balloon);
+        balloon = None;
+        XFlush(z->dpy);
     }
-    return "";
+    balloon_hide();
+}
+
+/* Balão amarelo-claro dos dicas do WPrefs, com duas linhas: o modo e o
+ * layout. ms > 0: some sozinho. */
+static void
+balloon_show(wzx *z, long ms)
+{
+    if (!z->dock_icon || z->popup)
+        return;
+    wzx_fonts(z);
+    if (!z->font || !z->font_bold)
+        return;
+    balloon_close(z);
+    char l1[128], l2[200];
+    snprintf(l1, sizeof l1, "wmake-zones: %s", mode_label(wz_config_mode(&z->cfg)));
+    snprintf(l2, sizeof l2, _("Layout: %s"), layout_label(current_layout(z)));
+    int w1 = text_w(z, z->font_bold, l1), w2 = text_w(z, z->font, l2);
+    int w = (w1 > w2 ? w1 : w2) + 16, h = z->font_bold->height + z->font->height + 12;
+    int x, y;
+    place_beside(z, w, h, &x, &y);
+    y += 6;
+    XSetWindowAttributes a = { 0 };
+    a.override_redirect = True;
+    a.save_under = True;
+    a.event_mask = ExposureMask;
+    balloon = XCreateWindow(z->dpy, z->root, x, y, (unsigned)w, (unsigned)h, 0, CopyFromParent, InputOutput,
+                            CopyFromParent, CWOverrideRedirect | CWSaveUnder | CWEventMask, &a);
+    XClassHint ch = { "wmake-zones-balloon", "WmakeZones" };
+    XSetClassHint(z->dpy, balloon, &ch);
+    XMapRaised(z->dpy, balloon);
+    Pixmap buf = XCreatePixmap(z->dpy, balloon, (unsigned)w, (unsigned)h, (unsigned)DefaultDepth(z->dpy, z->screen));
+    XftDraw *xd = XftDrawCreate(z->dpy, buf, DefaultVisual(z->dpy, z->screen), DefaultColormap(z->dpy, z->screen));
+    XSetForeground(z->dpy, dgc, wzx_pixel(z, 0xfcf6d0));
+    XFillRectangle(z->dpy, buf, dgc, 0, 0, (unsigned)w, (unsigned)h);
+    XSetForeground(z->dpy, dgc, wzx_pixel(z, 0x000000));
+    XDrawRectangle(z->dpy, buf, dgc, 0, 0, (unsigned)w - 1, (unsigned)h - 1);
+    xft_text(z, xd, z->font_bold, 0x000000, 8, 5 + z->font_bold->ascent, l1);
+    xft_text(z, xd, z->font, 0x202020, 8, 7 + z->font_bold->height + z->font->ascent, l2);
+    XSetWindowBackgroundPixmap(z->dpy, balloon, buf);
+    XClearWindow(z->dpy, balloon);
+    XftDrawDestroy(xd);
+    XFreePixmap(z->dpy, buf);
+    XFlush(z->dpy);
+    balloon_hide_at = ms > 0 ? wzx_now_ms() + ms : 0;
+}
+
+/* ---- menus -------------------------------------------------------------- */
+
+/* Menu no estilo do Window Maker: barra de título, itens com chanfro,
+ * submenus com a seta à direita e o indicador de rádio dos itens de
+ * estado. Dois níveis: o menu e um submenu aberto por vez. */
+enum { K_ACT = 0, K_SUB, K_RADIO };
+enum { M_TOP = 0, M_MODE, M_LAYOUT, M_ALGO, M_SETTINGS, M_HELP };
+enum {
+    A_NONE = 0, A_UNDO, A_REDO, A_RESTORE, A_RESTORE_ALL, A_ARRANGE, A_FLOAT, A_EDITOR, A_PREFS, A_KEYS, A_RULES,
+    A_MONITORS, A_HELP_KEYS, A_ABOUT, A_MODE_ZONES, A_MODE_TILING, A_MODE_OFF, A_EMERGENCY,
+    A_LAYOUT0 = 100, A_ALGO0 = 1000,
+};
+
+typedef struct {
+    int kind, id, on;
+    char label[160];
+} mitem;
+
+#define MAX_ITEMS 300
+
+typedef struct {
+    Window win;
+    int menu, n, sel;
+    int x, y, w, h, title_h, item_h;
+    mitem items[MAX_ITEMS];
+} mpop;
+
+static mpop pops[2];
+static int npops;
+/* Grade de layouts (clique "layouts"). */
+static struct {
+    int cols, cell_w, cell_h, title_h, w, h;
+} grid;
+
+static void
+add(mpop *p, int kind, int id, int on, const char *label)
+{
+    if (p->n >= MAX_ITEMS)
+        return;
+    mitem *it = &p->items[p->n++];
+    it->kind = kind;
+    it->id = id;
+    it->on = on;
+    snprintf(it->label, sizeof it->label, "%s", label);
+}
+
+static const char *
+menu_title(int menu)
+{
+    switch (menu) {
+    case M_MODE: return _("Mode");
+    case M_LAYOUT: return _("Layout");
+    case M_ALGO: return _("Tiling algorithm");
+    case M_SETTINGS: return _("Settings");
+    case M_HELP: return _("Help");
+    default: return "wmake-zones";
+    }
+}
+
+static void
+fill_menu(wzx *z, mpop *p, int menu)
+{
+    p->n = 0;
+    p->menu = menu;
+    wz_mode m = wz_config_mode(&z->cfg);
+    switch (menu) {
+    case M_TOP:
+        add(p, K_SUB, M_MODE, 0, _("Mode"));
+        add(p, K_SUB, M_LAYOUT, 0, _("Layout"));
+        add(p, K_SUB, M_ALGO, 0, _("Tiling algorithm"));
+        add(p, K_ACT, A_UNDO, 0, _("Undo"));
+        add(p, K_ACT, A_REDO, 0, _("Redo"));
+        add(p, K_ACT, A_RESTORE, 0, _("Restore window"));
+        add(p, K_ACT, A_RESTORE_ALL, 0, _("Restore all arranged windows"));
+        add(p, K_ACT, A_ARRANGE, 0, _("Arrange the desktop"));
+        add(p, K_ACT, A_FLOAT, 0, _("Active window: floating/tiled"));
+        add(p, K_SUB, M_SETTINGS, 0, _("Settings"));
+        add(p, K_SUB, M_HELP, 0, _("Help"));
+        break;
+    case M_MODE:
+        add(p, K_RADIO, A_MODE_ZONES, m == WZ_MODE_ZONES, _("Zones"));
+        add(p, K_RADIO, A_MODE_TILING, m == WZ_MODE_TILING, _("Tiling"));
+        add(p, K_RADIO, A_MODE_OFF, m == WZ_MODE_OFF, _("Off"));
+        add(p, K_ACT, A_EMERGENCY, 0, _("Float everything now"));
+        break;
+    case M_LAYOUT: {
+        const wz_layout_def *cur = current_layout(z);
+        for (int i = 0; i < z->cfg.nlayouts && i < 200; i++)
+            add(p, K_RADIO, A_LAYOUT0 + i, &z->cfg.layouts[i] == cur, layout_label(&z->cfg.layouts[i]));
+        add(p, K_ACT, A_EDITOR, 0, _("Edit zones..."));
+        break;
+    }
+    case M_ALGO: {
+        const char *cur = wz_algo_name(wz_config_algo_for(&z->cfg, z->mon[pointer_mon(z)].name,
+                                                          (int)z->current_desktop + 1));
+        for (int i = 0; i < NALGO; i++)
+            add(p, K_RADIO, A_ALGO0 + i, !strcmp(cur, algo_ids[i]), algo_label(algo_ids[i]));
+        break;
+    }
+    case M_SETTINGS:
+        add(p, K_ACT, A_EDITOR, 0, _("Edit zones..."));
+        add(p, K_ACT, A_PREFS, 0, _("Preferences..."));
+        add(p, K_ACT, A_KEYS, 0, _("Shortcuts..."));
+        add(p, K_ACT, A_RULES, 0, _("Application rules..."));
+        add(p, K_ACT, A_MONITORS, 0, _("Monitors..."));
+        break;
+    case M_HELP:
+        add(p, K_ACT, A_HELP_KEYS, 0, _("Available shortcuts..."));
+        add(p, K_ACT, A_ABOUT, 0, _("About wmake-zones"));
+        break;
+    }
 }
 
 static void
@@ -259,6 +472,168 @@ item_back(wzx *z, Drawable d, int x, int y, int w, int h, int hl)
 }
 
 static void
+draw_pop(wzx *z, mpop *p)
+{
+    if (!p->win)
+        return;
+    Pixmap buf = XCreatePixmap(z->dpy, p->win, (unsigned)p->w, (unsigned)p->h, (unsigned)DefaultDepth(z->dpy, z->screen));
+    XftDraw *xd = XftDrawCreate(z->dpy, buf, DefaultVisual(z->dpy, z->screen), DefaultColormap(z->dpy, z->screen));
+    title_bar(z, buf, xd, p->w, p->title_h, menu_title(p->menu));
+    for (int i = 0; i < p->n; i++) {
+        mitem *it = &p->items[i];
+        int y = p->title_h + i * p->item_h;
+        int hl = i == p->sel;
+        item_back(z, buf, 0, y, p->w, p->item_h, hl);
+        unsigned fg = hl ? z->theme.hl_fg : z->theme.menu_fg;
+        int ty = y + (p->item_h + z->font->ascent - z->font->descent) / 2;
+        xft_text(z, xd, z->font, fg, 8, ty, it->label);
+        int cy = y + p->item_h / 2;
+        if (it->kind == K_SUB) {
+            /* Seta de submenu, como nos menus do wmaker. */
+            XSetForeground(z->dpy, dgc, wzx_pixel(z, fg));
+            for (int k = 0; k < 5; k++)
+                XDrawLine(z->dpy, buf, dgc, p->w - 14 + k, cy - 4 + k, p->w - 14 + k, cy + 4 - k);
+        } else if (it->kind == K_RADIO) {
+            /* Indicador de estado à direita: afundado, aceso se ativo. */
+            int bx = p->w - 18, by = cy - 5;
+            XSetForeground(z->dpy, dgc, wzx_pixel(z, it->on ? 0x40c040 : 0x808080));
+            XFillRectangle(z->dpy, buf, dgc, bx, by, 10, 10);
+            wzx_draw_bevel(z, buf, dgc, bx - 1, by - 1, 12, 12, 0);
+        }
+    }
+    XCopyArea(z->dpy, buf, p->win, dgc, 0, 0, (unsigned)p->w, (unsigned)p->h, 0, 0);
+    XftDrawDestroy(xd);
+    XFreePixmap(z->dpy, buf);
+}
+
+static Window
+make_popup_window(wzx *z, int x, int y, int w, int h)
+{
+    XSetWindowAttributes a = { 0 };
+    a.override_redirect = True;
+    a.event_mask = ExposureMask | ButtonPressMask | ButtonReleaseMask | PointerMotionMask | KeyPressMask;
+    a.save_under = True;
+    Window win = XCreateWindow(z->dpy, z->root, x, y, (unsigned)w, (unsigned)h, 0, CopyFromParent, InputOutput,
+                               CopyFromParent, CWOverrideRedirect | CWEventMask | CWSaveUnder, &a);
+    XClassHint ch = { "wmake-zones-menu", "WmakeZones" };
+    XSetClassHint(z->dpy, win, &ch);
+    XMapRaised(z->dpy, win);
+    return win;
+}
+
+static void
+measure(wzx *z, mpop *p)
+{
+    p->title_h = z->font_bold->height + 8;
+    p->item_h = z->font->height + 8;
+    int w = text_w(z, z->font_bold, menu_title(p->menu)) + 24;
+    for (int i = 0; i < p->n; i++) {
+        int tw = text_w(z, z->font, p->items[i].label) + 44;
+        if (tw > w)
+            w = tw;
+    }
+    p->w = w;
+    p->h = p->title_h + p->n * p->item_h;
+}
+
+static void
+sub_close(wzx *z)
+{
+    if (npops > 1 && pops[1].win) {
+        XDestroyWindow(z->dpy, pops[1].win);
+        pops[1].win = None;
+    }
+    if (npops > 1)
+        npops = 1;
+}
+
+static void
+popup_close(wzx *z)
+{
+    if (!z->popup)
+        return;
+    sub_close(z);
+    XUngrabPointer(z->dpy, CurrentTime);
+    XUngrabKeyboard(z->dpy, CurrentTime);
+    XDestroyWindow(z->dpy, z->popup);
+    z->popup = None;
+    z->popup_kind = POP_NONE;
+    pops[0].win = None;
+    npops = 0;
+    XFlush(z->dpy);
+}
+
+/* Submenu do item i do menu de cima, à direita dele (ou à esquerda). */
+static void
+sub_open(wzx *z, int i)
+{
+    mpop *top = &pops[0];
+    if (npops > 1 && pops[1].menu == top->items[i].id)
+        return;
+    sub_close(z);
+    mpop *p = &pops[1];
+    memset(p, 0, sizeof *p);
+    fill_menu(z, p, top->items[i].id);
+    measure(z, p);
+    p->sel = -1;
+    int mon = wzx_monitor_at(z, top->x + top->w / 2, top->y);
+    wz_rect g = z->mon[mon].geom;
+    p->x = top->x + top->w + p->w <= g.x + g.w ? top->x + top->w - 1 : top->x - p->w + 1;
+    p->y = top->y + top->title_h + i * top->item_h - p->title_h;
+    if (p->y + p->h > g.y + g.h)
+        p->y = g.y + g.h - p->h;
+    if (p->y < g.y)
+        p->y = g.y;
+    p->win = make_popup_window(z, p->x, p->y, p->w, p->h);
+    npops = 2;
+    draw_pop(z, p);
+}
+
+static void
+grid_draw(wzx *z)
+{
+    Pixmap buf = XCreatePixmap(z->dpy, z->popup, (unsigned)grid.w, (unsigned)grid.h,
+                               (unsigned)DefaultDepth(z->dpy, z->screen));
+    XftDraw *xd = XftDrawCreate(z->dpy, buf, DefaultVisual(z->dpy, z->screen), DefaultColormap(z->dpy, z->screen));
+    title_bar(z, buf, xd, grid.w, grid.title_h, _("Layouts"));
+    /* Fundo do menu também nas células vazias da última linha. */
+    item_back(z, buf, 0, grid.title_h, grid.w, grid.h - grid.title_h, 0);
+    const wz_layout_def *cur = current_layout(z);
+    for (int i = 0; i < z->cfg.nlayouts; i++) {
+        int cx = (i % grid.cols) * grid.cell_w, cy = grid.title_h + (i / grid.cols) * grid.cell_h;
+        int hl = i == z->popup_sel;
+        item_back(z, buf, cx, cy, grid.cell_w, grid.cell_h, hl);
+        int is_cur = &z->cfg.layouts[i] == cur;
+        wz_rect box = { cx + (grid.cell_w - 64) / 2, cy + 6, 64, 40 };
+        XSetForeground(z->dpy, dgc, wzx_pixel(z, 0x1c2024));
+        XFillRectangle(z->dpy, buf, dgc, box.x, box.y, (unsigned)box.w, (unsigned)box.h);
+        wzx_draw_bevel(z, buf, dgc, box.x - 1, box.y - 1, box.w + 2, box.h + 2, 0);
+        draw_mini(z, buf, dgc, z->cfg.layouts[i].tree, (wz_rect){ box.x + 2, box.y + 2, box.w - 4, box.h - 4 },
+                  is_cur ? 0x7fb0e0 : 0xc2c0c5, -1, 0);
+        char cut[64];
+        snprintf(cut, sizeof cut, "%s", layout_label(&z->cfg.layouts[i]));
+        while (strlen(cut) > 3 && text_w(z, z->font, cut) > grid.cell_w - 6) {
+            size_t l = strlen(cut) - 1;
+            while (l > 0 && (cut[l] & 0xc0) == 0x80)
+                l--;
+            cut[l] = 0;
+            if (l > 3) {
+                size_t k = l - 1;
+                while (k > 0 && (cut[k] & 0xc0) == 0x80)
+                    k--;
+                snprintf(cut + k, sizeof cut - k, "…");
+            }
+        }
+        int tw = text_w(z, z->font, cut);
+        xft_text(z, xd, is_cur ? z->font_bold : z->font, hl ? z->theme.hl_fg : z->theme.menu_fg,
+                 cx + (grid.cell_w - tw) / 2, cy + grid.cell_h - 7, cut);
+    }
+    XCopyArea(z->dpy, buf, z->popup, dgc, 0, 0, (unsigned)grid.w, (unsigned)grid.h, 0, 0);
+    XftDrawDestroy(xd);
+    XFreePixmap(z->dpy, buf);
+}
+
+static void
 popup_redraw(wzx *z)
 {
     if (!z->popup)
@@ -267,77 +642,12 @@ popup_redraw(wzx *z)
     wzx_fonts(z);
     if (!z->font || !z->font_bold)
         return;
-    Pixmap buf = XCreatePixmap(z->dpy, z->popup, (unsigned)pg.w, (unsigned)pg.h, (unsigned)DefaultDepth(z->dpy, z->screen));
-    XftDraw *xd = XftDrawCreate(z->dpy, buf, DefaultVisual(z->dpy, z->screen), DefaultColormap(z->dpy, z->screen));
-    char tmp[256];
     if (z->popup_kind == POP_MENU) {
-        title_bar(z, buf, xd, pg.w, pg.title_h, "wmake-zones");
-        for (int i = 0; i < MI_COUNT; i++) {
-            int y = pg.title_h + i * pg.item_h;
-            int hl = i == z->popup_sel && i != MI_LAYOUT_INFO;
-            item_back(z, buf, 0, y, pg.w, pg.item_h, hl);
-            unsigned fg = i == MI_LAYOUT_INFO ? z->theme.disabled_fg : hl ? z->theme.hl_fg : z->theme.menu_fg;
-            int ty = y + (pg.item_h + z->font->ascent - z->font->descent) / 2;
-            xft_text(z, xd, z->font, fg, 8, ty, menu_label(z, i, tmp, sizeof tmp));
-            if (i == MI_ZONES || i == MI_AUTOTILE) {
-                /* indicador de estado à direita, como nos menus do wmaker */
-                int on = i == MI_ZONES ? z->cfg.zones : z->cfg.autotile;
-                int bx = pg.w - 18, by = y + (pg.item_h - 10) / 2;
-                XSetForeground(z->dpy, dgc, wzx_pixel(z, on ? 0x40c040 : 0x808080));
-                XFillRectangle(z->dpy, buf, dgc, bx, by, 10, 10);
-                wzx_draw_bevel(z, buf, dgc, bx - 1, by - 1, 12, 12, 0);
-            }
-        }
+        for (int i = 0; i < npops; i++)
+            draw_pop(z, &pops[i]);
     } else {
-        title_bar(z, buf, xd, pg.w, pg.title_h, _("Layouts"));
-        /* Fundo do menu também nas células vazias da última linha. */
-        item_back(z, buf, 0, pg.title_h, pg.w, pg.h - pg.title_h, 0);
-        const wz_layout_def *cur = current_layout(z);
-        for (int i = 0; i < z->cfg.nlayouts; i++) {
-            int cx = (i % pg.cols) * pg.cell_w, cy = pg.title_h + (i / pg.cols) * pg.cell_h;
-            int hl = i == z->popup_sel;
-            item_back(z, buf, cx, cy, pg.cell_w, pg.cell_h, hl);
-            int is_cur = &z->cfg.layouts[i] == cur;
-            wz_rect box = { cx + (pg.cell_w - 64) / 2, cy + 6, 64, 40 };
-            XSetForeground(z->dpy, dgc, wzx_pixel(z, 0x1c2024));
-            XFillRectangle(z->dpy, buf, dgc, box.x, box.y, (unsigned)box.w, (unsigned)box.h);
-            wzx_draw_bevel(z, buf, dgc, box.x - 1, box.y - 1, box.w + 2, box.h + 2, 0);
-            draw_mini(z, buf, dgc, z->cfg.layouts[i].tree, (wz_rect){ box.x + 2, box.y + 2, box.w - 4, box.h - 4 },
-                      is_cur ? 0x7fb0e0 : 0xc2c0c5, -1, 0);
-            const char *lab = layout_label(&z->cfg.layouts[i]);
-            char cut[64];
-            snprintf(cut, sizeof cut, "%s", lab);
-            while (strlen(cut) > 3 && text_w(z, z->font, cut) > pg.cell_w - 6) {
-                size_t l = strlen(cut);
-                /* corta por caractere UTF-8 e põe reticências */
-                l--;
-                while (l > 0 && (cut[l] & 0xc0) == 0x80)
-                    l--;
-                cut[l] = 0;
-                if (l > 3)
-                    snprintf(cut + l - 1, sizeof cut - l + 1, "…");
-            }
-            int tw = text_w(z, z->font, cut);
-            xft_text(z, xd, is_cur ? z->font_bold : z->font, hl ? z->theme.hl_fg : z->theme.menu_fg,
-                     cx + (pg.cell_w - tw) / 2, cy + pg.cell_h - 7, cut);
-        }
+        grid_draw(z);
     }
-    XCopyArea(z->dpy, buf, z->popup, dgc, 0, 0, (unsigned)pg.w, (unsigned)pg.h, 0, 0);
-    XftDrawDestroy(xd);
-    XFreePixmap(z->dpy, buf);
-    XFlush(z->dpy);
-}
-
-static void
-popup_close(wzx *z)
-{
-    if (!z->popup)
-        return;
-    XUngrabPointer(z->dpy, CurrentTime);
-    XUngrabKeyboard(z->dpy, CurrentTime);
-    XDestroyWindow(z->dpy, z->popup);
-    z->popup = None;
-    z->popup_kind = POP_NONE;
     XFlush(z->dpy);
 }
 
@@ -345,6 +655,8 @@ static void
 popup_open(wzx *z, int kind)
 {
     popup_close(z);
+    balloon_close(z);
+    tip_at = 0;
     wzx_fonts(z);
     if (!z->font || !z->font_bold)
         return; /* nenhuma fonte abriu: sem menu, sem travar */
@@ -352,124 +664,249 @@ popup_open(wzx *z, int kind)
         dgc = XCreateGC(z->dpy, z->root, 0, NULL);
     z->popup_kind = kind;
     z->popup_sel = -1;
-    pg.title_h = z->font_bold->height + 8;
+    int w, h, x, y;
     if (kind == POP_MENU) {
-        char tmp[256];
-        int w = text_w(z, z->font_bold, "wmake-zones") + 24;
-        for (int i = 0; i < MI_COUNT; i++) {
-            int tw = text_w(z, z->font, menu_label(z, i, tmp, sizeof tmp)) + 40;
-            if (tw > w)
-                w = tw;
-        }
-        pg.item_h = z->font->height + 8;
-        pg.w = w;
-        pg.h = pg.title_h + MI_COUNT * pg.item_h;
-        z->popup_nitems = MI_COUNT;
+        mpop *p = &pops[0];
+        memset(p, 0, sizeof *p);
+        fill_menu(z, p, M_TOP);
+        measure(z, p);
+        p->sel = -1;
+        w = p->w;
+        h = p->h;
+        z->popup_nitems = p->n;
     } else {
-        pg.cols = z->cfg.nlayouts > 8 ? 4 : 3;
-        pg.cell_w = 104;
-        pg.cell_h = 52 + z->font->height + 6;
-        int rows = (z->cfg.nlayouts + pg.cols - 1) / pg.cols;
-        pg.w = pg.cols * pg.cell_w;
-        pg.h = pg.title_h + rows * pg.cell_h;
+        grid.title_h = z->font_bold->height + 8;
+        grid.cols = z->cfg.nlayouts > 8 ? 4 : 3;
+        grid.cell_w = 104;
+        grid.cell_h = 52 + z->font->height + 6;
+        int rows = (z->cfg.nlayouts + grid.cols - 1) / grid.cols;
+        grid.w = w = grid.cols * grid.cell_w;
+        grid.h = h = grid.title_h + rows * grid.cell_h;
         z->popup_nitems = z->cfg.nlayouts;
     }
-    /* Ao lado do ladrilho, para dentro da tela. */
-    int ix = 0, iy = 0;
-    Window child;
-    XTranslateCoordinates(z->dpy, z->dock_icon, z->root, 0, 0, &ix, &iy, &child);
-    int mon = wzx_monitor_at(z, ix + TILE / 2, iy + TILE / 2);
-    wz_rect g = z->mon[mon].geom;
-    pg.x = ix + TILE + pg.w <= g.x + g.w ? ix + TILE : ix - pg.w;
-    pg.y = iy;
-    if (pg.y + pg.h > g.y + g.h)
-        pg.y = g.y + g.h - pg.h;
-    if (pg.y < g.y)
-        pg.y = g.y;
-    if (pg.x < g.x)
-        pg.x = g.x;
-    XSetWindowAttributes a = { 0 };
-    a.override_redirect = True;
-    a.event_mask = ExposureMask | ButtonPressMask | ButtonReleaseMask | PointerMotionMask | KeyPressMask;
-    a.save_under = True;
-    z->popup = XCreateWindow(z->dpy, z->root, pg.x, pg.y, (unsigned)pg.w, (unsigned)pg.h, 0, CopyFromParent,
-                             InputOutput, CopyFromParent, CWOverrideRedirect | CWEventMask | CWSaveUnder, &a);
-    XClassHint ch = { "wmake-zones-menu", "WmakeZones" };
-    XSetClassHint(z->dpy, z->popup, &ch);
-    XMapRaised(z->dpy, z->popup);
+    place_beside(z, w, h, &x, &y);
+    z->popup = make_popup_window(z, x, y, w, h);
+    if (kind == POP_MENU) {
+        pops[0].win = z->popup;
+        pops[0].x = x;
+        pops[0].y = y;
+        npops = 1;
+    }
     XGrabPointer(z->dpy, z->popup, True, ButtonPressMask | ButtonReleaseMask | PointerMotionMask, GrabModeAsync,
                  GrabModeAsync, None, None, CurrentTime);
     XGrabKeyboard(z->dpy, z->popup, True, GrabModeAsync, GrabModeAsync, CurrentTime);
     popup_redraw(z);
 }
 
+/* Item sob o ponto (coordenadas da raiz): nível em *lvl. */
 static int
-popup_hit(wzx *z, int x, int y)
+menu_hit(int rx, int ry, int *lvl)
 {
-    if (x < 0 || y < pg.title_h || x >= pg.w || y >= pg.h)
-        return -1;
-    if (z->popup_kind == POP_MENU) {
-        int i = (y - pg.title_h) / pg.item_h;
-        return i >= 0 && i < MI_COUNT ? i : -1;
+    for (int l = npops - 1; l >= 0; l--) {
+        mpop *p = &pops[l];
+        if (!p->win || rx < p->x || rx >= p->x + p->w || ry < p->y || ry >= p->y + p->h)
+            continue;
+        *lvl = l;
+        int i = (ry - p->y - p->title_h) / p->item_h;
+        return ry - p->y >= p->title_h && i >= 0 && i < p->n ? i : -1;
     }
-    int i = ((y - pg.title_h) / pg.cell_h) * pg.cols + x / pg.cell_w;
+    *lvl = -1;
+    return -1;
+}
+
+static int
+grid_hit(wzx *z, int x, int y)
+{
+    if (x < 0 || y < grid.title_h || x >= grid.w || y >= grid.h)
+        return -1;
+    int i = ((y - grid.title_h) / grid.cell_h) * grid.cols + x / grid.cell_w;
     return i >= 0 && i < z->cfg.nlayouts ? i : -1;
 }
 
 static void
-menu_activate(wzx *z, int i)
+run_detached(const char *prog, const char *arg)
 {
-    popup_close(z);
-    switch (i) {
-    case MI_ZONES: wzx_command(z, "zones toggle", NULL, 0); break;
-    case MI_AUTOTILE: wzx_command(z, "autotile toggle", NULL, 0); break;
-    case MI_NEXT: wzx_command(z, "layout next", NULL, 0); break;
-    case MI_CHOOSE: popup_open(z, POP_LAYOUTS); return;
-    case MI_ARRANGE: wzx_command(z, "arrange", NULL, 0); break;
-    case MI_RESTORE: wzx_command(z, "restore-all", NULL, 0); break;
-    case MI_UNDO: wzx_command(z, "undo", NULL, 0); break;
-    case MI_EDITOR: wzx_command(z, "editor", NULL, 0); break;
-    case MI_PREFS: wzx_command(z, "prefs", NULL, 0); break;
-    case MI_ABOUT: {
-        pid_t p = fork();
-        if (p == 0) {
-            if (fork() != 0)
-                _exit(0);
-            setsid();
-            wzx_child_reset();
-            execlp("wmake-zones-prefs", "wmake-zones-prefs", "--about", (char *)NULL);
-            _exit(127);
-        }
-        if (p > 0)
-            waitpid(p, NULL, 0);
-        break;
+    pid_t p = fork();
+    if (p == 0) {
+        if (fork() != 0)
+            _exit(0);
+        setsid();
+        wzx_child_reset();
+        execlp(prog, prog, arg, (char *)NULL);
+        _exit(127);
     }
-    default: break;
-    }
-    wzx_dockapp_redraw(z);
+    if (p > 0)
+        waitpid(p, NULL, 0);
 }
 
 static void
-popup_activate(wzx *z, int i)
+do_action(wzx *z, int id)
+{
+    char cmd[300];
+    switch (id) {
+    case A_UNDO: wzx_command(z, "undo", NULL, 0); break;
+    case A_REDO: wzx_command(z, "redo", NULL, 0); break;
+    case A_RESTORE: wzx_command(z, "restore", NULL, 0); break;
+    case A_RESTORE_ALL: wzx_command(z, "restore-all", NULL, 0); break;
+    case A_ARRANGE: wzx_command(z, "arrange", NULL, 0); break;
+    case A_FLOAT: wzx_command(z, "float", NULL, 0); break;
+    case A_EDITOR: wzx_command(z, "editor", NULL, 0); break;
+    case A_PREFS: run_detached("wmake-zones-prefs", "--general"); break;
+    case A_KEYS:
+    case A_HELP_KEYS: run_detached("wmake-zones-prefs", "--keys"); break;
+    case A_RULES: run_detached("wmake-zones-prefs", "--rules"); break;
+    case A_MONITORS: run_detached("wmake-zones-prefs", "--monitors"); break;
+    case A_ABOUT: run_detached("wmake-zones-prefs", "--about"); break;
+    case A_MODE_ZONES: wzx_command(z, "mode zones", NULL, 0); break;
+    case A_MODE_TILING: wzx_command(z, "mode tiling", NULL, 0); break;
+    case A_MODE_OFF: wzx_command(z, "mode off", NULL, 0); break;
+    case A_EMERGENCY:
+        /* Volta ao Window Maker flutuante agora: desliga e devolve tudo. */
+        wzx_command(z, "mode off", NULL, 0);
+        wzx_command(z, "restore-all", NULL, 0);
+        break;
+    default:
+        if (id >= A_ALGO0 && id < A_ALGO0 + NALGO) {
+            snprintf(cmd, sizeof cmd, "algorithm %s", algo_ids[id - A_ALGO0]);
+            wzx_command(z, cmd, NULL, 0);
+        } else if (id >= A_LAYOUT0 && id < A_LAYOUT0 + z->cfg.nlayouts) {
+            snprintf(cmd, sizeof cmd, "layout %s", z->cfg.layouts[id - A_LAYOUT0].id);
+            wzx_command(z, cmd, NULL, 0);
+        }
+        break;
+    }
+}
+
+static void
+menu_activate(wzx *z, int lvl, int i)
+{
+    if (lvl < 0 || i < 0 || i >= pops[lvl].n)
+        return;
+    mitem it = pops[lvl].items[i];
+    if (it.kind == K_SUB) {
+        sub_open(z, i);
+        return;
+    }
+    popup_close(z);
+    do_action(z, it.id);
+    wzx_dockapp_redraw(z);
+    if (it.id >= A_MODE_ZONES || it.id == A_UNDO || it.id == A_REDO)
+        balloon_show(z, 1500);
+}
+
+static void
+menu_key(wzx *z, KeySym ks)
+{
+    int lvl = npops - 1;
+    mpop *p = &pops[lvl];
+    if (ks == XK_Escape) {
+        if (lvl > 0)
+            sub_close(z);
+        else
+            popup_close(z);
+        return;
+    }
+    if (ks == XK_Left && lvl > 0) {
+        sub_close(z);
+        return;
+    }
+    if (ks == XK_Return || ks == XK_KP_Enter || ks == XK_space || ks == XK_Right) {
+        if (p->sel >= 0 && (ks != XK_Right || p->items[p->sel].kind == K_SUB)) {
+            menu_activate(z, lvl, p->sel);
+            if (npops == 2 && lvl == 0)
+                pops[1].sel = 0;
+            popup_redraw(z);
+        }
+        return;
+    }
+    if (ks == XK_Down || ks == XK_Up) {
+        int s = p->sel < 0 ? 0 : p->sel + (ks == XK_Down ? 1 : -1);
+        if (s >= 0 && s < p->n)
+            p->sel = s;
+        popup_redraw(z);
+    }
+}
+
+static void
+grid_activate(wzx *z, int i)
 {
     if (i < 0)
         return;
-    if (z->popup_kind == POP_MENU) {
-        if (i != MI_LAYOUT_INFO)
-            menu_activate(z, i);
-        return;
-    }
     char cmd[300];
     snprintf(cmd, sizeof cmd, "layout %s", z->cfg.layouts[i].id);
     popup_close(z);
     wzx_command(z, cmd, NULL, 0);
     wzx_dockapp_redraw(z);
+    balloon_show(z, 1500);
+}
+
+/* ---- cliques no ladrilho ------------------------------------------------ */
+
+static void
+click(wzx *z, wz_click action, int step)
+{
+    switch (action) {
+    case WZ_CLICK_MODE: wzx_command(z, "mode toggle", NULL, 0); break;
+    case WZ_CLICK_ENABLE: wzx_command(z, "mode enable", NULL, 0); break;
+    case WZ_CLICK_LAYOUTS: popup_open(z, POP_LAYOUTS); return;
+    case WZ_CLICK_MENU: popup_open(z, POP_MENU); return;
+    case WZ_CLICK_ZONES: wzx_command(z, "zones toggle", NULL, 0); break;
+    case WZ_CLICK_AUTOTILE: wzx_command(z, "autotile toggle", NULL, 0); break;
+    case WZ_CLICK_CYCLE: wzx_command(z, step < 0 ? "layout prev" : "layout next", NULL, 0); break;
+    default: return;
+    }
+    wzx_dockapp_redraw(z);
+    balloon_show(z, 1500);
 }
 
 int
 wzx_dockapp_event(wzx *z, XEvent *e)
 {
     Window w = e->xany.window;
+    if (balloon && w == balloon)
+        return 1;
+    int on_menu = z->popup && z->popup_kind == POP_MENU && (w == pops[0].win || (npops > 1 && w == pops[1].win));
+    if (on_menu) {
+        switch (e->type) {
+        case Expose:
+            if (e->xexpose.count == 0)
+                popup_redraw(z);
+            break;
+        case MotionNotify: {
+            int lvl;
+            int i = menu_hit(e->xmotion.x_root, e->xmotion.y_root, &lvl);
+            if (lvl < 0)
+                break;
+            if (i != pops[lvl].sel) {
+                pops[lvl].sel = i;
+                if (lvl == 0 && i >= 0 && pops[0].items[i].kind == K_SUB)
+                    sub_open(z, i);
+                else if (lvl == 0 && i >= 0)
+                    sub_close(z);
+                popup_redraw(z);
+            }
+            break;
+        }
+        case ButtonPress: {
+            int lvl;
+            menu_hit(e->xbutton.x_root, e->xbutton.y_root, &lvl);
+            if (lvl < 0)
+                popup_close(z);
+            break;
+        }
+        case ButtonRelease:
+            if (e->xbutton.button <= 3) {
+                int lvl;
+                int i = menu_hit(e->xbutton.x_root, e->xbutton.y_root, &lvl);
+                menu_activate(z, lvl, i);
+            }
+            break;
+        case KeyPress:
+            menu_key(z, XLookupKeysym(&e->xkey, 0));
+            break;
+        }
+        return 1;
+    }
     if (z->popup && w == z->popup) {
         switch (e->type) {
         case Expose:
@@ -477,7 +914,7 @@ wzx_dockapp_event(wzx *z, XEvent *e)
                 popup_redraw(z);
             break;
         case MotionNotify: {
-            int i = popup_hit(z, e->xmotion.x, e->xmotion.y);
+            int i = grid_hit(z, e->xmotion.x, e->xmotion.y);
             if (i != z->popup_sel) {
                 z->popup_sel = i;
                 popup_redraw(z);
@@ -485,23 +922,21 @@ wzx_dockapp_event(wzx *z, XEvent *e)
             break;
         }
         case ButtonPress:
-            if (popup_hit(z, e->xbutton.x, e->xbutton.y) < 0 &&
-                (e->xbutton.x < 0 || e->xbutton.y < 0 || e->xbutton.x >= pg.w || e->xbutton.y >= pg.h))
+            if (e->xbutton.x < 0 || e->xbutton.y < 0 || e->xbutton.x >= grid.w || e->xbutton.y >= grid.h)
                 popup_close(z);
             break;
         case ButtonRelease:
             if (e->xbutton.button <= 3)
-                popup_activate(z, popup_hit(z, e->xbutton.x, e->xbutton.y));
+                grid_activate(z, grid_hit(z, e->xbutton.x, e->xbutton.y));
             break;
         case KeyPress: {
             KeySym ks = XLookupKeysym(&e->xkey, 0);
-            int step = z->popup_kind == POP_LAYOUTS ? pg.cols : 1;
             if (ks == XK_Escape)
                 popup_close(z);
             else if (ks == XK_Return || ks == XK_KP_Enter || ks == XK_space)
-                popup_activate(z, z->popup_sel);
+                grid_activate(z, z->popup_sel);
             else if (ks == XK_Down || ks == XK_Up || ks == XK_Left || ks == XK_Right) {
-                int d = ks == XK_Down ? step : ks == XK_Up ? -step : ks == XK_Right ? 1 : -1;
+                int d = ks == XK_Down ? grid.cols : ks == XK_Up ? -grid.cols : ks == XK_Right ? 1 : -1;
                 int s = z->popup_sel < 0 ? 0 : z->popup_sel + d;
                 if (s >= 0 && s < z->popup_nitems)
                     z->popup_sel = s;
@@ -519,24 +954,58 @@ wzx_dockapp_event(wzx *z, XEvent *e)
         if (e->xexpose.count == 0)
             wzx_dockapp_redraw(z);
         break;
+    case LeaveNotify:
+        tip_at = 0;
+        if (balloon && !balloon_hide_at)
+            balloon_close(z);
+        break;
     case ButtonPress:
-        if (e->xbutton.button == 1)
-            popup_open(z, POP_LAYOUTS);
-        else if (e->xbutton.button == 3)
-            popup_open(z, POP_MENU);
-        else if (e->xbutton.button == 4)
-            wzx_command(z, "layout prev", NULL, 0);
-        else if (e->xbutton.button == 5)
-            wzx_command(z, "layout next", NULL, 0);
-        wzx_dockapp_redraw(z);
+        tip_at = 0;
+        switch (e->xbutton.button) {
+        case 1: click(z, z->cfg.click[0], 0); break;
+        case 2: click(z, z->cfg.click[1], 0); break;
+        case 3: click(z, z->cfg.click[2], 0); break;
+        case 4: click(z, z->cfg.click[3], -1); break;
+        case 5: click(z, z->cfg.click[3], 1); break;
+        }
         break;
     case DestroyNotify:
         if (w == z->dock_win) {
             /* Tirado do Dock e fechado: o daemon continua, sem ladrilho. */
             z->dockapp = 0;
             z->dock_win = z->dock_icon = None;
+            balloon_close(z);
         }
         break;
     }
     return 1;
+}
+
+long
+wzx_dockapp_due(wzx *z)
+{
+    (void)z;
+    long due = -1;
+    if (balloon_hide_at)
+        due = balloon_hide_at;
+    if (tip_at && (due < 0 || tip_at < due))
+        due = tip_at;
+    return due;
+}
+
+void
+wzx_dockapp_popup_close(wzx *z)
+{
+    popup_close(z);
+}
+
+void
+wzx_dockapp_timer(wzx *z, long now)
+{
+    if (balloon_hide_at && now >= balloon_hide_at)
+        balloon_close(z);
+    if (tip_at && now >= tip_at) {
+        tip_at = 0;
+        balloon_show(z, 0); /* dica: some ao sair do ladrilho */
+    }
 }

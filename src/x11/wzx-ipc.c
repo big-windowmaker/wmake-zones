@@ -111,6 +111,45 @@ pointer_monitor(wzx *z)
     return wzx_monitor_at(z, x, y);
 }
 
+/* Passo do histórico antes de mudar chaves da configuração (NULL fecha a
+ * lista) e, se all, a geometria de todas as janelas. */
+static void
+record_cfg(wzx *z, int all, ...)
+{
+    wz_hist_entry *e = wzx_history_begin(z);
+    va_list ap;
+    va_start(ap, all);
+    for (;;) {
+        const char *sec = va_arg(ap, const char *);
+        if (!sec)
+            break;
+        const char *key = va_arg(ap, const char *);
+        char *before = wzx_cfg_get(z, sec, key);
+        wz_hist_add_cfg(e, sec, key, before);
+        free(before);
+    }
+    va_end(ap);
+    for (int i = 0; all && i < z->nwin; i++)
+        if (!z->win[i]->special)
+            wzx_history_add(z, e, z->win[i]);
+    wzx_history_end(z);
+}
+
+/* Troca de layout: um passo do histórico com o valor de antes (sem valor
+ * gravado, desfazer apaga a chave e volta o layout automático). */
+static void
+save_layout(wzx *z, const char *sec, const char *id)
+{
+    char *before = wzx_cfg_get(z, sec, "Layout");
+    if (!before || strcmp(before, id)) {
+        wz_hist_entry *e = wzx_history_begin(z);
+        wz_hist_add_cfg(e, sec, "Layout", before);
+        wzx_history_end(z);
+    }
+    free(before);
+    wzx_save_cfg(z, sec, "Layout", id);
+}
+
 static void
 set_layout(wzx *z, const char *id, int mon)
 {
@@ -124,14 +163,15 @@ set_layout(wzx *z, const char *id, int mon)
             s->layout = wz_xstrdup(id);
             char sec[96];
             snprintf(sec, sizeof sec, "Monitor %s", s->monitor);
-            wzx_save_cfg(z, sec, "Layout", id);
+            save_layout(z, sec, id);
             wzx_dockapp_redraw(z);
             return;
         }
     }
     free(z->cfg.layout);
     z->cfg.layout = wz_xstrdup(id);
-    wzx_save_cfg(z, "General", "Layout", id);
+    z->cfg.layout_set = 1;
+    save_layout(z, "General", id);
     wzx_dockapp_redraw(z);
 }
 
@@ -140,7 +180,7 @@ wzx_cycle_layout(wzx *z, int step, int mon)
 {
     if (mon < 0 || mon >= z->nmon || z->cfg.nlayouts <= 0)
         return;
-    const wz_layout_def *cur = wz_config_layout_for(&z->cfg, z->mon[mon].name, (int)z->current_desktop + 1);
+    const wz_layout_def *cur = wzx_layout_of(z, mon);
     int idx = 0;
     for (int i = 0; i < z->cfg.nlayouts; i++)
         if (&z->cfg.layouts[i] == cur)
@@ -220,6 +260,9 @@ move_dir(wzx *z, wzx_win *w, int dir)
     snap_to(z, w, best, wz_zone_at(oz, on, px, py));
 }
 
+/* Foco espacial (Super+Alt+setas): a janela visível mais natural na
+ * direção, em qualquer monitor (FocusEdge=cross), só no monitor da janela
+ * (stop) ou dando a volta nele (wrap). */
 static void
 focus_dir(wzx *z, wzx_win *w, int dir)
 {
@@ -227,19 +270,36 @@ focus_dir(wzx *z, wzx_win *w, int dir)
         return;
     wz_rect r[WZX_MAX_WIN];
     wzx_win *ws[WZX_MAX_WIN];
-    int n = 0, from = -1;
+    int n = 0;
+    int mon = wzx_monitor_of(z, w->outer);
+    int only_mon = z->cfg.focus_edge != WZ_FOCUS_CROSS;
     for (int i = 0; i < z->nwin && n < WZX_MAX_WIN; i++) {
         wzx_win *c = z->win[i];
-        if (!c->mapped || c->special || (c->state & (WS_HIDDEN | WS_SHADED)) || c->desktop != z->current_desktop)
+        if (c == w || !c->mapped || c->special || (c->state & WS_HIDDEN))
             continue;
-        if (c == w)
-            from = n;
+        if (c->desktop != z->current_desktop && c->desktop != -1)
+            continue;
+        if (only_mon && wzx_monitor_of(z, c->outer) != mon)
+            continue;
         ws[n] = c;
         r[n++] = c->outer;
     }
-    int nb = from >= 0 ? wz_neighbor(r, n, from, dir) : -1;
-    if (nb >= 0)
-        wzx_activate(z, ws[nb]);
+    int pick = wz_focus_pick(r, n, w->outer, dir);
+    if (pick < 0 && z->cfg.focus_edge == WZ_FOCUS_WRAP && mon >= 0 && mon < z->nmon) {
+        /* Recomeça do lado oposto do monitor. */
+        wz_rect f = w->outer, g = z->mon[mon].geom;
+        if (dir == WZ_RIGHT)
+            f.x = g.x - f.w;
+        else if (dir == WZ_LEFT)
+            f.x = g.x + g.w;
+        else if (dir == WZ_DOWN)
+            f.y = g.y - f.h;
+        else
+            f.y = g.y + g.h;
+        pick = wz_focus_pick(r, n, f, dir);
+    }
+    if (pick >= 0)
+        wzx_activate(z, ws[pick]);
 }
 
 /* Organiza agora: cada zona recebe a janela que mais a cobre. */
@@ -257,7 +317,8 @@ arrange(wzx *z)
                 wzx_monitor_of(z, w->outer) == mon)
                 cand[nc++] = w;
         }
-        wzx_history_push(z, cand, nc);
+        if (nc > 0)
+            wzx_history_push(z, cand, nc);
         for (int k = 0; k < n && nc > 0; k++) {
             int best = 0;
             long ba = -1;
@@ -343,7 +404,7 @@ status(wzx *z, char *out, size_t len)
          z->has_shape ? "yes" : "no");
     wzx_update_workarea(z);
     for (int i = 0; i < z->nmon; i++) {
-        const wz_layout_def *l = wz_config_layout_for(&z->cfg, z->mon[i].name, (int)z->current_desktop + 1);
+        const wz_layout_def *l = wzx_layout_of(z, i);
         outf(out, len, "monitor=%s %dx%d+%d+%d work=%dx%d+%d+%d layout=%s autotile=%s\n", z->mon[i].name,
              z->mon[i].geom.w, z->mon[i].geom.h, z->mon[i].geom.x, z->mon[i].geom.y, z->mon[i].work.w,
              z->mon[i].work.h, z->mon[i].work.x, z->mon[i].work.y, l ? l->id : "?",
@@ -355,6 +416,14 @@ status(wzx *z, char *out, size_t len)
         snapped += !z->win[i]->tiled && wzx_get_zone_prop(z, z->win[i]) >= 0;
     }
     outf(out, len, "windows=%d tiled=%d snapped=%d\n", z->nwin, tiled, snapped);
+    wzx_win *aw = wzx_find(z, z->active);
+    char at[200] = "";
+    if (aw)
+        wzx_title(z, aw, at, sizeof at);
+    for (char *p = at; *p; p++)
+        if (*p == '\n' || *p == '\t')
+            *p = ' ';
+    outf(out, len, "active=%s\n", at);
     for (int i = 0; i < WZ_KEY_N; i++)
         if (z->keys[i].conflict)
             outf(out, len, "conflict=%s %s\n", wz_key_name(i), z->cfg.keys[i]);
@@ -379,19 +448,36 @@ wzx_command(wzx *z, const char *line, char *out, size_t outlen)
         status(z, out, outlen);
     } else if (!strcmp(cmd, "zones")) {
         int v = onoff(arg, z->cfg.zones);
+        record_cfg(z, 0, "General", "Zones", (char *)NULL);
         z->cfg.zones = v;
         wzx_save_cfg(z, "General", "Zones", v ? "true" : "false");
         wzx_apply_config(z);
         outf(out, outlen, "zones=%s\n", v ? "on" : "off");
     } else if (!strcmp(cmd, "autotile")) {
         int v = onoff(arg, z->cfg.autotile);
-        if (!v)
-            wzx_history_push(z, z->win, z->nwin < 64 ? z->nwin : 64);
+        record_cfg(z, 1, "General", "Autotile", (char *)NULL);
         z->cfg.autotile = v;
         wzx_save_cfg(z, "General", "Autotile", v ? "true" : "false");
         wzx_apply_config(z);
         outf(out, outlen, "autotile=%s\n", v ? "on" : "off");
+    } else if (!strcmp(cmd, "mode")) {
+        /* Zonas, Mosaico ou desligado (dockapp: clique esquerdo "toggle",
+         * do meio "enable"). Sem argumento, só informa. */
+        if (arg) {
+            wz_config tmp = z->cfg;
+            int m = wz_config_set_mode(&tmp, NULL, arg);
+            if (m < 0) {
+                outf(out, outlen, "error=modo desconhecido: %s\n", arg);
+                return;
+            }
+            if (m != (int)wz_config_mode(&z->cfg))
+                record_cfg(z, 1, "General", "Zones", "General", "Autotile", "General", "LastMode", (char *)NULL);
+            wz_config_set_mode(&z->cfg, z->cfg_path, arg);
+            wzx_apply_config(z);
+        }
+        outf(out, outlen, "mode=%s\n", wz_mode_name(wz_config_mode(&z->cfg)));
     } else if (!strcmp(cmd, "algorithm") && arg && wz_algo_from_name(arg) >= 0) {
+        record_cfg(z, 0, "Tiling", "Algorithm", (char *)NULL);
         z->cfg.tile.algo = wz_algo_from_name(arg);
         wzx_save_cfg(z, "Tiling", "Algorithm", arg);
         wzx_tile_mark(z);
@@ -416,13 +502,18 @@ wzx_command(wzx *z, const char *line, char *out, size_t outlen)
     } else if (!strcmp(cmd, "editor")) {
         spawn("wmake-zones-prefs", "--editor");
     } else if (!strcmp(cmd, "prefs")) {
-        spawn("wmake-zones-prefs", "--general");
+        /* Página opcional: general, zones, tiling, monitors, appearance,
+         * keys, rules, advanced. */
+        char page[48] = "--general";
+        if (arg && strlen(arg) < 40 && strspn(arg, "abcdefghijklmnopqrstuvwxyz") == strlen(arg))
+            snprintf(page, sizeof page, "--%s", arg);
+        spawn("wmake-zones-prefs", page);
     } else if (!strcmp(cmd, "arrange")) {
         arrange(z);
     } else if (!strcmp(cmd, "restore")) {
         restore_win(z, active_win(z));
     } else if (!strcmp(cmd, "restore-all")) {
-        wzx_history_push(z, z->win, z->nwin < 64 ? z->nwin : 64);
+        record_cfg(z, 1, (char *)NULL);
         for (int i = 0; i < z->nwin; i++)
             if (!z->win[i]->tiled)
                 restore_win_rec(z, z->win[i], 0);
@@ -446,8 +537,22 @@ wzx_command(wzx *z, const char *line, char *out, size_t outlen)
         wzx_win *w = active_win(z);
         if (w && wzx_snappable(z, w))
             snap_to(z, w, wzx_monitor_of(z, w->outer), atoi(arg) - 1);
+    } else if (!strcmp(cmd, "overlay")) {
+        /* Estado do overlay (testes e diagnóstico). */
+        outf(out, outlen, "overlay=%s mon=%d mode=%d zones=%d strip=%d sel=%s hover=%d\n",
+             z->ov.shown ? "shown" : "hidden", z->ov.mon, z->ov.mode, z->ov.nzones, z->ov.strip,
+             z->ov.strip_sel >= 0 ? z->ov.strip_id[z->ov.strip_sel] : "-", z->ov.strip_hover);
+        for (int i = 0; i < z->ov.strip_n; i++) {
+            wz_rect c = z->ov.strip_cell[i], t = z->ov.strip_thumb[i];
+            outf(out, outlen, "cell=%s %dx%d%+d%+d thumb=%dx%d%+d%+d\n", z->ov.strip_id[i], c.w, c.h, c.x, c.y, t.w,
+                 t.h, t.x, t.y);
+        }
     } else if (!strcmp(cmd, "undo")) {
-        wzx_history_undo(z);
+        if (!wzx_history_step(z, 0))
+            outf(out, outlen, "undo=empty\n");
+    } else if (!strcmp(cmd, "redo")) {
+        if (!wzx_history_step(z, 1))
+            outf(out, outlen, "redo=empty\n");
     } else if (!strcmp(cmd, "preview") && arg) {
         preview(z, arg);
     } else if (!strcmp(cmd, "reload")) {

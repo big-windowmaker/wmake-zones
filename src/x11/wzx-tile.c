@@ -44,6 +44,8 @@ set_for(wzx *z, int mon, int create)
     return NULL;
 }
 
+static void record_ratio(wzx *z, wzx_win *w, tset *s);
+
 int
 wzx_tile_active_for(wzx *z, int mon)
 {
@@ -197,7 +199,9 @@ untile(wzx *z, wzx_win *w, int restore)
     w->expect_valid = 0;
 }
 
-/* Regras na primeira vez que a janela aparece. */
+/* Regras na primeira vez que a janela aparece. Primeiro o destino (área de
+ * trabalho, monitor), depois a ação. Diálogos e menus não chegam aqui
+ * (wzx_snappable). */
 static void
 apply_rules(wzx *z, wzx_win *w)
 {
@@ -206,18 +210,48 @@ apply_rules(wzx *z, wzx_win *w)
     const wz_rule *r = wz_config_match_rule(&z->cfg, w->wm_class, w->instance, wzx_title(z, w, title, sizeof title));
     if (!r)
         return;
-    if (r->action == WZ_RULE_FLOAT || r->action == WZ_RULE_IGNORE) {
-        w->rule_float = 1;
+    if (r->action == WZ_RULE_IGNORE) {
+        w->rule_ignore = 1;
         return;
     }
-    if (r->action == WZ_RULE_ZONE && r->zone > 0 && wzx_snappable(z, w)) {
-        int mon = wzx_monitor_of(z, w->outer);
-        if (r->monitor)
-            for (int i = 0; i < z->nmon; i++)
-                if (!strcmp(z->mon[i].name, r->monitor))
-                    mon = i;
-        if (wzx_tile_active_for(z, mon))
-            return; /* o mosaico decide */
+    if (w->special || w->transient)
+        return;
+    if (r->workspace > 0 && w->desktop >= 0 && w->desktop != r->workspace - 1)
+        wzx_send_to_desktop(z, w, r->workspace - 1);
+    int mon = wzx_monitor_of(z, w->outer);
+    if (r->monitor) {
+        int target = -1;
+        for (int i = 0; i < z->nmon; i++)
+            if (!strcmp(z->mon[i].name, r->monitor))
+                target = i;
+        if (target >= 0 && target != mon && !w->fixed) {
+            /* No mesmo ponto relativo da área útil do outro monitor. */
+            wzx_update_workarea(z);
+            wz_rect a = z->mon[mon].work, b = z->mon[target].work, o = w->outer;
+            wz_rect n = o;
+            n.w = o.w < b.w ? o.w : b.w;
+            n.h = o.h < b.h ? o.h : b.h;
+            n.x = b.x + (a.w > n.w ? (int)((long)(o.x - a.x) * (b.w - n.w) / (a.w - n.w > 0 ? a.w - n.w : 1)) : 0);
+            n.y = b.y + (a.h > n.h ? (int)((long)(o.y - a.y) * (b.h - n.h) / (a.h - n.h > 0 ? a.h - n.h : 1)) : 0);
+            if (n.x < b.x || n.x + n.w > b.x + b.w)
+                n.x = b.x + (b.w - n.w) / 2;
+            if (n.y < b.y || n.y + n.h > b.y + b.h)
+                n.y = b.y + (b.h - n.h) / 2;
+            wzx_move_outer(z, w, n);
+            w->outer = n;
+            mon = target;
+        }
+    }
+    switch (r->action) {
+    case WZ_RULE_FLOAT:
+        w->rule_float = 1;
+        break;
+    case WZ_RULE_TILE:
+        w->rule_tile = 1;
+        break;
+    case WZ_RULE_ZONE: {
+        if (r->zone <= 0 || !wzx_snappable(z, w) || wzx_tile_active_for(z, mon))
+            break; /* com o mosaico, ele decide */
         wz_rect zones[WZX_MAX_ZONES];
         int n;
         if (r->layout && wz_config_layout(&z->cfg, r->layout)) {
@@ -233,6 +267,10 @@ apply_rules(wzx *z, wzx_win *w)
             wzx_snap(z, w, zones[r->zone - 1], r->zone - 1, 0);
             wzx_log("regra \"%s\": %s na zona %d", r->id, w->wm_class ? w->wm_class : "?", r->zone);
         }
+        break;
+    }
+    default:
+        break;
     }
 }
 
@@ -426,6 +464,7 @@ wzx_tile_user_resize(wzx *z, wzx_win *w)
             double span = horiz ? area.w : area.h;
             double size = horiz ? w->outer.w : w->outer.h;
             double ratio = idx < p.nmaster ? size / span : 1 - size / span;
+            record_ratio(z, w, s);
             s->ratio = ratio < 0.1 ? 0.1 : ratio > 0.9 ? 0.9 : ratio;
         }
     } else if (p.algo == WZ_TILE_BSP && s && w->expect_valid) {
@@ -488,6 +527,27 @@ wzx_tile_promote(wzx *z, wzx_win *w)
     wzx_tile_mark(z);
 }
 
+double *
+wzx_tile_ratio_of(wzx *z, wzx_win *w)
+{
+    int mon = w && w->tile_mon >= 0 ? w->tile_mon : w ? wzx_monitor_of(z, w->outer) : -1;
+    if (mon < 0 || mon >= z->nmon)
+        return NULL;
+    tset *s = set_for(z, mon, 1);
+    return s ? &s->ratio : NULL;
+}
+
+/* Passo do histórico com a proporção de antes e a janela (que diz o
+ * conjunto). */
+static void
+record_ratio(wzx *z, wzx_win *w, tset *s)
+{
+    wz_hist_entry *e = wzx_history_begin(z);
+    wz_hist_set_aux(e, (long)(s->ratio * 10000 + 0.5));
+    wzx_history_add(z, e, w);
+    wzx_history_end(z);
+}
+
 void
 wzx_tile_ratio(wzx *z, wzx_win *w, double delta)
 {
@@ -498,6 +558,8 @@ wzx_tile_ratio(wzx *z, wzx_win *w, double delta)
     if (!s)
         return;
     wz_tile_params p = params(z, mon, s);
+    if (p.algo != WZ_TILE_BSP)
+        record_ratio(z, w, s);
     if (p.algo == WZ_TILE_BSP) {
         wz_bsp_resize(&s->bsp, (long)w->client, WZ_RIGHT, delta);
         wz_bsp_resize(&s->bsp, (long)w->client, WZ_LEFT, delta);
@@ -513,6 +575,7 @@ wzx_tile_toggle_float(wzx *z, wzx_win *w)
 {
     if (!w)
         return;
+    wzx_history_push(z, &w, 1);
     if (w->tiled) {
         w->user_float = 1;
         untile(z, w, 1);

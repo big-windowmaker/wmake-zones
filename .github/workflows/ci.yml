@@ -14,7 +14,7 @@ jobs:
             libx11 libxi libxrandr libxext libxft libxrender fontconfig gtk3 cairo \
             wayland wayland-protocols librsvg \
             xorg-server-xvfb xdotool xorg-xprop xterm windowmaker \
-            python python-gobject appstream
+            python python-gobject python-xlib appstream
       - uses: actions/checkout@v4
       - name: Compilar
         run: |

@@ -16,13 +16,18 @@ wmake-zones \- window zones and automatic tiling for Window Maker and wlmaker
 .B wmake-zones-wl
 .SH DESCRIPTION
 .B wmake-zones
-adds snap zones and automatic tiling to the Big WindowMaker desktop
-while keeping Window Maker a floating window manager by default.
+adds snap zones and automatic tiling to the Big WindowMaker desktop.
+Zones are on by default and tiling is off: windows float as in Window
+Maker and move only when dropped on a zone.
 .PP
 .B Zones:
-while a window is dragged, the zones of the monitor under the pointer
-appear as bevelled panels; releasing the button snaps the window into the
-highlighted zone.
+while a window is dragged, a panel with the thumbnails of the layouts
+appears first; resting the pointer on one shows its zones on the monitor,
+and dropping on a zone of a thumbnail snaps there at once.
+Releasing the button over a zone snaps the window into it.
+.B DragFlow
+changes this: the zones of the current layout right away, the panel only
+with the modifier key, or at the top edge.
 Near the border between two zones the target becomes both of them.
 .B Esc
 during the drag cancels it and puts the window back.
@@ -62,8 +67,11 @@ Start the service (X11).
 .TP
 .BR \-d ", " \-\-dockapp
 Start the service with its 64\(mu64 tile for the Window Maker Dock or Clip.
-Left click opens the layouts, the wheel cycles them, the middle button
-turns zones on and off and the right button opens the menu.
+Left click switches between Zones and Tiling, the middle button turns
+everything off and back on, the wheel cycles the layouts and the right
+button opens the menu (all configurable in the
+.B [Dockapp]
+section).
 In a Wayland session this runs
 .BR wmake-zones-wl .
 .TP
@@ -93,6 +101,14 @@ setting and starts the service.
 .B status
 State, monitors with their work areas and effective layouts, windows and
 shortcut conflicts.
+.TP
+.BR mode " " zones | tiling | off | toggle | enable
+Organization mode.
+.B toggle
+switches between Zones and Tiling (off turns the last mode on),
+.B enable
+turns everything off or the last mode back on.
+Without an argument, show the mode.
 .TP
 .BR zones " " on | off | toggle
 Snap zones while dragging.
@@ -127,24 +143,37 @@ before snapping.
 Take the active window out of tiling or back in; make it the master;
 change the master ratio; snap every window to its nearest zone.
 .TP
-.B undo
-Undo the last snap, restore or tiling change.
+.BR undo ", " redo
+Undo or redo the last change: snaps, layout, mode, tiling, swaps, the
+master ratio.
 .TP
 .B picker
 Choose a zone with the keyboard: digits or arrows, Enter, Tab for the
-next layout, Esc (X11).
+next layout, Esc.
 .TP
 .BI preview " tree"
 Show a layout for a moment, for example
 .BR "H(2,1)" .
 .TP
 .BR windows " [" \-l ]
-Class, instance and title of the open windows; with
+Class, instance and title of the open windows (on Wayland the class is
+the app ID); with
 .BR \-l ,
-monitor, zone, tiling and frame geometry.
+monitor, zone, tiling, frame geometry, class and title.
 .TP
-.BR editor ", " prefs
-Open the zone editor or the preferences.
+.B overlay
+State of the zones overlay and the layout panel (diagnostics).
+.TP
+.BR editor ", " prefs " [" \fIpage\fR ]
+Open the zone editor or the preferences, optionally at a page:
+.BR general ,
+.BR zones ,
+.BR tiling ,
+.BR monitors ,
+.BR appearance ,
+.BR keys ,
+.BR rules ,
+.BR advanced .
 .TP
 .BR reload ", " log ", " ping ", " quit
 Read the configuration again, show the last log lines, check that the

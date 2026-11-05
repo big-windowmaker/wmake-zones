@@ -757,6 +757,71 @@ wz_neighbor(const wz_rect *z, int n, int from, int dir)
     return best;
 }
 
+int
+wz_focus_pick(const wz_rect *cand, int n, wz_rect from, int dir)
+{
+    long fcx = from.x * 2L + from.w, fcy = from.y * 2L + from.h; /* centros x2 */
+    int best = -1;
+    long bests = 0;
+    for (int i = 0; i < n; i++) {
+        wz_rect c = cand[i];
+        if (c.w <= 0 || c.h <= 0)
+            continue;
+        long ccx = c.x * 2L + c.w, ccy = c.y * 2L + c.h;
+        long gap, centers, perp;
+        int horiz = dir == WZ_LEFT || dir == WZ_RIGHT;
+        switch (dir) {
+        case WZ_LEFT:
+            if (ccx >= fcx)
+                continue;
+            gap = (long)from.x - (c.x + c.w);
+            centers = fcx - ccx;
+            break;
+        case WZ_RIGHT:
+            if (ccx <= fcx)
+                continue;
+            gap = (long)c.x - (from.x + from.w);
+            centers = ccx - fcx;
+            break;
+        case WZ_UP:
+            if (ccy >= fcy)
+                continue;
+            gap = (long)from.y - (c.y + c.h);
+            centers = fcy - ccy;
+            break;
+        case WZ_DOWN:
+            if (ccy <= fcy)
+                continue;
+            gap = (long)c.y - (from.y + from.h);
+            centers = ccy - fcy;
+            break;
+        default:
+            return -1;
+        }
+        if (gap < 0)
+            gap = 0;
+        /* Vão perpendicular entre as faixas (zero se elas se cruzam). */
+        long a0 = horiz ? from.y : from.x, a1 = a0 + (horiz ? from.h : from.w);
+        long b0 = horiz ? c.y : c.x, b1 = b0 + (horiz ? c.h : c.w);
+        perp = b0 >= a1 ? b0 - a1 : a0 >= b1 ? a0 - b1 : 0;
+        /* Faixas que não se cruzam (só encostam ou estão separadas): soma o
+         * desvio entre os centros no eixo perpendicular. Uma janela ao lado
+         * nunca passa por "acima" só porque o centro dela é mais alto. */
+        long dev = labs((a0 + a1) - (b0 + b1)) / 2;
+        /* Faixas que se cruzam: um quarto do desvio desempata a favor da
+         * mais alinhada (a de cima no mesmo monitor vence a que só cruza
+         * a faixa pela ponta). */
+        long off = (b0 < a1 && a0 < b1) ? dev / 4 : dev;
+        /* centers está em dobro: /2 dá a distância real. */
+        long score = gap + centers / 4 + 2 * perp + off;
+        if (best < 0 || score < bests) {
+            best = i;
+            bests = score;
+        }
+    }
+    return best;
+}
+
 void
 wz_set_divider(wz_node *split, int k, double f, double min_frac)
 {

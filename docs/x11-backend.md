@@ -70,15 +70,31 @@ listras horizontais. Uma trama de pontos viraria centenas de milhares de
 retângulos de 1 px na região e travaria o servidor (visto no Xvfb).
 Mudar a forma gera `Expose`; no `Expose` só se pinta.
 
+Painel de layouts (primeiro o layout, depois a zona): desenhado na mesma
+janela do overlay (com o XRender no ARGB; com GC e entrando na forma, sem
+compositor), centrado na área útil, em cima ou embaixo, longe do ponteiro.
+A miniatura sob o ponteiro vem do `XQueryPointer` de cada lote; um prazo
+(`LayoutDwell`) no laço principal escolhe a que ficou parada sem precisar
+de movimento. O overlay é refeito só quando o monitor, o modo ou o painel
+mudam; uma troca de zonas só redesenha.
+
 ## Atalhos, seletor e dockapp
 
 * Atalhos: `XGrabKey` na raiz com as variações de NumLock/CapsLock. Um
   `BadAccess` vira conflito (não se toma o atalho de ninguém).
 * Seletor (Super+Z): grab ativo de teclado e ponteiro só enquanto aberto.
 * Dockapp: janela com `WM_HINTS` de ícone (`WithdrawnState`), classe
-  `wmake-zones.DockApp`, `WM_COMMAND = wmake-zones --dockapp`. Menus
-  desenhados com as cores e fontes do `~/GNUstep/Defaults/WindowMaker`
-  (MenuTitleBack, MenuTextBack, HighlightColor...).
+  `wmake-zones.DockApp`, `WM_COMMAND = wmake-zones --dockapp` (no Dock
+  padrão do Big WindowMaker, posição 0,7). Menu com submenus em janelas
+  override-redirect (o de cima segura ponteiro e teclado; o submenu abre
+  do lado com espaço), desenhado com as cores e fontes do
+  `~/GNUstep/Defaults/WindowMaker` (MenuTitleBack, MenuTextBack,
+  HighlightColor...). O balão de troca de modo some sozinho em 1,5 s; a
+  dica ao parar o ponteiro é a do próprio Window Maker.
+* Monitores: `RRScreenChangeNotify` e `RRNotify` (CRTC e saída) marcam a
+  lista para ser refeita depois do lote; se ela mudou, o seletor e o
+  overlay fecham, o mosaico se refaz e janelas que ficaram fora de todos os
+  monitores voltam para o mais perto.
 
 ## Encaixe nativo do wmaker
 

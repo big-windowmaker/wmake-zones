@@ -66,6 +66,29 @@ wzx_save_cfg(wzx *z, const char *section, const char *key, const char *value)
         wzx_log("não consegui gravar %s/%s em %s", section, key, z->cfg_path);
 }
 
+struct cfg_get {
+    const char *section, *key;
+    char *value;
+};
+
+static void
+cfg_get_cb(const char *section, const char *key, const char *value, void *ud)
+{
+    struct cfg_get *g = ud;
+    if (!strcmp(section, g->section) && !strcmp(key, g->key)) {
+        free(g->value);
+        g->value = wz_xstrdup(value);
+    }
+}
+
+char *
+wzx_cfg_get(wzx *z, const char *section, const char *key)
+{
+    struct cfg_get g = { section, key, NULL };
+    wz_ini_parse_file(z->cfg_path, cfg_get_cb, &g);
+    return g.value;
+}
+
 static int
 x_error(Display *d, XErrorEvent *e)
 {
@@ -181,17 +204,12 @@ handle_event(wzx *z, XEvent *e)
         }
         return;
     }
-    if (z->has_randr && e->type == z->randr_event + RRScreenChangeNotify) {
-        XRRUpdateConfiguration(e);
-        wzx_overlay_hide(z);
-        wzx_update_monitors(z);
-        /* Monitores mudaram: os conjuntos do mosaico se refazem. */
-        for (int i = 0; i < z->nwin; i++)
-            z->win[i]->tile_mon = -1, z->win[i]->expect_valid = 0;
-        for (int i = 0; i < 64; i++)
-            if (z->tset[i].used)
-                wz_bsp_clear(&z->tset[i].bsp);
-        wzx_tile_mark(z);
+    if (z->has_randr && (e->type == z->randr_event + RRScreenChangeNotify || e->type == z->randr_event + RRNotify)) {
+        /* Monitor conectado, desligado, movido ou outro principal: uma
+         * mudança gera vários eventos; o ajuste vem depois do lote. */
+        if (e->type == z->randr_event + RRScreenChangeNotify)
+            XRRUpdateConfiguration(e);
+        z->monitors_dirty = 1;
         return;
     }
     if (wzx_dockapp_event(z, e))
@@ -285,6 +303,8 @@ usage(void)
              "\n"
              "Commands (sent to the running service, X11 or wlmaker):\n"
              "  status                     state, monitors, work areas and layouts\n"
+             "  mode zones|tiling|off      organization mode; toggle switches Zones and\n"
+             "                             Tiling, enable turns off or back on\n"
              "  zones on|off|toggle        snap zones while dragging\n"
              "  autotile on|off|toggle     automatic tiling\n"
              "  layout ID|next|prev        zone layout of the monitor under the pointer\n"
@@ -295,11 +315,12 @@ usage(void)
              "  move|swap|focus left|right|up|down\n"
              "  restore | restore-all      back to the size and place before snapping\n"
              "  float | promote | grow | shrink | arrange\n"
-             "  undo                       undo the last change\n"
-             "  picker                     choose a zone with the keyboard (X11)\n"
+             "  undo | redo                undo or redo the last change\n"
+             "  picker                     choose a zone with the keyboard\n"
              "  preview TREE               show a layout for a moment, e.g. \"H(2,1)\"\n"
              "  windows [-l]               open windows (-l: monitor, zone and geometry)\n"
-             "  editor | prefs             open the zone editor or the preferences\n"
+             "  editor | prefs [PAGE]      open the zone editor or the preferences\n"
+             "  overlay                    state of the zones overlay (diagnostics)\n"
              "  reload | log | ping | quit\n"
              "\n"
              "Configuration: ~/.config/wmake-zones/wmake-zones.conf\n"));
@@ -533,7 +554,7 @@ main(int argc, char **argv)
     wzx_drag_init(z);
     XSelectInput(z->dpy, z->root, SubstructureNotifyMask | PropertyChangeMask);
     if (z->has_randr)
-        XRRSelectInput(z->dpy, z->root, RRScreenChangeNotifyMask);
+        XRRSelectInput(z->dpy, z->root, RRScreenChangeNotifyMask | RRCrtcChangeNotifyMask | RROutputChangeNotifyMask);
     wzx_sync_clients(z);
     if (dockapp)
         wzx_dockapp_create(z);
@@ -556,11 +577,22 @@ main(int argc, char **argv)
     sigprocmask(SIG_BLOCK, &mask, NULL);
     int sfd = signalfd(-1, &mask, SFD_CLOEXEC | SFD_NONBLOCK);
 
+    const char *idle = getenv("WZX_GRAB_IDLE_MS");
+    z->grab_idle_ms = idle && atol(idle) > 0 ? atol(idle) : WZX_GRAB_IDLE_MS;
+
     while (!z->quit) {
         while (XPending(z->dpy)) {
             XEvent e;
             XNextEvent(z->dpy, &e);
             handle_event(z, &e);
+            /* Mexer no seletor ou no menu adia o fechamento por inatividade. */
+            if ((z->picker || z->popup) &&
+                (e.type == KeyPress || e.type == ButtonPress || e.type == MotionNotify))
+                z->grab_idle_at = 0;
+        }
+        if (z->monitors_dirty) {
+            z->monitors_dirty = 0;
+            wzx_monitors_changed(z);
         }
         wzx_drag_flush(z);
         long now = wzx_now_ms();
@@ -568,17 +600,35 @@ main(int argc, char **argv)
             wzx_tile_run(z);
         if (z->ov_hide_at && now >= z->ov_hide_at && z->ov.mode == 3)
             wzx_overlay_hide(z);
+        wzx_dockapp_timer(z, now);
+        if (z->resnap_at && now >= z->resnap_at)
+            wzx_resnap_run(z);
+        if (!z->picker && !z->popup)
+            z->grab_idle_at = 0;
+        else if (!z->grab_idle_at)
+            z->grab_idle_at = now + z->grab_idle_ms;
+        else if (now >= z->grab_idle_at) {
+            wzx_log("seletor/menu parado por %ld ms: fechado (solta teclado e ponteiro)", z->grab_idle_ms);
+            wzx_picker_close(z);
+            wzx_dockapp_popup_close(z);
+            z->grab_idle_at = 0;
+        }
         XFlush(z->dpy);
         if (XPending(z->dpy))
             continue;
 
-        long due = -1;
-        if (z->drag == DRAG_MOVING && z->drag_dirty && z->drag_show_at > now)
-            due = z->drag_show_at;
+        long due = wzx_drag_due(z);
         if (z->tile_dirty && (due < 0 || z->tile_at < due))
             due = z->tile_at;
         if (z->ov_hide_at && (due < 0 || z->ov_hide_at < due))
             due = z->ov_hide_at;
+        if (z->resnap_at && (due < 0 || z->resnap_at < due))
+            due = z->resnap_at;
+        if (z->grab_idle_at && (due < 0 || z->grab_idle_at < due))
+            due = z->grab_idle_at;
+        long dd = wzx_dockapp_due(z);
+        if (dd >= 0 && (due < 0 || dd < due))
+            due = dd;
         int timeout = due < 0 ? -1 : (int)(due > now ? due - now : 0);
 
         struct pollfd p[3] = { { z->fd, POLLIN, 0 }, { z->listen_fd, POLLIN, 0 }, { sfd, POLLIN, 0 } };
@@ -624,6 +674,9 @@ main(int argc, char **argv)
     for (int i = 0; i < WZX_MAX_ZONES; i++)
         free(z->ov.names[i]);
     wz_config_free(&z->cfg);
+    wz_history_free(&z->history);
+    free(z->drag_layout);
+    free(z->drag_tree);
     free(z->cfg_path);
     wzx_log("encerrado");
     return 0;

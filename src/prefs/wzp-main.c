@@ -250,8 +250,14 @@ on_general_layout(GtkComboBox *c, gpointer d)
     const char *id = gtk_combo_box_get_active_id(c);
     if (!id)
         return;
-    run_cmd("layout", id);
-    wzp_set("General", "Layout", id);
+    if (!*id) {
+        /* Automático: sem a chave, o layout vem da proporção do monitor. */
+        wzp_set("General", "Layout", NULL);
+        wzp_reload_daemon();
+    } else {
+        run_cmd("layout", id);
+        wzp_set("General", "Layout", id);
+    }
     wzp_reload_config();
     gtk_widget_queue_draw(preview_area);
 }
@@ -266,6 +272,30 @@ static void
 on_edit(GtkButton *b, gpointer d)
 {
     editor_for_current();
+}
+
+static const char *const focus_edges[] = { "cross", N_("Go on to the next monitor"), "stop",
+                                           N_("Stay on the same monitor"), "wrap",
+                                           N_("Wrap around on the same monitor"), NULL };
+static const char *const clicks[] = { "mode", N_("Switch between Zones and Tiling"), "enable",
+                                      N_("Turn off / back on"), "layouts", N_("Show the layouts"),
+                                      "zones", N_("Zones on/off"), "autotile", N_("Auto Tiling on/off"),
+                                      "none", N_("Nothing"), NULL };
+static const char *const wheels[] = { "layout", N_("Previous / next layout"), "none", N_("Nothing"), NULL };
+
+static const char *
+click_id(wz_click c)
+{
+    switch (c) {
+    case WZ_CLICK_MODE: return "mode";
+    case WZ_CLICK_ENABLE: return "enable";
+    case WZ_CLICK_LAYOUTS: return "layouts";
+    case WZ_CLICK_ZONES: return "zones";
+    case WZ_CLICK_AUTOTILE: return "autotile";
+    case WZ_CLICK_CYCLE: return "layout";
+    case WZ_CLICK_MENU: return "menu";
+    default: return "none";
+    }
 }
 
 static GtkWidget *
@@ -283,9 +313,10 @@ page_general(void)
     gtk_grid_attach(GTK_GRID(g), t, 0, 1, 2, 1);
     gtk_grid_attach(GTK_GRID(g), label(_("Layout:")), 0, 2, 1, 1);
     GtkWidget *lc = gtk_combo_box_text_new();
+    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(lc), "", _("Automatic (by the monitor's shape)"));
     for (int i = 0; i < wzp.cfg.nlayouts; i++)
         gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(lc), wzp.cfg.layouts[i].id, wzp_layout_label(&wzp.cfg.layouts[i]));
-    gtk_combo_box_set_active_id(GTK_COMBO_BOX(lc), wzp.cfg.layout);
+    gtk_combo_box_set_active_id(GTK_COMBO_BOX(lc), wzp.cfg.layout_set ? wzp.cfg.layout : "");
     g_signal_connect(lc, "changed", G_CALLBACK(on_general_layout), NULL);
     gtk_widget_set_hexpand(lc, TRUE);
     gtk_grid_attach(GTK_GRID(g), lc, 1, 2, 1, 1);
@@ -308,9 +339,31 @@ page_general(void)
                           "KeepRunning", wzp.cfg.keep_running,
                           _("Uses about 3 MiB of memory and no processor time while idle")),
                     0, 1, 2, 1);
+    gtk_grid_attach(GTK_GRID(g2), label(_("Undo steps kept:")), 0, 2, 1, 1);
+    gtk_grid_attach(GTK_GRID(g2), spin("General", "HistoryDepth", wzp.cfg.history_depth, 1, 100), 1, 2, 1, 1);
+    gtk_grid_attach(GTK_GRID(g2), label(_("Focusing the window next to it, at the screen edge:")), 0, 3, 1, 1);
+    gtk_grid_attach(GTK_GRID(g2),
+                    combo("General", "FocusEdge",
+                          wzp.cfg.focus_edge == WZ_FOCUS_STOP   ? "stop"
+                          : wzp.cfg.focus_edge == WZ_FOCUS_WRAP ? "wrap"
+                                                                : "cross",
+                          focus_edges),
+                    1, 3, 1, 1);
     gtk_box_pack_start(GTK_BOX(box), frame(_("Behaviour"), g2), FALSE, FALSE, 0);
-    GtkWidget *note = label(_("The traditional Window Maker stays the default: windows float until you turn Zones or "
-                              "Auto Tiling on. The wmake-zones tile in the Dock does the same with two clicks."));
+
+    /* Ladrilho do Dock: o que cada botão faz. */
+    GtkWidget *g3 = grid();
+    gtk_grid_attach(GTK_GRID(g3), label(_("Left click:")), 0, 0, 1, 1);
+    gtk_grid_attach(GTK_GRID(g3), combo("Dockapp", "LeftClick", click_id(wzp.cfg.click[0]), clicks), 1, 0, 1, 1);
+    gtk_grid_attach(GTK_GRID(g3), label(_("Middle click:")), 0, 1, 1, 1);
+    gtk_grid_attach(GTK_GRID(g3), combo("Dockapp", "MiddleClick", click_id(wzp.cfg.click[1]), clicks), 1, 1, 1, 1);
+    gtk_grid_attach(GTK_GRID(g3), label(_("Wheel:")), 0, 2, 1, 1);
+    gtk_grid_attach(GTK_GRID(g3), combo("Dockapp", "Wheel", click_id(wzp.cfg.click[3]), wheels), 1, 2, 1, 1);
+    gtk_box_pack_start(GTK_BOX(box), frame(_("Dock tile"), g3), FALSE, FALSE, 0);
+    GtkWidget *note = label(_("Zones are on from the start: windows float as in the traditional Window Maker and "
+                              "move only when you drop them on a zone. Auto Tiling arranges them by itself; it stays "
+                              "off until you turn it on. Left click on the wmake-zones tile in the Dock switches "
+                              "between the two; the middle click turns everything off and back on."));
     gtk_label_set_line_wrap(GTK_LABEL(note), TRUE);
     gtk_box_pack_start(GTK_BOX(box), note, FALSE, FALSE, 0);
     return box;
@@ -323,6 +376,11 @@ static const char *const activations[] = { "drag", N_("When a window starts bein
                                            N_("When the pointer reaches a screen edge"), NULL };
 static const char *const modifiers[] = { "super", N_("Super (Windows key)"), "alt", N_("Alt"), "ctrl", N_("Ctrl"),
                                          "shift", N_("Shift"), NULL };
+
+static const char *const drag_flows[] = { "layouts", N_("First the layouts, then the zones"), "zones",
+                                          N_("The zones of the current layout"), "layouts-modifier",
+                                          N_("The layouts only while the modifier key is held"), "layouts-edge",
+                                          N_("The layouts at the top edge of the screen"), NULL };
 
 static const char *
 activation_id(void)
@@ -354,6 +412,17 @@ page_zones(void)
     gtk_grid_attach(GTK_GRID(g), spin("General", "Edge", wzp.cfg.edge_px, 1, 400), 1, 4, 1, 1);
     gtk_grid_attach(GTK_GRID(g), label(_("Join two zones near their border (px):")), 0, 5, 1, 1);
     gtk_grid_attach(GTK_GRID(g), spin("General", "Span", wzp.cfg.span_px, 0, 200), 1, 5, 1, 1);
+    gtk_grid_attach(GTK_GRID(g), label(_("While dragging, show:")), 0, 6, 1, 1);
+    gtk_grid_attach(GTK_GRID(g),
+                    combo("General", "DragFlow",
+                          wzp.cfg.drag_flow == WZ_FLOW_ZONES              ? "zones"
+                          : wzp.cfg.drag_flow == WZ_FLOW_LAYOUTS_MODIFIER ? "layouts-modifier"
+                          : wzp.cfg.drag_flow == WZ_FLOW_LAYOUTS_EDGE     ? "layouts-edge"
+                                                                          : "layouts",
+                          drag_flows),
+                    1, 6, 1, 1);
+    gtk_grid_attach(GTK_GRID(g), label(_("Rest on a layout to see its zones (ms):")), 0, 7, 1, 1);
+    gtk_grid_attach(GTK_GRID(g), spin("General", "LayoutDwell", wzp.cfg.dwell_ms, 0, 3000), 1, 7, 1, 1);
     gtk_box_pack_start(GTK_BOX(box), frame(_("Dragging"), g), FALSE, FALSE, 0);
 
     GtkWidget *g2 = grid();

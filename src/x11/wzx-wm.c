@@ -118,6 +118,98 @@ wzx_update_monitors(wzx *z)
     z->work_dirty = 1;
 }
 
+void
+wzx_monitors_changed(wzx *z)
+{
+    wzx_monitor old[WZX_MAX_MON];
+    int nold = z->nmon;
+    memcpy(old, z->mon, sizeof old);
+    wzx_update_monitors(z);
+    int same = nold == z->nmon;
+    for (int i = 0; same && i < z->nmon; i++)
+        same = !strcmp(old[i].name, z->mon[i].name) && !memcmp(&old[i].geom, &z->mon[i].geom, sizeof old[i].geom);
+    if (same)
+        return;
+    wzx_log("monitores: %d -> %d", nold, z->nmon);
+    wzx_picker_close(z);
+    wzx_overlay_hide(z);
+    wzx_update_workarea(z);
+    /* Os conjuntos do mosaico se refazem nos monitores de agora. */
+    for (int i = 0; i < z->nwin; i++)
+        z->win[i]->tile_mon = -1, z->win[i]->expect_valid = 0;
+    for (int i = 0; i < 64; i++)
+        if (z->tset[i].used)
+            wz_bsp_clear(&z->tset[i].bsp);
+    /* Janela encaixada num monitor que continua, mas mudou de tamanho
+     * (resolução, escala, rotação): volta para a mesma zona, refeita na
+     * geometria nova. A posição de antes diz o monitor (o wmaker pode já
+     * ter empurrado a janela para dentro da tela). O encaixe espera um
+     * pouco: a área útil depende do Dock, que o wmaker ainda vai mover para
+     * a borda nova. */
+    for (int i = 0; i < z->nwin; i++) {
+        wzx_win *w = z->win[i];
+        w->resnap_mon = -1;
+        if (!w->mapped || w->special || w->tiled || wzx_get_zone_prop(z, w) < 0)
+            continue;
+        wzx_refresh_geom(z, w);
+        int cx = w->outer.x + w->outer.w / 2, cy = w->outer.y + w->outer.h / 2, om = -1;
+        for (int m = 0; m < nold && om < 0; m++)
+            if (wz_rect_contains(old[m].geom, cx, cy))
+                om = m;
+        for (int m = 0; om >= 0 && m < z->nmon; m++)
+            if (!strcmp(old[om].name, z->mon[m].name)) {
+                if (memcmp(&old[om].geom, &z->mon[m].geom, sizeof old[om].geom))
+                    w->resnap_mon = m;
+                break;
+            }
+        if (w->resnap_mon >= 0)
+            z->resnap_at = wzx_now_ms() + 400;
+    }
+    /* Janela de um monitor que saiu (o centro fora de todos): vai para a
+     * área útil do mais perto, com o tamanho que couber. */
+    for (int i = 0; i < z->nwin; i++) {
+        wzx_win *w = z->win[i];
+        if (!w->mapped || w->special || w->tiled || w->resnap_mon >= 0)
+            continue;
+        int cx = w->outer.x + w->outer.w / 2, cy = w->outer.y + w->outer.h / 2, inside = 0;
+        for (int m = 0; m < z->nmon && !inside; m++)
+            inside = wz_rect_contains(z->mon[m].geom, cx, cy);
+        if (inside)
+            continue;
+        wz_rect a = z->mon[wzx_monitor_at(z, cx, cy)].work, r = w->outer;
+        r.w = r.w > a.w ? a.w : r.w;
+        r.h = r.h > a.h ? a.h : r.h;
+        r.x = r.x < a.x ? a.x : r.x + r.w > a.x + a.w ? a.x + a.w - r.w : r.x;
+        r.y = r.y < a.y ? a.y : r.y + r.h > a.y + a.h ? a.y + a.h - r.h : r.y;
+        wzx_log("monitores: %s trazida para (%d,%d)", w->wm_class ? w->wm_class : "?", r.x, r.y);
+        wzx_move_outer(z, w, r);
+    }
+    wzx_tile_mark(z);
+    wzx_dockapp_redraw(z);
+}
+
+void
+wzx_resnap_run(wzx *z)
+{
+    z->resnap_at = 0;
+    z->work_dirty = 1;
+    wzx_update_workarea(z);
+    for (int i = 0; i < z->nwin; i++) {
+        wzx_win *w = z->win[i];
+        int m = w->resnap_mon;
+        w->resnap_mon = -1;
+        long zone = m >= 0 && m < z->nmon && w->mapped && !w->tiled ? wzx_get_zone_prop(z, w) : -1;
+        if (zone < 0)
+            continue;
+        wz_rect zones[WZX_MAX_ZONES];
+        int n = wzx_zones_for(z, m, zones, NULL, WZX_MAX_ZONES);
+        if (zone >= n)
+            continue;
+        wzx_log("monitores: %s de volta à zona %ld de %s", w->wm_class ? w->wm_class : "?", zone + 1, z->mon[m].name);
+        wzx_snap(z, w, zones[zone], zone, 0);
+    }
+}
+
 int
 wzx_monitor_at(wzx *z, int x, int y)
 {
@@ -545,6 +637,7 @@ wzx_sync_clients(wzx *z)
             w = wz_xcalloc(1, sizeof *w);
             w->client = c;
             w->tile_mon = -1;
+            w->resnap_mon = -1;
             w->order = ++z->order_seq;
             w->mapped = 1;
             XSelectInput(z->dpy, c, PropertyChangeMask | StructureNotifyMask);
@@ -565,6 +658,9 @@ wzx_sync_clients(wzx *z)
             z->drag = DRAG_IDLE;
         }
         wzx_tile_forget(z, w);
+        /* Fechada: o histórico não guarda um identificador que o servidor
+         * pode dar a outra janela. */
+        wz_history_forget(&z->history, (uintptr_t)w->client);
         win_free(w);
         z->win[i] = z->win[--z->nwin];
         i--;
@@ -665,7 +761,7 @@ int
 wzx_snappable(wzx *z, wzx_win *w)
 {
     (void)z;
-    if (!w || !w->frame || w->special || w->fixed)
+    if (!w || !w->frame || w->special || w->fixed || w->rule_ignore)
         return 0;
     if (w->state & (WS_FULLSCREEN | WS_SHADED | WS_HIDDEN))
         return 0;
@@ -677,7 +773,7 @@ wzx_tileable(wzx *z, wzx_win *w)
 {
     if (!wzx_snappable(z, w) || w->transient || !w->mapped)
         return 0;
-    if (w->state & (WS_STICKY | WS_SKIP_TASKBAR | WS_MODAL | WS_ABOVE))
+    if ((w->state & WS_MODAL) || (!w->rule_tile && (w->state & (WS_STICKY | WS_SKIP_TASKBAR | WS_ABOVE))))
         return 0;
     if (w->user_float || w->rule_float)
         return 0;
@@ -699,15 +795,37 @@ wzx_activate(wzx *z, wzx_win *w)
     XSendEvent(z->dpy, z->root, False, SubstructureRedirectMask | SubstructureNotifyMask, &ev);
 }
 
-/* Zonas do monitor (layout efetivo do monitor/área de trabalho). */
-int
-wzx_zones_for(wzx *z, int mon, wz_rect *out, char **names, int max)
+/* Pede ao Window Maker que leve a janela para a área de trabalho d (0..). */
+void
+wzx_send_to_desktop(wzx *z, wzx_win *w, long d)
 {
-    wzx_update_workarea(z);
-    const wz_layout_def *l = wz_config_layout_for(&z->cfg, z->mon[mon].name, (int)z->current_desktop + 1);
-    if (!l)
+    XEvent ev = { 0 };
+    ev.xclient.type = ClientMessage;
+    ev.xclient.window = w->client;
+    ev.xclient.message_type = z->atom[A_NET_WM_DESKTOP];
+    ev.xclient.format = 32;
+    ev.xclient.data.l[0] = d;
+    ev.xclient.data.l[1] = 2;
+    XSendEvent(z->dpy, z->root, False, SubstructureRedirectMask | SubstructureNotifyMask, &ev);
+    w->desktop = d;
+}
+
+const wz_layout_def *
+wzx_layout_of(wzx *z, int mon)
+{
+    if (mon < 0 || mon >= z->nmon)
+        return wz_config_layout_for(&z->cfg, NULL, (int)z->current_desktop + 1);
+    return wz_config_layout_for_size(&z->cfg, z->mon[mon].name, (int)z->current_desktop + 1, z->mon[mon].geom.w,
+                                     z->mon[mon].geom.h);
+}
+
+int
+wzx_zones_of_tree(wzx *z, int mon, const char *tree, wz_rect *out, char **names, int max)
+{
+    if (!tree || mon < 0 || mon >= z->nmon)
         return 0;
-    wz_node *t = wz_parse(l->tree, NULL);
+    wzx_update_workarea(z);
+    wz_node *t = wz_parse(tree, NULL);
     if (!t)
         return 0;
     int n = wz_compute(t, z->mon[mon].work, z->cfg.gap_in, z->cfg.gap_out, out, max);
@@ -720,6 +838,14 @@ wzx_zones_for(wzx *z, int mon, wz_rect *out, char **names, int max)
         }
     wz_free(t);
     return n;
+}
+
+/* Zonas do monitor (layout efetivo do monitor/área de trabalho). */
+int
+wzx_zones_for(wzx *z, int mon, wz_rect *out, char **names, int max)
+{
+    const wz_layout_def *l = wzx_layout_of(z, mon);
+    return l ? wzx_zones_of_tree(z, mon, l->tree, out, names, max) : 0;
 }
 
 /* O encaixe nas bordas do próprio Window Maker (WindowSnapping) mostraria
