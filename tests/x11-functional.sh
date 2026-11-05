@@ -284,9 +284,12 @@ for p in $(pgrep -x wmake-zones); do # só o deste teste (o do usuário tem outr
 	grep -qz "^XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR$" /proc/"$p"/environ 2>/dev/null && ZP2=$p
 done
 PIDS="$PIDS $ZP2"
+# Vivo = existe e não é zumbi (num contêiner o PID 1 pode não recolher
+# órfãos, e o serviço solto pelo "zones on" é um órfão).
+alive() { [ -n "$1" ] && [ -r /proc/"$1"/stat ] && ! awk '{ exit $3 == "Z" ? 0 : 1 }' /proc/"$1"/stat 2>/dev/null; }
 kill "$XPID" 2>/dev/null
-for _ in $(seq 1 30); do kill -0 "$ZP2" 2>/dev/null || break; sleep 0.1; done
-check "servidor X fechou: o serviço sai" '! kill -0 "$ZP2" 2>/dev/null'
+for _ in $(seq 1 30); do alive "$ZP2" || break; sleep 0.1; done
+check "servidor X fechou: o serviço sai" '! alive "$ZP2"'
 check "servidor X fechou: o socket de controle foi apagado" '! ls "$XDG_RUNTIME_DIR"/wmake-zones/x11-*.sock >/dev/null 2>&1'
 
 echo "1..$n"
