@@ -233,7 +233,7 @@ wayland-client e cairo (dockapp do wlmaker). O núcleo
 (`libwmake-zones-engine.a`) não depende de nada.
 
 Os testes funcionais rodam o Window Maker e o wlmaker de verdade num Xvfb
-próprio, nunca na sua tela: 931 mil verificações no núcleo, 49 no X11 e 43
+próprio, nunca na sua tela: 931 mil verificações no núcleo, 52 no X11 e 45
 no Wayland ([o que cada um cobre](docs/testing.md)).
 
 ## Documentação

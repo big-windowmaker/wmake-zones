@@ -39,7 +39,7 @@ UBSan e Valgrind (o CI roda o núcleo com os sanitizers):
   escopos por monitor/área de trabalho, valores inválidos, espaços nas
   pontas, tab, CR/LF, arquivo com CRLF, link simbólico mantido).
 
-## X11 (`tests/x11-functional.sh`, 49 verificações)
+## X11 (`tests/x11-functional.sh`, 52 verificações)
 
 Xvfb próprio (`-displayfd`, nunca o display do usuário) com o wmaker e
 xterms: o serviço sobe, desliga o `WindowSnapping`; arrastar mostra o
@@ -54,9 +54,14 @@ socket de controle é apagado. Da 0.3: o painel de layouts aparece no
 arrasto sem zonas; soltar na metade direita da miniatura encaixa na metade
 direita e o layout vira o do monitor; desfazer volta zona e layout num
 passo só; refazer; parar sobre uma miniatura mostra as zonas dela e a
-zona escolhida depois encaixa; Esc fecha o painel.
+zona escolhida depois encaixa; Esc fecha o painel; o seletor esquecido
+aberto fecha sozinho e solta o teclado (`WZX_GRAB_IDLE_MS` encurta os 30 s
+para 2 s).
 
-## Wayland (`tests/wayland-functional.sh`, 43 verificações)
+Fora da suíte (o Xvfb não troca de resolução), na VM: a troca de
+resolução devolve a janela à zona (ver [Vários monitores](multi-monitor.md)).
+
+## Wayland (`tests/wayland-functional.sh`, 45 verificações)
 
 wlmaker aninhado no Xvfb (`WLR_BACKENDS=x11`, pixman) e janelas GTK 3
 nativas (`tests/tools/janela.py`): socket; arrasto encaixa exatamente no
@@ -69,7 +74,8 @@ refazer; foco acima, abaixo e na borda; modos do dockapp (Zonas →
 Mosaico → desligado → religa o último); BSP sem sobreposição; diálogo
 fora do mosaico; um salto do ponteiro não termina o arrasto; painel de
 layouts (soltar na miniatura, layout junto no desfazer, parar sobre a
-miniatura).
+miniatura); com o seletor aberto, o `swaylock` bloqueia e a tecla vai para
+ele, não para o seletor (sem o swaylock, pulado).
 
 ## Valgrind (Memcheck)
 

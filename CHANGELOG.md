@@ -86,6 +86,17 @@ tudo o que o X11 tem e um dockapp que alterna Zonas e Mosaico num clique.
   (monitor desligado sem mudar o tamanho da tela, outro principal,
   reorganização) refazem os monitores, uma vez por lote; janelas que
   ficaram fora de todos os monitores voltam para o mais perto.
+- X11: uma janela encaixada num monitor que mudou de resolução volta para
+  a mesma zona, refeita na geometria nova (antes ficava com o tamanho
+  antigo e podia cobrir o Dock).
+
+### Tela de bloqueio
+
+- X11: o seletor e o menu do dockapp fecham sozinhos depois de 30 s
+  parados, soltando teclado e ponteiro (antes, esquecidos abertos,
+  impediam a tela de bloqueio de pegar o teclado).
+- Wayland: com o seletor aberto, a sessão bloqueada recebe as teclas (a
+  senha); antes o seletor as consumia (patch 0117 do wlmaker).
 
 ### Comandos
 
@@ -95,9 +106,10 @@ tudo o que o X11 tem e um dockapp que alterna Zonas e Mosaico num clique.
 ### Testes e medições
 
 - 931.773 verificações no núcleo (histórico, foco, modos, layout
-  automático); 49 no X11 (painel de layouts, desfazer/refazer com o
-  layout); 43 no Wayland (seletor, foco, regras pelo app_id, modos, BSP,
-  diálogo, movimento rápido, painel).
+  automático); 52 no X11 (painel de layouts, desfazer/refazer com o
+  layout, seletor parado fecha sozinho); 45 no Wayland (seletor, foco,
+  regras pelo app_id, modos, BSP, diálogo, movimento rápido, painel,
+  seletor aberto durante o bloqueio).
 - Valgrind (Memcheck): núcleo, serviço X11 durante o teste funcional e
   wlmaker com as zonas durante o teste do Wayland, sem nenhum acesso
   inválido nem memória perdida do nosso código.
@@ -114,6 +126,7 @@ tudo o que o X11 tem e um dockapp que alterna Zonas e Mosaico num clique.
 - 0113: seletor, foco, desfazer/refazer, regras, painel de layouts.
 - 0114-0116: textos em pt_BR, menu do dockapp e estilo dos ícones da
   bandeja.
+- 0117: o seletor larga o teclado quando a sessão é bloqueada.
 
 ## 0.2.0 — 2026-11-05
 
