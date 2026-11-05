@@ -28,6 +28,8 @@ command -v xdotool >/dev/null || { echo "1..0 # SKIP sem xdotool"; exit 0; }
 python3 -c "import gi; gi.require_version('Gtk', '3.0')" 2>/dev/null || { echo "1..0 # SKIP sem python3-gobject"; exit 0; }
 
 TMP=$(mktemp -d "${TMPDIR:-/tmp}/wzw.XXXXXX")
+# Sockets Unix aceitam no máximo 107 bytes de caminho: TMPDIR longo, /tmp.
+[ ${#TMP} -le 60 ] || { rmdir "$TMP"; TMP=$(mktemp -d /tmp/wzw.XXXXXX); }
 PIDS=""
 cleanup() {
 	for p in $PIDS; do kill "$p" 2>/dev/null; done
@@ -58,9 +60,10 @@ export WAYLAND_DISPLAY
 WAYLAND_DISPLAY=$(ls "$XDG_RUNTIME_DIR" | grep -m1 '^wayland-[0-9]*$')
 export GDK_BACKEND=wayland NO_AT_BRIDGE=1 GSETTINGS_BACKEND=memory GIO_USE_VFS=local
 
-win() { "$WZ" windows | grep -P "\t$1\t"; }
-box() { win "$1" | cut -f4; }
-zone() { win "$1" | sed -n 's/.*zone=\(-\?[0-9]*\).*/\1/p'; }
+# "windows -l": saída, zone=N, tiled=N, LxA+X+Y, classe, título.
+win() { "$WZ" windows -l | grep -P "\t$1$"; }
+box() { win "$1" | cut -f4 | sed -E 's/^([0-9]+)x([0-9]+)([+-][0-9]+)([+-][0-9]+)$/\3,\4,\1,\2/; s/(^|,)\+/\1/g'; }
+zone() { win "$1" | cut -f2 | sed -n 's/^zone=\(-\?[0-9]*\)$/\1/p'; }
 open_win() {
 	python3 -I "$HERE/tools/janela.py" "$1" >/dev/null 2>&1 &
 	PIDS="$PIDS $!"
@@ -127,6 +130,18 @@ sleep 1
 check "mosaico desligado: ninguém no mosaico" '"$WZ" status | grep -q "tiled=0"'
 "$WZ" preview 'H(1,2,1)' >/dev/null
 check "prévia aceita" 'true'
+
+# Um cliente que conecta e não manda nada não pode travar o serviço.
+SOCK=$(ls "$XDG_RUNTIME_DIR"/wmake-zones/*.sock | head -1)
+python3 -c 'import socket,sys,time; s=socket.socket(socket.AF_UNIX); s.connect(sys.argv[1]); time.sleep(3)' "$SOCK" &
+MUDO=$!
+sleep 0.3
+t0=$(date +%s%N)
+"$WZ" ping >/dev/null
+dt=$((($(date +%s%N) - t0) / 1000000))
+kill "$MUDO" 2>/dev/null
+wait "$MUDO" 2>/dev/null
+check "cliente mudo não trava o serviço (ping em ${dt} ms)" '[ "$dt" -lt 250 ]'
 
 echo "1..$n"
 [ $fails -eq 0 ] || { echo "# log do wlmaker:"; tail -20 "$TMP/wlmaker.log" | sed 's/^/# /'; }

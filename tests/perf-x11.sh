@@ -15,6 +15,8 @@ for t in wmaker xdotool xprop xterm; do command -v $t >/dev/null || { echo "falt
 [ -x "$XVFB" ] || { echo "faltando=Xvfb"; exit 0; }
 
 TMP=$(mktemp -d "${TMPDIR:-/tmp}/wzp.XXXXXX")
+# Sockets Unix aceitam no máximo 107 bytes de caminho: TMPDIR longo, /tmp.
+[ ${#TMP} -le 60 ] || { rmdir "$TMP"; TMP=$(mktemp -d /tmp/wzp.XXXXXX); }
 PIDS=""
 cleanup() {
 	for p in $PIDS; do kill "$p" 2>/dev/null; done

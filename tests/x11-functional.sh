@@ -26,6 +26,8 @@ done
 [ -x "$XVFB" ] || { echo "1..0 # SKIP sem Xvfb"; exit 0; }
 
 TMP=$(mktemp -d "${TMPDIR:-/tmp}/wzt.XXXXXX")
+# Sockets Unix aceitam no máximo 107 bytes de caminho: TMPDIR longo, /tmp.
+[ ${#TMP} -le 60 ] || { rmdir "$TMP"; TMP=$(mktemp -d /tmp/wzt.XXXXXX); }
 PIDS=""
 cleanup() {
 	# Só os processos que este teste iniciou.
@@ -223,6 +225,19 @@ sleep 1
 check "regra Action=float mantém o XTerm novo fora do mosaico" '"$WZ" status | grep -q "tiled=3"'
 "$WZ" autotile off >/dev/null
 sleep 0.5
+
+# Um cliente que conecta e não manda nada não pode travar o serviço.
+SOCK=$(ls "$XDG_RUNTIME_DIR"/wmake-zones/*.sock | head -1)
+python3 -c 'import socket,sys,time; s=socket.socket(socket.AF_UNIX); s.connect(sys.argv[1]); time.sleep(3)' "$SOCK" &
+MUDO=$!
+sleep 0.3
+t0=$(date +%s%N)
+"$WZ" ping >/dev/null
+dt=$((($(date +%s%N) - t0) / 1000000))
+kill "$MUDO" 2>/dev/null
+wait "$MUDO" 2>/dev/null
+check "cliente mudo não trava o serviço (ping em ${dt} ms)" '[ "$dt" -lt 250 ]'
+check "windows -l mostra monitor, zona e geometria" '"$WZ" windows -l | grep -qP "^screen\tzone=-?[0-9]+\ttiled=[01]\t[0-9]+x[0-9]+[+-][0-9]+[+-][0-9]+\t"'
 
 # Repouso: nenhum despertar em 5 s.
 cs() { awk '/^voluntary_ctxt_switches|^nonvoluntary_ctxt_switches/ {s += $2} END {print s}' /proc/$ZP/status; }
