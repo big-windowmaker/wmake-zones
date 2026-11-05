@@ -11,6 +11,7 @@
 #include "wz-tile.h"
 #include "wz-theme.h"
 
+#include <sys/stat.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/Xft/Xft.h>
@@ -190,6 +191,7 @@ struct wzx {
     /* IPC */
     int listen_fd;
     char *sock_path;
+    struct stat sock_stat; /* socket criado por esta instância */
     int quit;
     int wm_snapping_saved; /* WindowSnapping desligado por nós */
 };
@@ -283,10 +285,15 @@ void wzx_ipc_accept(wzx *z);
 void wzx_ipc_close(wzx *z);
 /* Executa um comando (IPC, atalho, dockapp). out pode ser NULL. */
 void wzx_command(wzx *z, const char *line, char *out, size_t outlen);
+/* Próximo/anterior layout do monitor mon (e grava). */
+void wzx_cycle_layout(wzx *z, int step, int mon);
 
 /* wzx-dockapp.c */
 void wzx_dockapp_create(wzx *z);
 void wzx_dockapp_redraw(wzx *z);
 int wzx_dockapp_event(wzx *z, XEvent *e);
+
+/* Num processo filho, antes do exec: sinais como o programa espera. */
+void wzx_child_reset(void);
 
 #endif

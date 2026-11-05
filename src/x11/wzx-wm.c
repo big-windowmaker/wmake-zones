@@ -9,6 +9,7 @@
  * do Dock do Window Maker encostada na borda.
  */
 #define _GNU_SOURCE
+#include "wz-alloc.h"
 #include "wzx.h"
 
 #include <X11/Xatom.h>
@@ -382,7 +383,7 @@ get_string(wzx *z, Window w, Atom prop, Atom type)
     unsigned char *data = NULL;
     if (XGetWindowProperty(z->dpy, w, prop, 0, 256, False, type, &rt, &fmt, &n, &after, &data) != Success || !data)
         return NULL;
-    char *s = fmt == 8 ? strndup((char *)data, n) : NULL;
+    char *s = fmt == 8 ? wz_xstrndup((char *)data, n) : NULL;
     XFree(data);
     return s;
 }
@@ -394,7 +395,7 @@ wzx_title(wzx *z, wzx_win *w, char *buf, size_t len)
     if (!s) {
         char *t = NULL;
         if (XFetchName(z->dpy, w->client, &t) && t) {
-            s = strdup(t);
+            s = wz_xstrdup(t);
             XFree(t);
         }
     }
@@ -453,8 +454,8 @@ wzx_refresh_win(wzx *z, wzx_win *w)
     free(w->instance);
     w->wm_class = w->instance = NULL;
     if (XGetClassHint(z->dpy, w->client, &ch)) {
-        w->instance = ch.res_name ? strdup(ch.res_name) : NULL;
-        w->wm_class = ch.res_class ? strdup(ch.res_class) : NULL;
+        w->instance = ch.res_name ? wz_xstrdup(ch.res_name) : NULL;
+        w->wm_class = ch.res_class ? wz_xstrdup(ch.res_class) : NULL;
         if (ch.res_name)
             XFree(ch.res_name);
         if (ch.res_class)
@@ -526,6 +527,11 @@ wzx_sync_clients(wzx *z)
     if (XGetWindowProperty(z->dpy, z->root, z->atom[A_NET_CLIENT_LIST], 0, 4096, False, XA_WINDOW, &rt, &fmt, &n,
                            &after, &data) != Success)
         return;
+    if (data && (rt != XA_WINDOW || fmt != 32)) { /* propriedade malformada */
+        XFree(data);
+        data = NULL;
+        n = 0;
+    }
     long *list = (long *)data;
     for (int i = 0; i < z->nwin; i++)
         z->win[i]->seen = 0;
@@ -536,7 +542,7 @@ wzx_sync_clients(wzx *z)
         if (!w) {
             if (z->nwin >= WZX_MAX_WIN)
                 continue;
-            w = calloc(1, sizeof *w);
+            w = wz_xcalloc(1, sizeof *w);
             w->client = c;
             w->tile_mon = -1;
             w->order = ++z->order_seq;
@@ -710,7 +716,7 @@ wzx_zones_for(wzx *z, int mon, wz_rect *out, char **names, int max)
     if (names)
         for (int i = 0; i < n; i++) {
             wz_node *leaf = wz_leaf_nth(t, i);
-            names[i] = leaf && leaf->name ? strdup(leaf->name) : NULL;
+            names[i] = leaf && leaf->name ? wz_xstrdup(leaf->name) : NULL;
         }
     wz_free(t);
     return n;

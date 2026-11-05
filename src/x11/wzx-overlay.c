@@ -16,6 +16,7 @@
  * de título da janela em foco.
  */
 #define _GNU_SOURCE
+#include "wz-alloc.h"
 #include "wzx.h"
 #include "wz-i18n.h"
 
@@ -393,7 +394,7 @@ wzx_overlay_set_zones(wzx *z, const wz_rect *zones, char **names, int n)
     z->ov.nzones = n;
     for (int i = 0; i < n; i++) {
         z->ov.zones[i] = zones[i];
-        z->ov.names[i] = names && names[i] ? strdup(names[i]) : NULL;
+        z->ov.names[i] = names && names[i] ? wz_xstrdup(names[i]) : NULL;
     }
     z->ov.hl_a = z->ov.hl_b = -1;
     z->ov.has_target = 0;
@@ -510,7 +511,13 @@ picker_load(wzx *z)
     wz_rect zones[WZX_MAX_ZONES];
     char *names[WZX_MAX_ZONES] = { 0 };
     int n = wzx_zones_for(z, mon, zones, names, WZX_MAX_ZONES);
-    if (z->ov.shown && z->ov.mon != mon)
+    if (n <= 0) {
+        wzx_picker_close(z);
+        return;
+    }
+    /* Outro monitor ou outro modo (uma prévia do editor aberta): o overlay
+     * do seletor é sempre um novo, com a barra de dicas e sem prazo. */
+    if (z->ov.shown && (z->ov.mon != mon || z->ov.mode != 2))
         wzx_overlay_hide(z);
     wzx_overlay_set_zones(z, zones, names, n);
     for (int i = 0; i < n; i++)
@@ -520,6 +527,8 @@ picker_load(wzx *z)
     long cur = wzx_get_zone_prop(z, w);
     z->picker_sel = cur >= 0 && cur < n ? (int)cur
                                         : wz_zone_at(zones, n, w->outer.x + w->outer.w / 2, w->outer.y + w->outer.h / 2);
+    if (z->picker_sel < 0 || z->picker_sel >= n)
+        z->picker_sel = 0;
     wzx_overlay_highlight(z, z->picker_sel, -1, &z->ov.zones[z->picker_sel]);
 }
 
@@ -599,7 +608,10 @@ wzx_picker_key(wzx *z, XKeyEvent *e)
         return 1;
     case XK_Tab:
     case XK_ISO_Left_Tab:
-        wzx_command(z, (e->state & ShiftMask) || ks == XK_ISO_Left_Tab ? "layout prev" : "layout next", NULL, 0);
+        /* O layout que muda é o do monitor mostrado, não o do ponteiro. */
+        if (picker_win(z))
+            wzx_cycle_layout(z, (e->state & ShiftMask) || ks == XK_ISO_Left_Tab ? -1 : 1,
+                             wzx_monitor_of(z, picker_win(z)->outer));
         picker_load(z);
         return 1;
     case XK_Left: case XK_h: dir = WZ_LEFT; break;

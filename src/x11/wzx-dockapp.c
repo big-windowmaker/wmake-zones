@@ -263,6 +263,10 @@ popup_redraw(wzx *z)
 {
     if (!z->popup)
         return;
+    /* O tema pode ter mudado (fontes fechadas e reabertas) com o menu aberto. */
+    wzx_fonts(z);
+    if (!z->font || !z->font_bold)
+        return;
     Pixmap buf = XCreatePixmap(z->dpy, z->popup, (unsigned)pg.w, (unsigned)pg.h, (unsigned)DefaultDepth(z->dpy, z->screen));
     XftDraw *xd = XftDrawCreate(z->dpy, buf, DefaultVisual(z->dpy, z->screen), DefaultColormap(z->dpy, z->screen));
     char tmp[256];
@@ -342,6 +346,8 @@ popup_open(wzx *z, int kind)
 {
     popup_close(z);
     wzx_fonts(z);
+    if (!z->font || !z->font_bold)
+        return; /* nenhuma fonte abriu: sem menu, sem travar */
     if (!dgc)
         dgc = XCreateGC(z->dpy, z->root, 0, NULL);
     z->popup_kind = kind;
@@ -429,6 +435,8 @@ menu_activate(wzx *z, int i)
         if (p == 0) {
             if (fork() != 0)
                 _exit(0);
+            setsid();
+            wzx_child_reset();
             execlp("wmake-zones-prefs", "wmake-zones-prefs", "--about", (char *)NULL);
             _exit(127);
         }

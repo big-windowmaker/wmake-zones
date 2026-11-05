@@ -8,6 +8,7 @@
  * arrasto (atraso do overlay), numa prévia e para agrupar o mosaico.
  */
 #define _GNU_SOURCE
+#include "wz-alloc.h"
 #include "wzx.h"
 #include "wz-i18n.h"
 #include "wz-ipc.h"
@@ -242,6 +243,16 @@ handle_event(wzx *z, XEvent *e)
     case ButtonPress:
         wzx_picker_button(z, &e->xbutton);
         break;
+    case MappingNotify:
+        /* setxkbmap, troca de layout de teclado: os keycodes dos atalhos e
+         * do Esc mudam. */
+        XRefreshKeyboardMapping(&e->xmapping);
+        if (e->xmapping.request != MappingPointer) {
+            wzx_keys_ungrab(z);
+            wzx_keys_grab(z);
+            wzx_drag_init(z);
+        }
+        break;
     case Expose:
         if (e->xexpose.window == z->ov.win && e->xexpose.count == 0)
             wzx_overlay_expose(z);
@@ -254,20 +265,39 @@ handle_event(wzx *z, XEvent *e)
 static void
 usage(void)
 {
-    puts("Uso: wmake-zones [--dockapp | --session | --reset | COMANDO [ARG]]\n"
-         "\n"
-         "  (sem argumentos)  inicia o serviço (X11)\n"
-         "  --dockapp         inicia com o ladrilho no Dock/Clip do Window Maker\n"
-         "  --session         usado no login: só fica se Zones ou Auto Tiling\n"
-         "                    estiverem ligados\n"
-         "  --reset           desliga tudo e devolve o WindowSnapping do wmaker\n"
-         "\n"
-         "Comandos (para o serviço em execução):\n"
-         "  status | zones on|off|toggle | autotile on|off|toggle\n"
-         "  layout ID|next|prev | layouts | algorithm NOME | picker | arrange\n"
-         "  snap N | move|swap|focus left|right|up|down | restore | restore-all\n"
-         "  float | promote | grow | shrink | undo | preview ÁRVORE | editor\n"
-         "  prefs | reload | log | quit");
+    printf(_("Usage: wmake-zones [OPTION | COMMAND [ARGUMENT]]\n"
+             "\n"
+             "Window zones and tiling for Window Maker and wlmaker.\n"
+             "\n"
+             "Options:\n"
+             "  (none)            start the service (X11)\n"
+             "  -d, --dockapp     start with the tile in the Window Maker Dock/Clip\n"
+             "      --session     used at login: stays only if Zones or Auto Tiling is on\n"
+             "      --reset       turn everything off and give Window Maker its\n"
+             "                    WindowSnapping back\n"
+             "  -h, --help        show this help\n"
+             "      --version     show the version\n"
+             "\n"
+             "Commands (sent to the running service, X11 or wlmaker):\n"
+             "  status                     state, monitors, work areas and layouts\n"
+             "  zones on|off|toggle        snap zones while dragging\n"
+             "  autotile on|off|toggle     automatic tiling\n"
+             "  layout ID|next|prev        zone layout of the monitor under the pointer\n"
+             "  layouts                    available layouts\n"
+             "  algorithm NAME             master, columns, rows, grid, bsp, monocle,\n"
+             "                             spiral, dwindle\n"
+             "  snap N                     put the active window in zone N\n"
+             "  move|swap|focus left|right|up|down\n"
+             "  restore | restore-all      back to the size and place before snapping\n"
+             "  float | promote | grow | shrink | arrange\n"
+             "  undo                       undo the last change\n"
+             "  picker                     choose a zone with the keyboard (X11)\n"
+             "  preview TREE               show a layout for a moment, e.g. \"H(2,1)\"\n"
+             "  windows [-l]               open windows (-l: monitor, zone and geometry)\n"
+             "  editor | prefs             open the zone editor or the preferences\n"
+             "  reload | log | ping | quit\n"
+             "\n"
+             "Configuration: ~/.config/wmake-zones/wmake-zones.conf\n"));
 }
 
 /* Sobe o serviço em segundo plano (para comandos com o daemon parado). */
@@ -312,6 +342,10 @@ start_daemon(char **argv)
 static int
 client(int argc, char **argv)
 {
+    if (argc >= 2 && !strcmp(argv[1], "help")) {
+        usage();
+        return 0;
+    }
     char cmd[WZ_IPC_MAX] = "";
     for (int i = 1; i < argc; i++) {
         if (i > 1)
@@ -340,7 +374,7 @@ client(int argc, char **argv)
                 puts(!strcmp(argv[1], "zones") ? "zones=on" : "autotile=on");
                 return 0;
             }
-            fprintf(stderr, "wmake-zones: não consegui iniciar o serviço\n");
+            fprintf(stderr, "wmake-zones: %s\n", _("could not start the service"));
             return 1;
         }
         free(cfgp);
@@ -349,7 +383,7 @@ client(int argc, char **argv)
             free(path);
             return 0;
         }
-        fprintf(stderr, "wmake-zones: o serviço não está em execução (%s)\n", path ? path : "sem display");
+        fprintf(stderr, "wmake-zones: %s (%s)\n", _("the service is not running"), path ? path : _("no display"));
         free(path);
         return 1;
     }
@@ -372,8 +406,19 @@ reset(void)
             wz_ini_set(cfgp, "State", "RestoreWindowSnapping", NULL);
     }
     free(cfgp);
-    puts("wmake-zones: Zones e Auto Tiling desligados; o Window Maker voltou ao normal.");
+    printf("wmake-zones: %s\n", _("Zones and Auto Tiling are off; Window Maker is back to normal."));
     return 0;
+}
+
+void
+wzx_child_reset(void)
+{
+    /* O serviço bloqueia SIGTERM/SIGINT/SIGHUP (signalfd) e ignora SIGPIPE;
+     * os programas que ele abre não podem herdar isso. */
+    sigset_t none;
+    sigemptyset(&none);
+    sigprocmask(SIG_SETMASK, &none, NULL);
+    signal(SIGPIPE, SIG_DFL);
 }
 
 int
@@ -410,11 +455,11 @@ main(int argc, char **argv)
 #endif
         if (session)
             return 0; /* no Wayland quem faz o trabalho é o wlmaker */
-        fprintf(stderr, "wmake-zones: na sessão Wayland as zonas são do wlmaker; use os comandos.\n");
+        fprintf(stderr, "wmake-zones: %s\n", _("in a Wayland session the zones belong to wlmaker; use the commands."));
         return 1;
     }
 
-    wzx *z = calloc(1, sizeof *z);
+    wzx *z = wz_xcalloc(1, sizeof *z);
     z->listen_fd = -1;
     z->cfg_path = wz_config_path();
     wz_config_defaults(&z->cfg);
@@ -429,7 +474,7 @@ main(int argc, char **argv)
 
     z->dpy = XOpenDisplay(NULL);
     if (!z->dpy) {
-        fprintf(stderr, "wmake-zones: sem servidor X (DISPLAY)\n");
+        fprintf(stderr, "wmake-zones: %s\n", _("no X server (DISPLAY)"));
         return 1;
     }
     XSetErrorHandler(x_error);
@@ -442,7 +487,7 @@ main(int argc, char **argv)
      * sem ladrilho (o Dock precisa ser dono da janela). */
     int lr = wzx_ipc_listen(z);
     if (lr == -1) {
-        fprintf(stderr, "wmake-zones: não consegui criar o socket de controle em $XDG_RUNTIME_DIR/wmake-zones\n");
+        fprintf(stderr, "wmake-zones: %s\n", _("could not create the control socket in $XDG_RUNTIME_DIR/wmake-zones (path too long or no permission)"));
         return 1;
     }
     if (lr != 0) {
@@ -456,7 +501,7 @@ main(int argc, char **argv)
         }
         free(path);
         if (z->listen_fd < 0) {
-            fprintf(stderr, "wmake-zones: já está em execução neste display\n");
+            fprintf(stderr, "wmake-zones: %s\n", _("already running on this display"));
             return 0;
         }
     }

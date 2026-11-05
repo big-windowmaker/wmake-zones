@@ -8,6 +8,7 @@
  * desta tabela; nada do cliente vira execução de programa.
  */
 #define _GNU_SOURCE
+#include "wz-alloc.h"
 #include "wzx.h"
 #include "wz-ipc.h"
 
@@ -49,6 +50,7 @@ spawn(const char *prog, const char *arg)
         if (fork() != 0)
             _exit(0);
         setsid();
+        wzx_child_reset();
         int fd = open("/dev/null", O_RDWR);
         if (fd >= 0) {
             dup2(fd, 0);
@@ -110,17 +112,16 @@ pointer_monitor(wzx *z)
 }
 
 static void
-set_layout(wzx *z, const char *id)
+set_layout(wzx *z, const char *id, int mon)
 {
-    if (!wz_config_layout(&z->cfg, id))
+    if (!wz_config_layout(&z->cfg, id) || mon < 0 || mon >= z->nmon)
         return;
     /* Monitor com layout próprio: troca o dele; senão, o geral. */
-    int mon = pointer_monitor(z);
     for (int i = 0; i < z->cfg.nscopes; i++) {
         wz_scope *s = &z->cfg.scopes[i];
         if (s->monitor && !strcmp(s->monitor, z->mon[mon].name) && s->workspace == 0 && s->layout) {
             free(s->layout);
-            s->layout = strdup(id);
+            s->layout = wz_xstrdup(id);
             char sec[96];
             snprintf(sec, sizeof sec, "Monitor %s", s->monitor);
             wzx_save_cfg(z, sec, "Layout", id);
@@ -129,22 +130,23 @@ set_layout(wzx *z, const char *id)
         }
     }
     free(z->cfg.layout);
-    z->cfg.layout = strdup(id);
+    z->cfg.layout = wz_xstrdup(id);
     wzx_save_cfg(z, "General", "Layout", id);
     wzx_dockapp_redraw(z);
 }
 
-static void
-cycle_layout(wzx *z, int step)
+void
+wzx_cycle_layout(wzx *z, int step, int mon)
 {
-    int mon = pointer_monitor(z);
+    if (mon < 0 || mon >= z->nmon || z->cfg.nlayouts <= 0)
+        return;
     const wz_layout_def *cur = wz_config_layout_for(&z->cfg, z->mon[mon].name, (int)z->current_desktop + 1);
     int idx = 0;
     for (int i = 0; i < z->cfg.nlayouts; i++)
         if (&z->cfg.layouts[i] == cur)
             idx = i;
     idx = (idx + step + z->cfg.nlayouts) % z->cfg.nlayouts;
-    set_layout(z, z->cfg.layouts[idx].id);
+    set_layout(z, z->cfg.layouts[idx].id, mon);
 }
 
 /* Encaixa a janela na zona n do monitor dela. */
@@ -276,8 +278,10 @@ arrange(wzx *z)
     }
 }
 
+/* record = 0: quem chamou já guardou o histórico (restaurar todas é um
+ * passo só no desfazer). */
 static void
-restore_win(wzx *z, wzx_win *w)
+restore_win_rec(wzx *z, wzx_win *w, int record)
 {
     if (!w)
         return;
@@ -287,10 +291,17 @@ restore_win(wzx *z, wzx_win *w)
     }
     wz_rect r;
     if (wzx_get_restore(z, w, &r)) {
-        wzx_history_push(z, &w, 1);
+        if (record)
+            wzx_history_push(z, &w, 1);
         wzx_move_outer(z, w, r);
         wzx_clear_restore(z, w);
     }
+}
+
+static void
+restore_win(wzx *z, wzx_win *w)
+{
+    restore_win_rec(z, w, 1);
 }
 
 static void
@@ -310,7 +321,7 @@ preview(wzx *z, const char *tree)
     char *names[WZX_MAX_ZONES] = { 0 };
     for (int i = 0; i < n && i < WZX_MAX_ZONES; i++) {
         wz_node *l = wz_leaf_nth(t, i);
-        names[i] = l && l->name ? strdup(l->name) : NULL;
+        names[i] = l && l->name ? wz_xstrdup(l->name) : NULL;
     }
     wz_free(t);
     wzx_overlay_hide(z);
@@ -386,11 +397,11 @@ wzx_command(wzx *z, const char *line, char *out, size_t outlen)
         wzx_tile_mark(z);
     } else if (!strcmp(cmd, "layout")) {
         if (arg && !strcmp(arg, "next"))
-            cycle_layout(z, 1);
+            wzx_cycle_layout(z, 1, pointer_monitor(z));
         else if (arg && !strcmp(arg, "prev"))
-            cycle_layout(z, -1);
+            wzx_cycle_layout(z, -1, pointer_monitor(z));
         else if (arg && wz_config_layout(&z->cfg, arg))
-            set_layout(z, arg);
+            set_layout(z, arg, pointer_monitor(z));
         else
             outf(out, outlen, "error=layout desconhecido\n");
         if (z->ov.shown && z->ov.mode == 0)
@@ -414,7 +425,7 @@ wzx_command(wzx *z, const char *line, char *out, size_t outlen)
         wzx_history_push(z, z->win, z->nwin < 64 ? z->nwin : 64);
         for (int i = 0; i < z->nwin; i++)
             if (!z->win[i]->tiled)
-                restore_win(z, z->win[i]);
+                restore_win_rec(z, z->win[i], 0);
     } else if (!strcmp(cmd, "float")) {
         wzx_tile_toggle_float(z, active_win(z));
     } else if (!strcmp(cmd, "promote")) {
@@ -452,7 +463,18 @@ wzx_command(wzx *z, const char *line, char *out, size_t outlen)
             for (char *p = title; *p; p++)
                 if (*p == '\t' || *p == '\n')
                     *p = ' ';
-            outf(out, outlen, "%s\t%s\t%s\n", w->wm_class ? w->wm_class : "", w->instance ? w->instance : "", title);
+            if (arg && (!strcmp(arg, "-l") || !strcmp(arg, "long"))) {
+                /* Forma longa, para conferir o encaixe: monitor, zona,
+                 * mosaico e o quadro (com a decoração). */
+                int mon = wzx_monitor_of(z, w->outer);
+                long zone = wzx_get_zone_prop(z, w);
+                outf(out, outlen, "%s\tzone=%ld\ttiled=%d\t%dx%d%+d%+d\t%s\t%s\n",
+                     mon >= 0 && mon < z->nmon ? z->mon[mon].name : "?", zone, w->tiled, w->outer.w, w->outer.h,
+                     w->outer.x, w->outer.y, w->wm_class ? w->wm_class : "", title);
+            } else {
+                outf(out, outlen, "%s\t%s\t%s\n", w->wm_class ? w->wm_class : "", w->instance ? w->instance : "",
+                     title);
+            }
         }
     } else if (!strcmp(cmd, "log")) {
         outf(out, outlen, "%s", wz_log_text());
@@ -481,6 +503,8 @@ wzx_ipc_listen(wzx *z)
     }
     z->sock_path = path;
     z->listen_fd = fd;
+    if (stat(path, &z->sock_stat) != 0)
+        memset(&z->sock_stat, 0, sizeof z->sock_stat);
     return 0;
 }
 
@@ -494,13 +518,8 @@ wzx_ipc_accept(wzx *z)
         close(c);
         return;
     }
-    /* Pedido curto; o cliente manda tudo de uma vez. */
-    struct timeval tv = { 0, 300000 };
-    setsockopt(c, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof tv);
     char line[WZ_IPC_MAX];
-    ssize_t n = recv(c, line, sizeof line - 1, 0);
-    if (n > 0) {
-        line[n] = 0;
+    if (wz_ipc_read_request(c, line, sizeof line) == 0) {
         static char out[16384];
         wzx_command(z, line, out, sizeof out);
         size_t l = strlen(out);
@@ -518,7 +537,7 @@ wzx_ipc_close(wzx *z)
     if (z->listen_fd >= 0)
         close(z->listen_fd);
     if (z->sock_path) {
-        unlink(z->sock_path);
+        wz_ipc_unlink(z->sock_path, &z->sock_stat);
         free(z->sock_path);
     }
     z->listen_fd = -1;

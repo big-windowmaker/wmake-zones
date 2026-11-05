@@ -1,0 +1,1023 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the wmake-zones package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: wmake-zones\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-11-05 04:16-0300\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+
+#: src/x11/wzx-main.c:268
+#, c-format
+msgid ""
+"Usage: wmake-zones [OPTION | COMMAND [ARGUMENT]]\n"
+"\n"
+"Window zones and tiling for Window Maker and wlmaker.\n"
+"\n"
+"Options:\n"
+"  (none)            start the service (X11)\n"
+"  -d, --dockapp     start with the tile in the Window Maker Dock/Clip\n"
+"      --session     used at login: stays only if Zones or Auto Tiling is on\n"
+"      --reset       turn everything off and give Window Maker its\n"
+"                    WindowSnapping back\n"
+"  -h, --help        show this help\n"
+"      --version     show the version\n"
+"\n"
+"Commands (sent to the running service, X11 or wlmaker):\n"
+"  status                     state, monitors, work areas and layouts\n"
+"  zones on|off|toggle        snap zones while dragging\n"
+"  autotile on|off|toggle     automatic tiling\n"
+"  layout ID|next|prev        zone layout of the monitor under the pointer\n"
+"  layouts                    available layouts\n"
+"  algorithm NAME             master, columns, rows, grid, bsp, monocle,\n"
+"                             spiral, dwindle\n"
+"  snap N                     put the active window in zone N\n"
+"  move|swap|focus left|right|up|down\n"
+"  restore | restore-all      back to the size and place before snapping\n"
+"  float | promote | grow | shrink | arrange\n"
+"  undo                       undo the last change\n"
+"  picker                     choose a zone with the keyboard (X11)\n"
+"  preview TREE               show a layout for a moment, e.g. \"H(2,1)\"\n"
+"  windows [-l]               open windows (-l: monitor, zone and geometry)\n"
+"  editor | prefs             open the zone editor or the preferences\n"
+"  reload | log | ping | quit\n"
+"\n"
+"Configuration: ~/.config/wmake-zones/wmake-zones.conf\n"
+msgstr ""
+
+#: src/x11/wzx-main.c:377
+msgid "could not start the service"
+msgstr ""
+
+#: src/x11/wzx-main.c:386
+msgid "the service is not running"
+msgstr ""
+
+#: src/x11/wzx-main.c:386
+msgid "no display"
+msgstr ""
+
+#: src/x11/wzx-main.c:409
+msgid "Zones and Auto Tiling are off; Window Maker is back to normal."
+msgstr ""
+
+#. no Wayland quem faz o trabalho é o wlmaker
+#: src/x11/wzx-main.c:458
+msgid "in a Wayland session the zones belong to wlmaker; use the commands."
+msgstr ""
+
+#: src/x11/wzx-main.c:477
+msgid "no X server (DISPLAY)"
+msgstr ""
+
+#: src/x11/wzx-main.c:490
+msgid ""
+"could not create the control socket in $XDG_RUNTIME_DIR/wmake-zones (path "
+"too long or no permission)"
+msgstr ""
+
+#: src/x11/wzx-main.c:504
+msgid "already running on this display"
+msgstr ""
+
+#: src/x11/wzx-overlay.c:274
+msgid ""
+"1–9 or arrows to choose · Enter snaps · Tab changes the layout · Esc cancels"
+msgstr ""
+
+#: src/x11/wzx-dockapp.c:218 src/prefs/wzp-main.c:372 src/prefs/wzp-main.c:1027
+msgid "Zones"
+msgstr ""
+
+#: src/x11/wzx-dockapp.c:219
+msgid "Auto Tiling"
+msgstr ""
+
+#: src/x11/wzx-dockapp.c:221
+#, c-format
+msgid "Layout: %s"
+msgstr ""
+
+#: src/x11/wzx-dockapp.c:223 src/prefs/wzp-main.c:584
+msgid "Next layout"
+msgstr ""
+
+#: src/x11/wzx-dockapp.c:224
+msgid "Choose layout..."
+msgstr ""
+
+#: src/x11/wzx-dockapp.c:225
+msgid "Arrange windows now"
+msgstr ""
+
+#: src/x11/wzx-dockapp.c:226
+msgid "Restore windows"
+msgstr ""
+
+#: src/x11/wzx-dockapp.c:227
+msgid "Undo last arrangement"
+msgstr ""
+
+#: src/x11/wzx-dockapp.c:228
+msgid "Edit zones..."
+msgstr ""
+
+#: src/x11/wzx-dockapp.c:229
+msgid "Preferences..."
+msgstr ""
+
+#: src/x11/wzx-dockapp.c:230
+msgid "About wmake-zones"
+msgstr ""
+
+#: src/x11/wzx-dockapp.c:292
+msgid "Layouts"
+msgstr ""
+
+#: src/wayland/wzw-dockapp.c:207
+msgid "wlmaker did not answer (zones disabled at build time?)"
+msgstr ""
+
+#: src/wayland/wzw-dockapp.c:340
+msgid "no Wayland compositor"
+msgstr ""
+
+#: src/wayland/wzw-dockapp.c:347
+msgid "the compositor does not offer the wlmaker icon protocol"
+msgstr ""
+
+#: src/prefs/wzp-main.c:34
+msgid "Could not write the configuration file."
+msgstr ""
+
+#: src/prefs/wzp-main.c:205
+msgid "(same as the general layout)"
+msgstr ""
+
+#: src/prefs/wzp-main.c:276
+msgid "Snap windows to _zones while dragging them"
+msgstr ""
+
+#: src/prefs/wzp-main.c:280
+msgid "_Auto Tiling: arrange windows automatically"
+msgstr ""
+
+#: src/prefs/wzp-main.c:284 src/prefs/wzp-editor.c:872
+msgid "Layout:"
+msgstr ""
+
+#: src/prefs/wzp-main.c:292 src/prefs/wzp-main.c:369
+msgid "_Edit zones..."
+msgstr ""
+
+#: src/prefs/wzp-main.c:299
+msgid "Window organization"
+msgstr ""
+
+#: src/prefs/wzp-main.c:303
+msgid ""
+"Restore the original size when a snapped window is dragged out of the zones"
+msgstr ""
+
+#: src/prefs/wzp-main.c:307
+msgid ""
+"Keep the service running for the keyboard shortcuts even with everything off"
+msgstr ""
+
+#: src/prefs/wzp-main.c:309
+msgid "Uses about 3 MiB of memory and no processor time while idle"
+msgstr ""
+
+#: src/prefs/wzp-main.c:311
+msgid "Behaviour"
+msgstr ""
+
+#: src/prefs/wzp-main.c:312
+msgid ""
+"The traditional Window Maker stays the default: windows float until you turn "
+"Zones or Auto Tiling on. The wmake-zones tile in the Dock does the same with "
+"two clicks."
+msgstr ""
+
+#. ---- Zonas ----------------------------------------------------------------
+#: src/prefs/wzp-main.c:321
+msgid "When a window starts being dragged"
+msgstr ""
+
+#: src/prefs/wzp-main.c:322
+msgid "Only while the modifier key is held"
+msgstr ""
+
+#: src/prefs/wzp-main.c:323
+msgid "When the pointer reaches a screen edge"
+msgstr ""
+
+#: src/prefs/wzp-main.c:324
+msgid "Super (Windows key)"
+msgstr ""
+
+#: src/prefs/wzp-main.c:324
+msgid "Alt"
+msgstr ""
+
+#: src/prefs/wzp-main.c:324
+msgid "Ctrl"
+msgstr ""
+
+#: src/prefs/wzp-main.c:325
+msgid "Shift"
+msgstr ""
+
+#: src/prefs/wzp-main.c:345
+msgid "Show the zones:"
+msgstr ""
+
+#: src/prefs/wzp-main.c:347
+msgid "Modifier key:"
+msgstr ""
+
+#: src/prefs/wzp-main.c:349
+msgid "Delay before showing (ms):"
+msgstr ""
+
+#: src/prefs/wzp-main.c:351
+msgid "Minimum drag distance (px):"
+msgstr ""
+
+#: src/prefs/wzp-main.c:353
+msgid "Edge sensitivity (px):"
+msgstr ""
+
+#: src/prefs/wzp-main.c:355
+msgid "Join two zones near their border (px):"
+msgstr ""
+
+#: src/prefs/wzp-main.c:357
+msgid "Dragging"
+msgstr ""
+
+#: src/prefs/wzp-main.c:360
+msgid "Space between zones (px):"
+msgstr ""
+
+#: src/prefs/wzp-main.c:362 src/prefs/wzp-main.c:413
+msgid "Margin at the screen edges (px):"
+msgstr ""
+
+#: src/prefs/wzp-main.c:365
+msgid "Keep windows off the Dock and the Clip"
+msgstr ""
+
+#: src/prefs/wzp-main.c:367
+msgid "Show zone numbers"
+msgstr ""
+
+#. ---- Mosaico --------------------------------------------------------------
+#: src/prefs/wzp-main.c:378 src/engine/wz-config.c:69
+msgid "Main + stack"
+msgstr ""
+
+#: src/prefs/wzp-main.c:378
+msgid "Grid"
+msgstr ""
+
+#: src/prefs/wzp-main.c:378
+msgid "Columns"
+msgstr ""
+
+#: src/prefs/wzp-main.c:379
+msgid "Rows"
+msgstr ""
+
+#: src/prefs/wzp-main.c:379
+msgid "Monocle (one at a time)"
+msgstr ""
+
+#: src/prefs/wzp-main.c:380
+msgid "BSP (binary splits)"
+msgstr ""
+
+#: src/prefs/wzp-main.c:380
+msgid "Dwindle"
+msgstr ""
+
+#: src/prefs/wzp-main.c:380
+msgid "Spiral"
+msgstr ""
+
+#: src/prefs/wzp-main.c:381
+msgid "Left"
+msgstr ""
+
+#: src/prefs/wzp-main.c:381
+msgid "Right"
+msgstr ""
+
+#: src/prefs/wzp-main.c:381
+msgid "Top"
+msgstr ""
+
+#: src/prefs/wzp-main.c:382
+msgid "Bottom"
+msgstr ""
+
+#: src/prefs/wzp-main.c:396
+msgid "Algorithm:"
+msgstr ""
+
+#: src/prefs/wzp-main.c:398
+msgid "Main area position:"
+msgstr ""
+
+#: src/prefs/wzp-main.c:401
+msgid "Main area size (%):"
+msgstr ""
+
+#: src/prefs/wzp-main.c:407
+msgid "Windows in the main area:"
+msgstr ""
+
+#: src/prefs/wzp-main.c:409
+msgid "Layout"
+msgstr ""
+
+#: src/prefs/wzp-main.c:411
+msgid "Space between windows (px):"
+msgstr ""
+
+#: src/prefs/wzp-main.c:416
+msgid "No spacing when a single window is tiled"
+msgstr ""
+
+#: src/prefs/wzp-main.c:418 src/prefs/wzp-editor.c:944
+msgid "Spacing"
+msgstr ""
+
+#: src/prefs/wzp-main.c:419
+msgid ""
+"Dialogs, menus, fixed-size and full-screen windows are never tiled. A window "
+"whose minimum size does not fit its cell floats. Drag a tiled window onto "
+"another to swap them; Super+Ctrl+F floats or tiles the active window."
+msgstr ""
+
+#: src/prefs/wzp-main.c:435 src/prefs/wzp-main.c:474
+msgid "(same as general)"
+msgstr ""
+
+#: src/prefs/wzp-main.c:435
+msgid "On"
+msgstr ""
+
+#: src/prefs/wzp-main.c:435
+msgid "Off"
+msgstr ""
+
+#: src/prefs/wzp-main.c:466
+msgid "Zone layout:"
+msgstr ""
+
+#: src/prefs/wzp-main.c:468
+msgid "Auto Tiling:"
+msgstr ""
+
+#: src/prefs/wzp-main.c:471
+msgid "Tiling algorithm:"
+msgstr ""
+
+#: src/prefs/wzp-main.c:490
+msgid "Monitor:"
+msgstr ""
+
+#: src/prefs/wzp-main.c:492
+msgid "All monitors"
+msgstr ""
+
+#: src/prefs/wzp-main.c:518
+msgid "Workspace (0 = all):"
+msgstr ""
+
+#: src/prefs/wzp-main.c:523
+msgid "Settings for a monitor or workspace"
+msgstr ""
+
+#: src/prefs/wzp-main.c:528
+msgid ""
+"A monitor or workspace without its own settings follows the general ones. "
+"When a monitor is unplugged, its windows are arranged again on the remaining "
+"monitors."
+msgstr ""
+
+#: src/prefs/wzp-main.c:560
+msgid "Highlight colour:"
+msgstr ""
+
+#: src/prefs/wzp-main.c:566
+msgid "Use the _theme colour"
+msgstr ""
+
+#: src/prefs/wzp-main.c:569
+msgid "Zone opacity (%):"
+msgstr ""
+
+#: src/prefs/wzp-main.c:571
+msgid "Zone overlay"
+msgstr ""
+
+#: src/prefs/wzp-main.c:572
+msgid ""
+"The overlay, the Dock tile and the menus follow the active Window Maker "
+"theme (big-wm-theme light or dark). Translucency needs a compositor (picom); "
+"without one the zones are drawn as outlines with a striped target."
+msgstr ""
+
+#: src/prefs/wzp-main.c:583
+msgid "Choose a zone with the keyboard"
+msgstr ""
+
+#: src/prefs/wzp-main.c:583
+msgid "Turn Zones on or off"
+msgstr ""
+
+#: src/prefs/wzp-main.c:583
+msgid "Turn Auto Tiling on or off"
+msgstr ""
+
+#: src/prefs/wzp-main.c:584
+msgid "Open the zone editor"
+msgstr ""
+
+#: src/prefs/wzp-main.c:584
+msgid "Move window to the zone on the left"
+msgstr ""
+
+#: src/prefs/wzp-main.c:585
+msgid "Move window to the zone on the right"
+msgstr ""
+
+#: src/prefs/wzp-main.c:585
+msgid "Move window to the zone above"
+msgstr ""
+
+#: src/prefs/wzp-main.c:586
+msgid "Move window to the zone below"
+msgstr ""
+
+#: src/prefs/wzp-main.c:586
+msgid "Focus the window on the left"
+msgstr ""
+
+#: src/prefs/wzp-main.c:586
+msgid "Focus the window on the right"
+msgstr ""
+
+#: src/prefs/wzp-main.c:587
+msgid "Focus the window above"
+msgstr ""
+
+#: src/prefs/wzp-main.c:587
+msgid "Focus the window below"
+msgstr ""
+
+#: src/prefs/wzp-main.c:587
+msgid "Swap with the window on the left"
+msgstr ""
+
+#: src/prefs/wzp-main.c:588
+msgid "Swap with the window on the right"
+msgstr ""
+
+#: src/prefs/wzp-main.c:588
+msgid "Swap with the window above"
+msgstr ""
+
+#: src/prefs/wzp-main.c:588
+msgid "Swap with the window below"
+msgstr ""
+
+#: src/prefs/wzp-main.c:589
+msgid "Restore the previous size and position"
+msgstr ""
+
+#: src/prefs/wzp-main.c:589
+msgid "Float or tile the window"
+msgstr ""
+
+#: src/prefs/wzp-main.c:589
+msgid "Make it the main window"
+msgstr ""
+
+#: src/prefs/wzp-main.c:590
+msgid "Grow the main area"
+msgstr ""
+
+#: src/prefs/wzp-main.c:590
+msgid "Shrink the main area"
+msgstr ""
+
+#: src/prefs/wzp-main.c:590
+msgid "Undo the last arrangement"
+msgstr ""
+
+#: src/prefs/wzp-main.c:651
+msgid "in use by another program"
+msgstr ""
+
+#: src/prefs/wzp-main.c:672 src/prefs/wzp-main.c:869
+msgid "Action"
+msgstr ""
+
+#: src/prefs/wzp-main.c:677
+msgid "Shortcut"
+msgstr ""
+
+#: src/prefs/wzp-main.c:679
+msgid "Change"
+msgstr ""
+
+#: src/prefs/wzp-main.c:684
+msgid "Conflict"
+msgstr ""
+
+#: src/prefs/wzp-main.c:692
+msgid "Click \"Change\" and press the new combination; Backspace clears it."
+msgstr ""
+
+#: src/prefs/wzp-main.c:694
+msgid "Restore _defaults"
+msgstr ""
+
+#: src/prefs/wzp-main.c:698
+msgid "Keyboard shortcuts"
+msgstr ""
+
+#: src/prefs/wzp-main.c:706
+msgid "Always floating"
+msgstr ""
+
+#: src/prefs/wzp-main.c:706
+msgid "Tile"
+msgstr ""
+
+#: src/prefs/wzp-main.c:707
+msgid "Put in zone"
+msgstr ""
+
+#: src/prefs/wzp-main.c:707
+msgid "Ignore"
+msgstr ""
+
+#: src/prefs/wzp-main.c:799
+msgid "The service is not running; type the class by hand."
+msgstr ""
+
+#: src/prefs/wzp-main.c:857
+msgid "Window class"
+msgstr ""
+
+#: src/prefs/wzp-main.c:858
+msgid "Title contains"
+msgstr ""
+
+#: src/prefs/wzp-main.c:870
+msgid "Zone"
+msgstr ""
+
+#: src/prefs/wzp-main.c:878
+msgid "_Add"
+msgstr ""
+
+#: src/prefs/wzp-main.c:880
+msgid "From an _open window..."
+msgstr ""
+
+#: src/prefs/wzp-main.c:882
+msgid "_Remove"
+msgstr ""
+
+#: src/prefs/wzp-main.c:889
+msgid "Apply the rules (uncheck to suspend them for now)"
+msgstr ""
+
+#: src/prefs/wzp-main.c:892
+msgid "Per-application rules"
+msgstr ""
+
+#: src/prefs/wzp-main.c:893
+msgid ""
+"Windows are matched by their class (WM_CLASS on X11, app_id on Wayland), not "
+"by the title, which changes. What you do by hand wins over a rule until the "
+"window is closed."
+msgstr ""
+
+#: src/prefs/wzp-main.c:909
+msgid "Configuration file"
+msgstr ""
+
+#: src/prefs/wzp-main.c:913
+msgid "Recent log"
+msgstr ""
+
+#: src/prefs/wzp-main.c:915
+msgid "The service is not running (Zones and Auto Tiling are off)."
+msgstr ""
+
+#: src/prefs/wzp-main.c:924
+msgid "Export settings"
+msgstr ""
+
+#: src/prefs/wzp-main.c:925 src/prefs/wzp-editor.c:659
+msgid "_Export"
+msgstr ""
+
+#: src/prefs/wzp-main.c:943
+msgid "Import settings"
+msgstr ""
+
+#: src/prefs/wzp-main.c:944 src/prefs/wzp-editor.c:713
+msgid "_Import"
+msgstr ""
+
+#: src/prefs/wzp-main.c:960
+msgid ""
+"Imported. The previous settings were kept as .bak; reopen this window to see "
+"them."
+msgstr ""
+
+#: src/prefs/wzp-main.c:974
+msgid ""
+"Turn everything off and restore the default settings? The current file is "
+"kept as wmake-zones.conf.bak."
+msgstr ""
+
+#: src/prefs/wzp-main.c:981
+msgid "Defaults restored; reopen this window."
+msgstr ""
+
+#: src/prefs/wzp-main.c:1000
+msgid "_Refresh"
+msgstr ""
+
+#: src/prefs/wzp-main.c:1003
+msgid "_Export settings..."
+msgstr ""
+
+#: src/prefs/wzp-main.c:1006
+msgid "_Import settings..."
+msgstr ""
+
+#: src/prefs/wzp-main.c:1009
+msgid "Restore _defaults..."
+msgstr ""
+
+#: src/prefs/wzp-main.c:1013
+msgid "Diagnostics"
+msgstr ""
+
+#: src/prefs/wzp-main.c:1027
+msgid "General"
+msgstr ""
+
+#: src/prefs/wzp-main.c:1028
+msgid "Tiling"
+msgstr ""
+
+#: src/prefs/wzp-main.c:1028
+msgid "Monitors"
+msgstr ""
+
+#: src/prefs/wzp-main.c:1029
+msgid "Appearance"
+msgstr ""
+
+#: src/prefs/wzp-main.c:1029
+msgid "Shortcuts"
+msgstr ""
+
+#: src/prefs/wzp-main.c:1030
+msgid "Rules"
+msgstr ""
+
+#: src/prefs/wzp-main.c:1030
+msgid "Advanced"
+msgstr ""
+
+#: src/prefs/wzp-main.c:1054
+msgid ""
+"Window zones and tiling for Window Maker and wlmaker.\n"
+"Floating first, tiling when you want."
+msgstr ""
+
+#: src/prefs/wzp-main.c:1075
+msgid "wmake-zones Preferences"
+msgstr ""
+
+#: src/prefs/wzp-main.c:1126
+msgid "Changes are applied at once."
+msgstr ""
+
+#: src/prefs/wzp-main.c:1130
+msgid "_About"
+msgstr ""
+
+#: src/prefs/wzp-main.c:1133 src/prefs/wzp-editor.c:970
+msgid "_Close"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:484 src/prefs/wzp-editor.c:741
+msgid "_Cancel"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:485
+msgid "_OK"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:538
+msgid "Saved."
+msgstr ""
+
+#: src/prefs/wzp-editor.c:555
+msgid "Discard the changes to this layout?"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:582
+msgid "New layout"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:582
+msgid "My layout"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:591
+#, c-format
+msgid "Copy of %s"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:592
+msgid "Duplicate layout"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:605
+msgid "Rename layout"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:626
+msgid "Restore this built-in layout to its original form?"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:628
+msgid "Delete this layout?"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:652
+msgid "The wmake-zones service is not running: turn Zones on to preview."
+msgstr ""
+
+#: src/prefs/wzp-editor.c:658
+msgid "Export layout"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:674
+msgid "Exported."
+msgstr ""
+
+#: src/prefs/wzp-editor.c:712
+msgid "Import layouts"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:725
+#, c-format
+msgid "%d layout imported."
+msgid_plural "%d layouts imported."
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/prefs/wzp-editor.c:740
+msgid "Save the changes to this layout?"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:741
+msgid "_Discard"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:742 src/prefs/wzp-editor.c:968
+msgid "_Save"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:821
+#, c-format
+msgid "Zone %d of %d"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:857
+msgid "Zone editor — wmake-zones"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:876
+msgid "_New"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:876
+msgid "Create a new layout"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:877
+msgid "D_uplicate"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:878
+msgid "_Rename"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:880
+msgid "Delete / _Restore"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:880
+msgid "Delete a layout you created, or restore a built-in one"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:883
+msgid "_Import..."
+msgstr ""
+
+#: src/prefs/wzp-editor.c:884
+msgid "E_xport..."
+msgstr ""
+
+#: src/prefs/wzp-editor.c:906
+msgid "Split ◫"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:906
+msgid "Split the zone side by side"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:907
+msgid "Split ⊟"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:907
+msgid "Split the zone top and bottom"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:908
+msgid "Delete zone"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:908
+msgid "Remove the zone; its neighbours take the space"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:909
+msgid "◀ Earlier"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:909
+msgid "Swap with the previous zone (numbering)"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:910
+msgid "Later ▶"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:910
+msgid "Swap with the next zone (numbering)"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:916
+msgid "Name:"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:921
+msgid "optional, e.g. Editor"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:924
+msgid "Share of the row (%):"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:931
+msgid "Selected zone"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:936
+msgid "Between zones (px)"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:940
+msgid "At the edges (px)"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:947
+msgid "_Undo"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:947
+msgid "Ctrl+Z"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:948
+msgid "Re_do"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:948
+msgid "Ctrl+Shift+Z"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:953
+msgid ""
+"Click a zone to select it. Drag the line between two zones to resize them. "
+"Double-click to name a zone."
+msgstr ""
+
+#: src/prefs/wzp-editor.c:965
+msgid "_Preview on screen"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:965
+msgid "Show the zones on the screen for a moment"
+msgstr ""
+
+#: src/prefs/wzp-editor.c:968
+msgid "Ctrl+S"
+msgstr ""
+
+#: src/engine/wz-config.c:66
+msgid "Halves"
+msgstr ""
+
+#: src/engine/wz-config.c:67
+msgid "Quarters"
+msgstr ""
+
+#: src/engine/wz-config.c:68
+msgid "Three columns"
+msgstr ""
+
+#: src/engine/wz-config.c:70
+msgid "Two top + one bottom"
+msgstr ""
+
+#: src/engine/wz-config.c:71
+msgid "One top + two bottom"
+msgstr ""
+
+#: src/engine/wz-config.c:72
+msgid "Grid 2x3"
+msgstr ""
+
+#: src/engine/wz-config.c:73
+msgid "Grid 3x3"
+msgstr ""
+
+#: src/engine/wz-config.c:74
+msgid "Main 70/30"
+msgstr ""
+
+#: src/engine/wz-config.c:75
+msgid "Ultrawide"
+msgstr ""
+
+#: src/engine/wz-config.c:76
+msgid "Ultrawide: four columns"
+msgstr ""
+
+#: src/engine/wz-config.c:77
+msgid "Development"
+msgstr ""
+
+#: src/engine/wz-config.c:78
+msgid "Small screen 60/40"
+msgstr ""
+
+#: src/engine/wz-config.c:79
+msgid "Portrait: halves"
+msgstr ""
+
+#: src/engine/wz-config.c:80
+msgid "Portrait: three rows"
+msgstr ""
+
+#. Nomes das zonas dos layouts internos, traduzidos na hora de mostrar.
+#: src/engine/wz-config.c:83
+msgid "Editor"
+msgstr ""
+
+#: src/engine/wz-config.c:83
+msgid "Terminal"
+msgstr ""
+
+#: src/engine/wz-config.c:83
+msgid "Browser"
+msgstr ""

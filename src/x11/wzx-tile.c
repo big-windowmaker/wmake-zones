@@ -164,7 +164,10 @@ compute(wzx *z, int mon, wzx_win **ws, wz_rect *rects, int max)
         memcpy(ws, ord, sizeof *ws * (size_t)m);
         return m;
     }
-    return wz_tile(&p, area, n, rects, max) > 0 ? n : 0;
+    /* O núcleo calcula no máximo WZ_TILE_MAX: as demais ficariam com
+     * retângulos não inicializados. */
+    int k = wz_tile(&p, area, n, rects, max);
+    return k <= 0 ? 0 : k < n ? k : n;
 }
 
 int
@@ -248,7 +251,10 @@ wzx_tile_run(wzx *z)
             /* Mosaico desligado aqui: quem estava no mosaico volta a flutuar. */
             for (int i = 0; i < z->nwin; i++) {
                 wzx_win *w = z->win[i];
-                if (w->tiled && w->tile_mon == mon && on_this_desktop(z, w))
+                /* tile_mon < 0: o conjunto se desfez numa troca de
+                 * monitores; vale o monitor onde a janela está agora. */
+                int here = w->tile_mon == mon || (w->tile_mon < 0 && wzx_monitor_of(z, w->outer) == mon);
+                if (w->tiled && here && on_this_desktop(z, w))
                     untile(z, w, 1);
             }
             continue;
@@ -387,6 +393,11 @@ wzx_tile_user_resize(wzx *z, wzx_win *w)
 {
     int mon = w->tile_mon;
     if (mon < 0 || !w->tiled)
+        return;
+    /* Sombrear ou maximizar (duplo clique, botão) muda o tamanho do quadro,
+     * mas não é o usuário puxando a borda: a proporção fica. */
+    wzx_refresh_win(z, w);
+    if (w->state & (WS_SHADED | WS_MAXV | WS_MAXH | WS_FULLSCREEN))
         return;
     tset *s = set_for(z, mon, 0);
     wz_tile_params p = params(z, mon, s);

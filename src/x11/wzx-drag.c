@@ -56,6 +56,12 @@ wzx_xi_select(wzx *z)
     if (active) {
         XISetMask(bits, XI_RawButtonPress);
         XISetMask(bits, XI_RawButtonRelease);
+    } else if (z->drag != DRAG_IDLE) {
+        /* Desligado no meio de um arrasto: o soltar não viria mais. */
+        z->drag = DRAG_IDLE;
+        z->drag_w = NULL;
+        z->drag_frame = None;
+        wzx_overlay_hide(z);
     }
     int keys = z->drag == DRAG_MOVING;
     if (keys) {
@@ -219,16 +225,21 @@ void
 wzx_drag_raw(wzx *z, XGenericEventCookie *c)
 {
     XIRawEvent *re = c->data;
-    if (z->picker || z->popup)
-        return;
+    /*
+     * O detail de um evento bruto pode ser o botão físico, antes do
+     * mapeamento (canhotos com "pointer = 3 2 1"). Quem decide é o estado
+     * do botão lógico 1 no XQueryPointer, que sempre vem mapeado: o servidor
+     * já processou o evento quando a consulta chega.
+     */
     switch (c->evtype) {
     case XI_RawButtonPress: {
-        if (re->detail != 1 || z->drag != DRAG_IDLE)
+        if (z->picker || z->popup || z->drag != DRAG_IDLE)
             return;
         Window r, child;
         int rx, ry, wx, wy;
         unsigned mask;
-        if (!XQueryPointer(z->dpy, z->root, &r, &child, &rx, &ry, &wx, &wy, &mask) || child == None)
+        if (!XQueryPointer(z->dpy, z->root, &r, &child, &rx, &ry, &wx, &wy, &mask) || child == None ||
+            !(mask & Button1Mask))
             return;
         wzx_win *w = wzx_find_frame(z, child);
         if (getenv("WZ_DEBUG"))
@@ -250,12 +261,15 @@ wzx_drag_raw(wzx *z, XGenericEventCookie *c)
         break;
     }
     case XI_RawButtonRelease: {
-        if (re->detail != 1)
+        /* Sempre tratado (mesmo com o seletor ou um menu aberto): perder o
+         * soltar deixaria o arrasto preso e ignoraria os próximos. */
+        if (z->drag == DRAG_IDLE)
             return;
         Window r, child;
         int rx = z->press_x, ry = z->press_y, wx, wy;
-        unsigned mask;
-        XQueryPointer(z->dpy, z->root, &r, &child, &rx, &ry, &wx, &wy, &mask);
+        unsigned mask = 0;
+        if (XQueryPointer(z->dpy, z->root, &r, &child, &rx, &ry, &wx, &wy, &mask) && (mask & Button1Mask))
+            return; /* soltou outro botão; o 1 continua apertado */
         if (z->drag == DRAG_MOVING)
             finish_move(z, rx, ry);
         else if (z->drag == DRAG_RESIZING && z->drag_w)
@@ -265,6 +279,8 @@ wzx_drag_raw(wzx *z, XGenericEventCookie *c)
     }
     case XI_RawKeyPress:
     case XI_RawKeyRelease: {
+        if (z->picker || z->popup)
+            return;
         int down = c->evtype == XI_RawKeyPress;
         KeyCode k = (KeyCode)re->detail;
         if (k == kc_esc && down && z->drag == DRAG_MOVING) {

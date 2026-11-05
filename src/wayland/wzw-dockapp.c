@@ -13,6 +13,7 @@
  */
 #define _GNU_SOURCE
 #include "wz-config.h"
+#include "wz-i18n.h"
 #include "wz-ipc.h"
 #include "wz-layout.h"
 #include "wz-theme.h"
@@ -20,6 +21,7 @@
 #include <cairo.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <locale.h>
 #include <linux/input-event-codes.h>
 #include <poll.h>
 #include <signal.h>
@@ -202,7 +204,7 @@ command(app *a, const char *cmd)
 {
     char out[512];
     if (wz_ipc_request_session(cmd, out, sizeof out) != 0)
-        fprintf(stderr, "wmake-zones-wl: o wlmaker não respondeu (zonas desligadas na compilação?)\n");
+        fprintf(stderr, "wmake-zones-wl: %s\n", _("wlmaker did not answer (zones disabled at build time?)"));
     reload(a);
     redraw(a);
 }
@@ -324,20 +326,25 @@ watch_dir_of(int ifd, const char *path)
 int
 main(void)
 {
+    setlocale(LC_ALL, "");
+#ifdef WZ_ENABLE_NLS
+    bindtextdomain("wmake-zones", WZ_LOCALEDIR);
+    textdomain("wmake-zones");
+#endif
     app a = { 0 };
     a.cfg_path = wz_config_path();
     wz_config_defaults(&a.cfg);
     reload(&a);
     a.display = wl_display_connect(NULL);
     if (!a.display) {
-        fprintf(stderr, "wmake-zones-wl: sem compositor Wayland\n");
+        fprintf(stderr, "wmake-zones-wl: %s\n", _("no Wayland compositor"));
         return 1;
     }
     struct wl_registry *reg = wl_display_get_registry(a.display);
     wl_registry_add_listener(reg, &reg_listener, &a);
     wl_display_roundtrip(a.display);
     if (!a.compositor || !a.shm || !a.icon_manager) {
-        fprintf(stderr, "wmake-zones-wl: o compositor não oferece o protocolo de ícones do wlmaker\n");
+        fprintf(stderr, "wmake-zones-wl: %s\n", _("the compositor does not offer the wlmaker icon protocol"));
         return 1;
     }
     a.surface = wl_compositor_create_surface(a.compositor);

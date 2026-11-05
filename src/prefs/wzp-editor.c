@@ -7,6 +7,7 @@
  * textual da árvore.
  */
 #define _GNU_SOURCE
+#include "wz-alloc.h"
 #include "wzp.h"
 #include "wz-ipc.h"
 
@@ -239,8 +240,17 @@ split(editor *e, wz_kind kind)
     wz_node *l = sel_leaf(e);
     if (!l || wz_leaf_count(e->tree) >= 64)
         return;
-    push_undo(e);
     wz_node *p = l->parent;
+    /* Dividir no outro sentido aninha um nível; além do que o leitor aceita,
+     * o layout gravado seria descartado ao carregar. */
+    int depth = 0;
+    for (wz_node *a = l; a; a = a->parent)
+        depth++;
+    if (!(p && p->kind == kind) && depth + 1 >= WZ_MAX_DEPTH) {
+        gtk_widget_error_bell(e->canvas);
+        return;
+    }
+    push_undo(e);
     if (p && p->kind == kind) {
         /* Mesmo sentido do pai: vira irmã, dividindo o peso. */
         int k = 0;
@@ -330,7 +340,7 @@ on_name(GtkEntry *en, editor *e)
     /* Sem aspas: elas delimitam o nome na forma textual. */
     char *clean = g_strdup(t);
     g_strdelimit(clean, "\"", '\'');
-    l->name = *clean ? strndup(clean, 64) : NULL;
+    l->name = *clean ? wz_xstrndup(clean, 64) : NULL;
     g_free(clean);
     gtk_widget_queue_draw(e->canvas);
 }
@@ -756,6 +766,10 @@ on_key(GtkWidget *w, GdkEventKey *ev, editor *e)
 {
     if (gtk_widget_has_focus(e->name) || gtk_widget_has_focus(e->weight))
         return FALSE;
+    /* Com uma divisória sendo arrastada, nada que troque a árvore: o
+     * arrasto guarda ponteiros para os nós dela. */
+    if (e->drag >= 0)
+        return TRUE;
     gboolean ctrl = (ev->state & GDK_CONTROL_MASK) != 0;
     if (ctrl && (ev->keyval == GDK_KEY_z || ev->keyval == GDK_KEY_Z)) {
         if (ev->state & GDK_SHIFT_MASK)
