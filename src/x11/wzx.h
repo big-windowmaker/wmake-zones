@@ -137,6 +137,7 @@ struct wzx {
     wzx_monitor mon[WZX_MAX_MON];
     int nmon;
     int work_dirty;
+    int monitors_dirty;    /* RandR: refazer monitores depois do lote */
 
     wzx_or ors[WZX_MAX_OR];
     int nor;
@@ -224,6 +225,9 @@ void wzx_apply_config(wzx *z);
 /* wzx-wm.c */
 void wzx_wm_init(wzx *z);
 void wzx_update_monitors(wzx *z);
+/* Monitores mudaram (hotplug): refaz a lista e, se ela mudou de fato, o
+ * mosaico; janelas fora de todos os monitores voltam para o mais perto. */
+void wzx_monitors_changed(wzx *z);
 void wzx_update_workarea(wzx *z);
 void wzx_sync_clients(wzx *z);
 wzx_win *wzx_find(wzx *z, Window w);

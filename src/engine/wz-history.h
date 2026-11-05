@@ -7,7 +7,8 @@
  * geometria (com a decoração), a zona, a ordem no mosaico e dois estados
  * (no mosaico, tirada pelo usuário); e, se o passo mudou a configuração,
  * uma chave do arquivo com o valor de antes. Nada de cópias do estado do
- * desktop: um passo com uma janela ocupa uns 60 bytes.
+ * desktop: 56 bytes por janela tocada (alocados de quatro em quatro) e
+ * duas pilhas fixas de profundidade + 1 passos de 136 bytes.
  *
  * As janelas são identificadas por um número opaco do backend (Window do X
  * ou o ponteiro da janela no wlmaker). Uma janela que fecha é esquecida

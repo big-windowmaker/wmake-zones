@@ -204,17 +204,12 @@ handle_event(wzx *z, XEvent *e)
         }
         return;
     }
-    if (z->has_randr && e->type == z->randr_event + RRScreenChangeNotify) {
-        XRRUpdateConfiguration(e);
-        wzx_overlay_hide(z);
-        wzx_update_monitors(z);
-        /* Monitores mudaram: os conjuntos do mosaico se refazem. */
-        for (int i = 0; i < z->nwin; i++)
-            z->win[i]->tile_mon = -1, z->win[i]->expect_valid = 0;
-        for (int i = 0; i < 64; i++)
-            if (z->tset[i].used)
-                wz_bsp_clear(&z->tset[i].bsp);
-        wzx_tile_mark(z);
+    if (z->has_randr && (e->type == z->randr_event + RRScreenChangeNotify || e->type == z->randr_event + RRNotify)) {
+        /* Monitor conectado, desligado, movido ou outro principal: uma
+         * mudança gera vários eventos; o ajuste vem depois do lote. */
+        if (e->type == z->randr_event + RRScreenChangeNotify)
+            XRRUpdateConfiguration(e);
+        z->monitors_dirty = 1;
         return;
     }
     if (wzx_dockapp_event(z, e))
@@ -559,7 +554,7 @@ main(int argc, char **argv)
     wzx_drag_init(z);
     XSelectInput(z->dpy, z->root, SubstructureNotifyMask | PropertyChangeMask);
     if (z->has_randr)
-        XRRSelectInput(z->dpy, z->root, RRScreenChangeNotifyMask);
+        XRRSelectInput(z->dpy, z->root, RRScreenChangeNotifyMask | RRCrtcChangeNotifyMask | RROutputChangeNotifyMask);
     wzx_sync_clients(z);
     if (dockapp)
         wzx_dockapp_create(z);
@@ -587,6 +582,10 @@ main(int argc, char **argv)
             XEvent e;
             XNextEvent(z->dpy, &e);
             handle_event(z, &e);
+        }
+        if (z->monitors_dirty) {
+            z->monitors_dirty = 0;
+            wzx_monitors_changed(z);
         }
         wzx_drag_flush(z);
         long now = wzx_now_ms();

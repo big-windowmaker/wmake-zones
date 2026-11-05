@@ -85,19 +85,32 @@ for n in 10 30 50; do
 done
 
 # Arrasto com overlay e encaixe: uma janela nova, por cima das outras.
+# Duas vezes: com as zonas do layout atual direto (DragFlow=zones, como na
+# 0.2) e com o painel de layouts primeiro (padrão da 0.3).
 xterm -geometry 60x10+300+300 >/dev/null 2>&1 &
 PIDS="$PIDS $!"
 sleep 1.5
 W=$(printf %d "$(xprop -root _NET_ACTIVE_WINDOW | grep -o '0x[0-9a-f]*' | tail -1)")
-eval "$(xdotool getwindowgeometry --shell "$W")"
-xdotool mousemove $((X + 30)) $((Y - 10))
-sleep 0.2
-xdotool mousedown 1
-for _ in $(seq 1 10); do xdotool mousemove_relative -- 30 20; sleep 0.08; done
+drag_once() {
+	eval "$(xdotool getwindowgeometry --shell "$W")"
+	xdotool mousemove $((X + 30)) $((Y - 10))
+	sleep 0.2
+	xdotool mousedown 1
+	for _ in $(seq 1 10); do xdotool mousemove_relative -- 30 20; sleep 0.08; done
+	sleep 0.5
+	xdotool mouseup 1
+	sleep 0.5
+}
+printf '[General]\nDragFlow=zones\n' >>"$XDG_CONFIG_HOME/wmake-zones/wmake-zones.conf"
+"$WZ" reload >/dev/null
+drag_once
+echo "overlay_zonas_us=$(last_time overlay) encaixe_us=$(last_time encaixe)"
+"$WZ" restore >/dev/null
+sed -i 's/^DragFlow=zones$/DragFlow=layouts/' "$XDG_CONFIG_HOME/wmake-zones/wmake-zones.conf"
+"$WZ" reload >/dev/null
 sleep 0.5
-xdotool mouseup 1
-sleep 0.5
-echo "overlay_us=$(last_time overlay) encaixe_us=$(last_time encaixe)"
+drag_once
+echo "overlay_painel_us=$(last_time overlay)"
 
 p0=$(pss)
 ciclos() {

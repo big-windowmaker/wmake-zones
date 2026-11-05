@@ -118,6 +118,51 @@ wzx_update_monitors(wzx *z)
     z->work_dirty = 1;
 }
 
+void
+wzx_monitors_changed(wzx *z)
+{
+    wzx_monitor old[WZX_MAX_MON];
+    int nold = z->nmon;
+    memcpy(old, z->mon, sizeof old);
+    wzx_update_monitors(z);
+    int same = nold == z->nmon;
+    for (int i = 0; same && i < z->nmon; i++)
+        same = !strcmp(old[i].name, z->mon[i].name) && !memcmp(&old[i].geom, &z->mon[i].geom, sizeof old[i].geom);
+    if (same)
+        return;
+    wzx_log("monitores: %d -> %d", nold, z->nmon);
+    wzx_picker_close(z);
+    wzx_overlay_hide(z);
+    wzx_update_workarea(z);
+    /* Os conjuntos do mosaico se refazem nos monitores de agora. */
+    for (int i = 0; i < z->nwin; i++)
+        z->win[i]->tile_mon = -1, z->win[i]->expect_valid = 0;
+    for (int i = 0; i < 64; i++)
+        if (z->tset[i].used)
+            wz_bsp_clear(&z->tset[i].bsp);
+    /* Janela de um monitor que saiu (o centro fora de todos): vai para a
+     * área útil do mais perto, com o tamanho que couber. */
+    for (int i = 0; i < z->nwin; i++) {
+        wzx_win *w = z->win[i];
+        if (!w->mapped || w->special || w->tiled)
+            continue;
+        int cx = w->outer.x + w->outer.w / 2, cy = w->outer.y + w->outer.h / 2, inside = 0;
+        for (int m = 0; m < z->nmon && !inside; m++)
+            inside = wz_rect_contains(z->mon[m].geom, cx, cy);
+        if (inside)
+            continue;
+        wz_rect a = z->mon[wzx_monitor_at(z, cx, cy)].work, r = w->outer;
+        r.w = r.w > a.w ? a.w : r.w;
+        r.h = r.h > a.h ? a.h : r.h;
+        r.x = r.x < a.x ? a.x : r.x + r.w > a.x + a.w ? a.x + a.w - r.w : r.x;
+        r.y = r.y < a.y ? a.y : r.y + r.h > a.y + a.h ? a.y + a.h - r.h : r.y;
+        wzx_log("monitores: %s trazida para (%d,%d)", w->wm_class ? w->wm_class : "?", r.x, r.y);
+        wzx_move_outer(z, w, r);
+    }
+    wzx_tile_mark(z);
+    wzx_dockapp_redraw(z);
+}
+
 int
 wzx_monitor_at(wzx *z, int x, int y)
 {
