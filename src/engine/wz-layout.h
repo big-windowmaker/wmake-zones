@@ -26,6 +26,9 @@
 
 #include <stddef.h>
 
+/* Aninhamento máximo que wz_parse aceita (o editor não passa disso). */
+#define WZ_MAX_DEPTH 24
+
 typedef struct {
     int x, y, w, h;
 } wz_rect;

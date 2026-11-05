@@ -11,6 +11,8 @@
 #include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -148,7 +150,27 @@ test_gaps_exact(void)
         CHECK(z[1].x - (z[0].x + z[0].w) == g, "gap interno exato entre 0 e 1 (g=%d): %d", g, z[1].x - (z[0].x + z[0].w));
         CHECK(z[2].x - (z[1].x + z[1].w) == g, "gap interno exato entre 1 e 2 (g=%d)", g);
         CHECK(z[2].x + z[2].w == 1096, "última zona encosta na margem (g=%d)", g);
+        /* Mesmo peso, mesmo tamanho: a do meio não perde gap a mais. */
+        int mn = z[0].w, mx = z[0].w;
+        for (int i = 1; i < 3; i++) {
+            mn = z[i].w < mn ? z[i].w : mn;
+            mx = z[i].w > mx ? z[i].w : mx;
+        }
+        CHECK(mx - mn <= 1, "zonas iguais com gap (g=%d): %d..%d", g, mn, mx);
     }
+    wz_free(t);
+    /* Pesos valem para o tamanho da zona, não da célula com o gap. */
+    t = wz_parse("H(2,1)", &err);
+    wz_rect h[2];
+    wz_compute(t, (wz_rect){ 0, 0, 1206, 600 }, 6, 0, h, 2);
+    CHECK(h[0].w == 800 && h[1].w == 400 && h[1].x == 806, "H(2,1) com gap 6: %d e %d", h[0].w, h[1].w);
+    wz_free(t);
+    /* Terços em 3440 com gap 6 (ultrawide): 1139/1138/1139. */
+    t = wz_parse("H(1,1,1)", &err);
+    wz_rect u[3];
+    wz_compute(t, (wz_rect){ 0, 0, 3440, 1440 }, 6, 6, u, 3);
+    CHECK(u[0].w + u[1].w + u[2].w == 3440 - 12 - 12, "terços 3440: soma");
+    CHECK(abs(u[0].w - u[1].w) <= 1 && abs(u[1].w - u[2].w) <= 1, "terços 3440: %d %d %d", u[0].w, u[1].w, u[2].w);
     wz_free(t);
     /* Margem maior que a área é ignorada em vez de produzir lixo. */
     t = wz_parse("Z", &err);
@@ -433,7 +455,54 @@ test_ini(void)
     CHECK(c.tile.master_ratio <= 0.9, "proporção limitada");
     wz_config_free(&c);
 
+    /* Espaços nas pontas, tab e CR sobrevivem à ida e volta. */
+    wz_ini_set(path, "Rule t", "Title", "  dois espaços\tno meio e no fim  ");
+    wz_ini_set(path, "Rule t", "Class", "a\r\nb");
+    struct rt { const char *title, *klass; } got = { 0 };
+    wz_config_defaults(&c);
+    wz_config_load(&c, path);
+    for (int i = 0; i < c.nrules; i++)
+        if (!strcmp(c.rules[i].id, "t")) {
+            got.title = c.rules[i].title;
+            got.klass = c.rules[i].wm_class;
+        }
+    CHECK(got.title && !strcmp(got.title, "  dois espaços\tno meio e no fim  "), "espaços e tab preservados: [%s]",
+          got.title ? got.title : "(nada)");
+    CHECK(got.klass && !strcmp(got.klass, "a\r\nb"), "CR e LF preservados");
+    wz_config_free(&c);
+
+    /* Arquivo com CRLF (editado no Windows) é lido. */
+    f = fopen(path, "w");
+    fputs("[General]\r\nZones=true\r\nGap=10\r\n", f);
+    fclose(f);
+    wz_config_defaults(&c);
+    wz_config_load(&c, path);
+    CHECK(c.zones == 1 && c.gap_in == 10, "CRLF");
+    wz_config_free(&c);
+
+    /* Link simbólico (dotfiles) continua link; o alvo é que muda. */
+    char real[300], link[320];
+    snprintf(real, sizeof real, "%s/real.conf", dir);
+    snprintf(link, sizeof link, "%s/link.conf", dir);
+    f = fopen(real, "w");
+    fputs("[General]\nZones=false\n", f);
+    fclose(f);
+    CHECK(symlink(real, link) == 0, "symlink");
+    CHECK(wz_ini_set(link, "General", "Zones", "true") == 0, "grava pelo link");
+    struct stat st;
+    CHECK(lstat(link, &st) == 0 && S_ISLNK(st.st_mode), "o link não foi trocado por arquivo");
+    wz_config_defaults(&c);
+    wz_config_load(&c, real);
+    CHECK(c.zones == 1, "o alvo recebeu a mudança");
+    wz_config_free(&c);
+    unlink(link);
+    unlink(real);
+    snprintf(link, sizeof link, "%s.lock", real);
+    unlink(link);
+
     unlink(path);
+    snprintf(link, sizeof link, "%s.lock", path);
+    unlink(link);
     snprintf(path, sizeof path, "%s/sub", dir);
     rmdir(path);
     rmdir(dir);

@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
+#include "wz-alloc.h"
 #include "wz-layout.h"
 
 #include <ctype.h>
@@ -7,14 +8,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define WZ_MAX_DEPTH 24
 #define WZ_MAX_CHILDREN 64
 #define WZ_NAME_MAX 64
 
 wz_node *
 wz_leaf_new(double weight)
 {
-    wz_node *n = calloc(1, sizeof *n);
+    wz_node *n = wz_xcalloc(1, sizeof *n);
     if (!n)
         return NULL;
     n->kind = WZ_LEAF;
@@ -35,7 +35,7 @@ wz_split_new(wz_kind kind, double weight)
 void
 wz_add_child(wz_node *parent, wz_node *child)
 {
-    wz_node **c = realloc(parent->child, sizeof *c * (size_t)(parent->nchild + 1));
+    wz_node **c = wz_xrealloc(parent->child, sizeof *c * (size_t)(parent->nchild + 1));
     if (!c)
         abort();
     parent->child = c;
@@ -63,7 +63,7 @@ wz_clone(const wz_node *n)
     wz_node *c = wz_leaf_new(n->weight);
     c->kind = n->kind;
     c->id = n->id;
-    c->name = n->name ? strdup(n->name) : NULL;
+    c->name = n->name ? wz_xstrdup(n->name) : NULL;
     for (int i = 0; i < n->nchild; i++)
         wz_add_child(c, wz_clone(n->child[i]));
     return c;
@@ -172,7 +172,7 @@ parse_name(parser *ps, char **out)
     size_t len = (size_t)(ps->p - start);
     if (len > WZ_NAME_MAX)
         len = WZ_NAME_MAX;
-    *out = strndup(start, len);
+    *out = wz_xstrndup(start, len);
     ps->p++;
     return 1;
 }
@@ -294,7 +294,7 @@ sb_put(sbuf *b, const char *s)
     size_t l = strlen(s);
     if (b->len + l + 1 > b->cap) {
         b->cap = (b->len + l + 1) * 2;
-        b->buf = realloc(b->buf, b->cap);
+        b->buf = wz_xrealloc(b->buf, b->cap);
         if (!b->buf)
             abort();
     }
@@ -494,8 +494,13 @@ wz_normalize(wz_node *n)
 
 /* ---- cálculo ---------------------------------------------------------- */
 
+/*
+ * Os filhos de um nó dividem o espaço que sobra depois dos gaps entre eles:
+ * zonas de mesmo peso ficam do mesmo tamanho (a do meio não perde um gap a
+ * mais que as das pontas). Arredondamento cumulativo: a soma é exata.
+ */
 static void
-compute(const wz_node *n, wz_rect r, wz_rect *out, int max, int *idx)
+compute(const wz_node *n, wz_rect r, int gap, wz_rect *out, int max, int *idx, int *degenerate)
 {
     if (n->kind == WZ_LEAF) {
         if (*idx < max)
@@ -510,22 +515,48 @@ compute(const wz_node *n, wz_rect r, wz_rect *out, int max, int *idx)
         total = 1;
     int span = n->kind == WZ_HSPLIT ? r.w : r.h;
     int base = n->kind == WZ_HSPLIT ? r.x : r.y;
-    double cum = 0;
-    int prev = base;
-    for (int i = 0; i < n->nchild; i++) {
-        cum += n->child[i]->weight;
-        int next = i == n->nchild - 1 ? base + span : base + (int)lround(span * (cum / total));
-        wz_rect c = r;
-        if (n->kind == WZ_HSPLIT) {
-            c.x = prev;
-            c.w = next - prev;
-        } else {
-            c.y = prev;
-            c.h = next - prev;
+    /* Bordas de cada filho com o gap; se alguma célula sumir, esse nível
+     * fica sem gap (a zona vale mais que o espaçamento). */
+    /* O mosaico monta nós com um filho por janela (até WZ_TILE_MAX). */
+    int cell_edges[2 * WZ_MAX_CHILDREN];
+    int *start = n->nchild <= WZ_MAX_CHILDREN ? cell_edges : wz_xmalloc(sizeof(int) * 2 * (size_t)n->nchild);
+    int *end = start + n->nchild;
+    for (int pass = 0; pass < 2; pass++) {
+        int g = pass ? 0 : gap;
+        long avail = (long)span - (long)(n->nchild - 1) * g;
+        double cum = 0;
+        int prev = base, bad = avail < n->nchild;
+        for (int i = 0; i < n->nchild && !bad; i++) {
+            cum += n->child[i]->weight;
+            int next = i == n->nchild - 1 ? base + span
+                                          : base + (int)lround((double)avail * (cum / total)) + i * g;
+            start[i] = prev;
+            end[i] = next;
+            if (next - prev < 1)
+                bad = 1;
+            prev = next + g;
         }
-        compute(n->child[i], c, out, max, idx);
-        prev = next;
+        if (!bad || pass)
+            break;
     }
+    for (int i = 0; i < n->nchild; i++) {
+        wz_rect c = r;
+        int len = end[i] - start[i];
+        if (len < 1) {
+            len = 1;
+            *degenerate = 1;
+        }
+        if (n->kind == WZ_HSPLIT) {
+            c.x = start[i];
+            c.w = len;
+        } else {
+            c.y = start[i];
+            c.h = len;
+        }
+        compute(n->child[i], c, gap, out, max, idx, degenerate);
+    }
+    if (start != cell_edges)
+        free(start);
 }
 
 int
@@ -540,30 +571,17 @@ wz_compute(const wz_node *root, wz_rect area, int gap_in, int gap_out, wz_rect *
     /* A margem externa não pode engolir a área. */
     if (2 * gap_out >= area.w || 2 * gap_out >= area.h)
         gap_out = 0;
-    wz_rect inner = { area.x + gap_out, area.y + gap_out, area.w - 2 * gap_out, area.h - 2 * gap_out };
+    /* Se alguma célula não coube, os gaps saem (primeiro o interno, depois
+     * a margem): melhor zonas sem espaçamento que zonas sobrepostas. */
     int n = 0;
-    compute(root, inner, out, max, &n);
-    int lim = n < max ? n : max;
-    int lo = gap_in - gap_in / 2, hi = gap_in / 2; /* soma = gap_in */
-    for (int i = 0; i < lim; i++) {
-        wz_rect *z = &out[i];
-        int x1 = z->x, y1 = z->y, x2 = z->x + z->w, y2 = z->y + z->h;
-        int sl = x1 > inner.x ? lo : 0, sr = x2 < inner.x + inner.w ? hi : 0;
-        int st = y1 > inner.y ? lo : 0, sb = y2 < inner.y + inner.h ? hi : 0;
-        /* Célula menor que o gap: o gap encolhe, a zona fica na célula. */
-        if (x2 - x1 - sl - sr < 1)
-            sl = sr = 0;
-        if (y2 - y1 - st - sb < 1)
-            st = sb = 0;
-        x1 += sl;
-        x2 -= sr;
-        y1 += st;
-        y2 -= sb;
-        if (x2 - x1 < 1)
-            x2 = x1 + 1;
-        if (y2 - y1 < 1)
-            y2 = y1 + 1;
-        *z = (wz_rect){ x1, y1, x2 - x1, y2 - y1 };
+    for (int pass = 0; pass < 3; pass++) {
+        int gi = pass ? 0 : gap_in, go = pass == 2 ? 0 : gap_out;
+        wz_rect inner = { area.x + go, area.y + go, area.w - 2 * go, area.h - 2 * go };
+        int degenerate = 0;
+        n = 0;
+        compute(root, inner, gi, out, max, &n, &degenerate);
+        if (!degenerate)
+            break;
     }
     return n;
 }

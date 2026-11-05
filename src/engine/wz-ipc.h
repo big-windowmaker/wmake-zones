@@ -10,6 +10,7 @@
 #define WZ_IPC_H
 
 #include <stddef.h>
+#include <sys/stat.h>
 
 #define WZ_IPC_MAX 2048
 
@@ -24,6 +25,10 @@ int wz_ipc_peer_ok(int fd);           /* mesmo uid? */
 /* Manda um comando e lê a resposta (até a linha vazia). 0 = ok, -1 sem
  * daemon. */
 int wz_ipc_request(const char *path, const char *cmd, char *out, size_t outlen);
+/* Servidor: lê o pedido de um cliente aceito (até 100 ms por um mudo). */
+int wz_ipc_read_request(int fd, char *line, size_t len);
+/* Servidor: apaga o socket só se ainda for o dele (mine = stat do bind). */
+void wz_ipc_unlink(const char *path, const struct stat *mine);
 
 /* Pede ao serviço da sessão: tenta o socket preferido (pelo tipo da sessão)
  * e, sem resposta, o outro. Devolve 0 se algum respondeu. */

@@ -118,12 +118,16 @@ wz_ipc_request(const char *path, const char *cmd, char *out, size_t outlen)
         out[0] = 0;
     if (!path)
         return -1;
-    int fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+    /* Sem bloquear: com a fila do servidor cheia o connect falha na hora
+     * em vez de prender quem pediu. */
+    int fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
     if (fd < 0)
         return -1;
     struct sockaddr_un a = { .sun_family = AF_UNIX };
     snprintf(a.sun_path, sizeof a.sun_path, "%s", path);
-    if (connect(fd, (struct sockaddr *)&a, sizeof a) != 0) {
+    /* Do outro lado precisa estar o nosso usuário (no fallback em /tmp,
+     * outro usuário poderia ter criado o socket antes). */
+    if (connect(fd, (struct sockaddr *)&a, sizeof a) != 0 || !wz_ipc_peer_ok(fd)) {
         close(fd);
         return -1;
     }
@@ -133,15 +137,18 @@ wz_ipc_request(const char *path, const char *cmd, char *out, size_t outlen)
         close(fd);
         return -1;
     }
-    size_t got = 0;
+    size_t got = 0, total = 0;
     for (;;) {
         struct pollfd p = { fd, POLLIN, 0 };
         if (poll(&p, 1, 3000) <= 0)
             break;
         char tmp[4096];
         ssize_t n = recv(fd, tmp, sizeof tmp, 0);
+        if (n < 0 && (errno == EAGAIN || errno == EINTR))
+            continue;
         if (n <= 0)
             break;
+        total += (size_t)n;
         if (out && got < outlen - 1) {
             size_t c = (size_t)n < outlen - 1 - got ? (size_t)n : outlen - 1 - got;
             memcpy(out + got, tmp, c);
@@ -150,10 +157,55 @@ wz_ipc_request(const char *path, const char *cmd, char *out, size_t outlen)
         }
     }
     close(fd);
+    /* Nenhuma resposta: o servidor travou ou não é um wmake-zones. */
+    if (total == 0)
+        return -1;
     /* Tira a linha vazia final. */
     if (out && got >= 2 && out[got - 1] == '\n' && out[got - 2] == '\n')
         out[got - 1] = 0;
     return 0;
+}
+
+/* Lê um pedido (até o fim da linha) de um cliente já aceito, sem esperar
+ * mais que alguns milissegundos por um cliente mudo. */
+int
+wz_ipc_read_request(int fd, char *line, size_t len)
+{
+    size_t got = 0;
+    int waited = 0;
+    if (!len)
+        return -1;
+    line[0] = 0;
+    while (got < len - 1) {
+        ssize_t n = recv(fd, line + got, len - 1 - got, MSG_DONTWAIT);
+        if (n > 0) {
+            got += (size_t)n;
+            line[got] = 0;
+            if (memchr(line, '\n', got))
+                break;
+            continue;
+        }
+        if (n == 0)
+            break;
+        if (errno != EAGAIN && errno != EINTR)
+            return -1;
+        if (waited >= 100)
+            break;
+        struct pollfd p = { fd, POLLIN, 0 };
+        poll(&p, 1, 20);
+        waited += 20;
+    }
+    return got ? 0 : -1;
+}
+
+/* Apaga o socket só se ainda for o que este processo criou (outra instância
+ * pode já ter posto o dela no mesmo caminho). */
+void
+wz_ipc_unlink(const char *path, const struct stat *mine)
+{
+    struct stat st;
+    if (path && mine && stat(path, &st) == 0 && st.st_ino == mine->st_ino && st.st_dev == mine->st_dev)
+        unlink(path);
 }
 
 int

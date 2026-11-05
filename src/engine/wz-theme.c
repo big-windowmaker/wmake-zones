@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #define _GNU_SOURCE
+#include "wz-alloc.h"
 #include "wz-theme.h"
 
 #include <ctype.h>
@@ -219,7 +220,7 @@ slurp(const char *path)
     FILE *f = fopen(path, "r");
     if (!f)
         return NULL;
-    char *buf = malloc(1 << 18);
+    char *buf = wz_xmalloc(1 << 18);
     size_t n = fread(buf, 1, (1 << 18) - 1, f);
     buf[n] = 0;
     fclose(f);

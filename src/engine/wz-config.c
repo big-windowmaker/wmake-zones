@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #define _GNU_SOURCE
+#include "wz-alloc.h"
 #include "wz-config.h"
 #include "wz-i18n.h"
 
@@ -11,6 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <sys/file.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -96,7 +98,7 @@ wz_builtin_label(const char *id)
 static char *
 xstrdup(const char *s)
 {
-    return s ? strdup(s) : NULL;
+    return s ? wz_xstrdup(s) : NULL;
 }
 
 static void
@@ -204,7 +206,7 @@ unescape(char *s)
 int
 wz_ini_parse_string(const char *text, wz_ini_cb cb, void *ud)
 {
-    char *copy = strdup(text ? text : "");
+    char *copy = wz_xstrdup(text ? text : "");
     char section[256] = "";
     char *save = NULL;
     for (char *line = strtok_r(copy, "\n", &save); line; line = strtok_r(NULL, "\n", &save)) {
@@ -241,15 +243,19 @@ read_file(const char *path, int *err)
         return NULL;
     }
     size_t cap = 4096, len = 0;
-    char *buf = malloc(cap);
+    char *buf = wz_xmalloc(cap);
     size_t r;
     while ((r = fread(buf + len, 1, cap - len - 1, f)) > 0) {
         len += r;
         if (len + 1 >= cap) {
-            if (cap > (1u << 22)) /* 4 MiB: não é configuração */
-                break;
+            if (cap > (1u << 22)) { /* 4 MiB: não é configuração; nunca truncar */
+                free(buf);
+                fclose(f);
+                *err = EFBIG;
+                return NULL;
+            }
             cap *= 2;
-            buf = realloc(buf, cap);
+            buf = wz_xrealloc(buf, cap);
         }
     }
     buf[len] = 0;
@@ -283,38 +289,74 @@ mkdir_p(const char *dir)
     return mkdir(tmp, 0700) == 0 || errno == EEXIST ? 0 : -1;
 }
 
+/* Escapes do GKeyFile: o leitor apara espaços nas pontas, então espaço e
+ * tab nas pontas (e tab, CR e LF em qualquer lugar) viram sequências. */
 static void
 escape_value(FILE *f, const char *v)
 {
-    for (const char *p = v; *p; p++) {
-        if (*p == '\\')
+    size_t n = strlen(v), end = n;
+    while (end > 0 && (v[end - 1] == ' ' || v[end - 1] == '\t'))
+        end--;
+    for (size_t i = 0; i < n; i++) {
+        char ch = v[i];
+        int edge = i == 0 || i >= end;
+        if (ch == '\\')
             fputs("\\\\", f);
-        else if (*p == '\n')
+        else if (ch == '\n')
             fputs("\\n", f);
-        else if (p == v && *p == ' ')
+        else if (ch == '\r')
+            fputs("\\r", f);
+        else if (ch == '\t')
+            fputs("\\t", f);
+        else if (ch == ' ' && edge)
             fputs("\\s", f);
         else
-            fputc(*p, f);
+            fputc(ch, f);
     }
 }
 
+static int ini_set_unlocked(const char *path, const char *section, const char *key, const char *value);
+
+/*
+ * Grava uma chave. O serviço e as preferências gravam o mesmo arquivo: uma
+ * trava (arquivo .lock ao lado) faz de ler-alterar-renomear uma operação só,
+ * e um link simbólico (dotfiles) é seguido, não trocado por um arquivo.
+ */
 int
 wz_ini_set(const char *path, const char *section, const char *key, const char *value)
 {
-    int err;
-    char *text = read_file(path, &err);
-    if (!text && err != ENOENT)
-        return -1;
-
+    char real[PATH_MAX];
+    const char *target = path;
+    if (realpath(path, real))
+        target = real;
     char dir[PATH_MAX];
-    snprintf(dir, sizeof dir, "%s", path);
+    snprintf(dir, sizeof dir, "%s", target);
     char *slash = strrchr(dir, '/');
     if (slash) {
         *slash = 0;
         if (mkdir_p(dir) < 0)
             return -1;
     }
-    char tmp[PATH_MAX];
+    char lock[PATH_MAX];
+    if (snprintf(lock, sizeof lock, "%s.lock", target) >= (int)sizeof lock)
+        return -1;
+    int lfd = open(lock, O_RDWR | O_CREAT | O_CLOEXEC, 0600);
+    if (lfd >= 0)
+        flock(lfd, LOCK_EX);
+    int r = ini_set_unlocked(target, section, key, value);
+    if (lfd >= 0)
+        close(lfd); /* solta a trava */
+    return r;
+}
+
+static int
+ini_set_unlocked(const char *path, const char *section, const char *key, const char *value)
+{
+    int err;
+    char *text = read_file(path, &err);
+    if (!text && err != ENOENT)
+        return -1;
+    char tmp[PATH_MAX + 32];
     snprintf(tmp, sizeof tmp, "%s.tmp.%d", path, (int)getpid());
     int fd = open(tmp, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
     if (fd < 0) {
@@ -322,6 +364,12 @@ wz_ini_set(const char *path, const char *section, const char *key, const char *v
         return -1;
     }
     FILE *f = fdopen(fd, "w");
+    if (!f) {
+        close(fd);
+        unlink(tmp);
+        free(text);
+        return -1;
+    }
 
     int in_section = 0, done = 0, seen_section = 0;
     char *pending_blank = NULL; /* linhas em branco no fim da seção */
@@ -330,9 +378,9 @@ wz_ini_set(const char *path, const char *section, const char *key, const char *v
     while (p && *p) {
         char *nl = strchr(p, '\n');
         size_t len = nl ? (size_t)(nl - p) : strlen(p);
-        char *line = strndup(p, len);
+        char *line = wz_xstrndup(p, len);
         p = nl ? nl + 1 : NULL;
-        char *dup = strdup(line);
+        char *dup = wz_xstrdup(line);
         char *l = trim(dup);
         if (*l == '[') {
             if (in_section && !done && value) {
@@ -373,7 +421,7 @@ wz_ini_set(const char *path, const char *section, const char *key, const char *v
         } else if (!*l) {
             /* Adia as linhas em branco para inserir a chave antes delas. */
             size_t old = pending_blank ? strlen(pending_blank) : 0;
-            pending_blank = realloc(pending_blank, old + strlen(line) + 2);
+            pending_blank = wz_xrealloc(pending_blank, old + strlen(line) + 2);
             if (!old)
                 pending_blank[0] = 0;
             strcat(pending_blank, line);
@@ -436,19 +484,19 @@ wz_config_defaults(wz_config *c)
     c->restore_size_on_unsnap = 1;
     c->avoid_dock = 1;
     c->rules_enabled = 1;
-    c->layout = strdup("halves");
+    c->layout = wz_xstrdup("halves");
     c->gap_in = 6;
     c->gap_out = 6;
     c->tile = (wz_tile_params){ .algo = WZ_TILE_MASTER, .master_ratio = 0.6, .nmaster = 1,
                                 .master_pos = WZ_POS_LEFT, .gap_in = 6, .gap_out = 6, .smart_gaps = 1 };
-    c->theme = strdup("auto");
+    c->theme = wz_xstrdup("auto");
     c->highlight = WZ_COLOR_AUTO;
     c->opacity = 35;
     for (int i = 0; i < WZ_KEY_N; i++)
-        c->keys[i] = strdup(key_table[i].def);
+        c->keys[i] = wz_xstrdup(key_table[i].def);
     for (int i = 0; i < NBUILTIN; i++) {
-        c->layouts = realloc(c->layouts, sizeof *c->layouts * (size_t)(c->nlayouts + 1));
-        c->layouts[c->nlayouts++] = (wz_layout_def){ strdup(builtin[i].id), NULL, strdup(builtin[i].tree), 1 };
+        c->layouts = wz_xrealloc(c->layouts, sizeof *c->layouts * (size_t)(c->nlayouts + 1));
+        c->layouts[c->nlayouts++] = (wz_layout_def){ wz_xstrdup(builtin[i].id), NULL, wz_xstrdup(builtin[i].tree), 1 };
     }
 }
 
@@ -460,9 +508,9 @@ layout_get(wz_config *c, const char *id, int create)
             return &c->layouts[i];
     if (!create || c->nlayouts >= 256)
         return NULL;
-    c->layouts = realloc(c->layouts, sizeof *c->layouts * (size_t)(c->nlayouts + 1));
+    c->layouts = wz_xrealloc(c->layouts, sizeof *c->layouts * (size_t)(c->nlayouts + 1));
     wz_layout_def *l = &c->layouts[c->nlayouts++];
-    *l = (wz_layout_def){ strdup(id), NULL, NULL, 0 };
+    *l = (wz_layout_def){ wz_xstrdup(id), NULL, NULL, 0 };
     return l;
 }
 
@@ -474,10 +522,10 @@ rule_get(wz_config *c, const char *id)
             return &c->rules[i];
     if (c->nrules >= 256)
         return NULL;
-    c->rules = realloc(c->rules, sizeof *c->rules * (size_t)(c->nrules + 1));
+    c->rules = wz_xrealloc(c->rules, sizeof *c->rules * (size_t)(c->nrules + 1));
     wz_rule *r = &c->rules[c->nrules++];
     memset(r, 0, sizeof *r);
-    r->id = strdup(id);
+    r->id = wz_xstrdup(id);
     r->action = WZ_RULE_FLOAT;
     return r;
 }
@@ -512,9 +560,9 @@ scope_get(wz_config *c, const char *section)
     }
     if (c->nscopes >= 256)
         return NULL;
-    c->scopes = realloc(c->scopes, sizeof *c->scopes * (size_t)(c->nscopes + 1));
+    c->scopes = wz_xrealloc(c->scopes, sizeof *c->scopes * (size_t)(c->nscopes + 1));
     wz_scope *s = &c->scopes[c->nscopes++];
-    *s = (wz_scope){ *mon ? strdup(mon) : NULL, ws, NULL, -1, -1 };
+    *s = (wz_scope){ *mon ? wz_xstrdup(mon) : NULL, ws, NULL, -1, -1 };
     return s;
 }
 
