@@ -652,6 +652,9 @@ main(int argc, char **argv)
     for (int i = 0; i < WZX_MAX_ZONES; i++)
         free(z->ov.names[i]);
     wz_config_free(&z->cfg);
+    wz_history_free(&z->history);
+    free(z->drag_layout);
+    free(z->drag_tree);
     free(z->cfg_path);
     wzx_log("encerrado");
     return 0;
