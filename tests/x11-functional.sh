@@ -211,6 +211,23 @@ check "float tira a janela do mosaico" '"$WZ" status | grep -q "tiled=3"'
 kill_w4=$(xprop -id "$W4" _NET_WM_PID | sed -n 's/.*= //p')
 [ -n "$kill_w4" ] && kill "$kill_w4" 2>/dev/null
 sleep 0.8
+
+# Janelas que não cabem saem uma por vez, a que está mais longe de caber
+# primeiro: sem a "grande" (mínimo 800 de altura), a "media" (220) cabe.
+if python3 -c 'import gi; gi.require_version("Gtk", "3.0")' 2>/dev/null; then
+	JAN=$(dirname "$0")/tools/janela.py
+	python3 "$JAN" grande 300x800+900+50 300x800 >/dev/null 2>&1 &
+	PIDS="$PIDS $!"
+	python3 "$JAN" media 300x220+950+100 300x220 >/dev/null 2>&1 &
+	PIDS="$PIDS $!"
+	sleep 2.5
+	check "uma janela grande demais não tira as outras do mosaico" '"$WZ" status | grep -q "tiled=4"'
+	check "a grande demais fica flutuante" '"$WZ" windows -l | grep -P "\tgrande$" | grep -q "tiled=0"'
+	for p in $(pgrep -f "janela.py (grande|media)"); do
+		grep -qz "^DISPLAY=$DISPLAY$" /proc/"$p"/environ 2>/dev/null && kill "$p"
+	done
+	sleep 0.8
+fi
 "$WZ" autotile off >/dev/null
 sleep 1
 eval "$(geom "$W2")"

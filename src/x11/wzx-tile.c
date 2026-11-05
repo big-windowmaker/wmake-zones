@@ -262,25 +262,35 @@ wzx_tile_run(wzx *z)
         wzx_win *ws[WZX_MAX_WIN];
         wz_rect rects[WZX_MAX_WIN];
         int n = 0;
-        /* Até três passadas: quem não cabe sai e o layout é refeito. */
-        for (int pass = 0; pass < 3; pass++) {
+        /* Quem não cabe sai, uma janela por vez (a que fica mais longe de
+         * caber), e o layout é refeito: com uma janela a menos as células
+         * crescem e as outras podem passar a caber. Tirar todas as que não
+         * cabiam numa passada só deixava de fora quem cabia na seguinte. */
+        for (int pass = 0; pass < 16; pass++) {
             n = compute(z, mon, ws, rects, WZX_MAX_WIN);
-            int conflict = 0;
+            int worst = -1;
+            long worst_def = 0;
             for (int i = 0; i < n; i++) {
                 wz_limits l = limits(ws[i]);
                 wz_rect r = rects[i];
                 if (wz_fit(&r, &l) == WZ_FIT_CONFLICT) {
-                    ws[i]->rule_float = 1;
-                    conflict = 1;
-                    wzx_log("mosaico: %s não cabe na célula (mínimo %dx%d); fica flutuante",
-                            ws[i]->wm_class ? ws[i]->wm_class : "?", l.min_w, l.min_h);
-                    if (ws[i]->tiled)
-                        untile(z, ws[i], 1);
+                    long def = (long)(l.min_w > rects[i].w ? l.min_w - rects[i].w : 0) +
+                               (l.min_h > rects[i].h ? l.min_h - rects[i].h : 0);
+                    if (worst < 0 || def > worst_def) {
+                        worst = i;
+                        worst_def = def;
+                    }
                 }
                 rects[i] = r;
             }
-            if (!conflict)
+            if (worst < 0)
                 break;
+            wz_limits l = limits(ws[worst]);
+            ws[worst]->rule_float = 1;
+            wzx_log("mosaico: %s não cabe na célula (mínimo %dx%d); fica flutuante",
+                    ws[worst]->wm_class ? ws[worst]->wm_class : "?", l.min_w, l.min_h);
+            if (ws[worst]->tiled)
+                untile(z, ws[worst], 1);
         }
         for (int i = 0; i < n; i++) {
             wzx_win *w = ws[i];
