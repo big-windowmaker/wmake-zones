@@ -155,11 +155,15 @@ next layout, Esc.
 Show a layout for a moment, for example
 .BR "H(2,1)" .
 .TP
-.BR windows " [" \-l ]
+.BR windows " [" \-l | \-d ]
 Class, instance and title of the open windows (on Wayland the class is
 the app ID); with
 .BR \-l ,
-monitor, zone, tiling, frame geometry, class and title.
+monitor, zone, tiling, frame geometry, class and title; with
+.BR \-d ,
+class, tiling and why the window is or is not tiled (for example "não
+cabe: mínimo 760x200, célula 402x343": a minimum size larger than its
+cell, as GTK4 and libadwaita applications often ask for).
 .TP
 .B overlay
 State of the zones overlay and the layout panel (diagnostics).
