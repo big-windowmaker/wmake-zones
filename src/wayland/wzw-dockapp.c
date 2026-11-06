@@ -21,6 +21,7 @@
 #include "wz-ipc.h"
 #include "wz-layout.h"
 #include "wz-theme.h"
+#include "wz-tile.h"
 
 #include <cairo.h>
 #include <errno.h>
@@ -54,6 +55,7 @@ typedef struct {
     int width, height;
     int configured;
     int pointer_inside;
+    double px, py;      /* ponteiro no ladrilho, em coordenadas de 64x64 */
     wz_config cfg;
     char *cfg_path;
     wz_theme theme;
@@ -102,11 +104,78 @@ pixtext(cairo_t *cr, const char *s, double x, double y, unsigned c, double sc)
     cairo_fill(cr);
 }
 
+/* Fileira de baixo, como no dockapp do X11: seta, Z, M, seta. */
+#define ROW_Y 45
+#define ROW_H 14
+enum { HIT_NONE, HIT_PREV, HIT_Z, HIT_M, HIT_NEXT };
+static const struct {
+    int x, w;
+} row_btn[] = { [HIT_PREV] = { 4, 9 }, [HIT_Z] = { 14, 17 }, [HIT_M] = { 33, 17 }, [HIT_NEXT] = { 51, 9 } };
+
+static int
+row_hit(double x, double y)
+{
+    if (y < ROW_Y || y >= ROW_Y + ROW_H)
+        return HIT_NONE;
+    for (int i = HIT_PREV; i <= HIT_NEXT; i++)
+        if (x >= row_btn[i].x && x < row_btn[i].x + row_btn[i].w)
+            return i;
+    return HIT_NONE;
+}
+
+static void
+arrow_key(cairo_t *cr, int which, int enabled)
+{
+    double x = row_btn[which].x, w = row_btn[which].w, y = ROW_Y, h = ROW_H;
+    rgb(cr, 0xb4b6bb);
+    cairo_rectangle(cr, x + 1, y + 1, w - 2, h - 2);
+    cairo_fill(cr);
+    bevel(cr, x, y, w, h, 1);
+    rgb(cr, enabled ? 0x101010 : 0x8a8c90);
+    double cx = x + w / 2, cy = y + h / 2, d = which == HIT_PREV ? -1 : 1;
+    cairo_move_to(cr, cx + 2 * d, cy);
+    cairo_line_to(cr, cx - 2 * d, cy - 4);
+    cairo_line_to(cr, cx - 2 * d, cy + 4);
+    cairo_close_path(cr);
+    cairo_fill(cr);
+}
+
+/* Mosaico: quatro janelas com barra de título na disposição do algoritmo,
+ * calculada numa área 16:9 (o núcleo não divide abaixo de 64 px) e reduzida
+ * ao ladrilho; a principal com a barra âmbar, a cor do LED M. */
+static void
+draw_windows(app *a, cairo_t *cr, wz_rect box)
+{
+    wz_tile_params p = a->cfg.tile;
+    if (p.algo == WZ_TILE_BSP)
+        p.algo = WZ_TILE_DWINDLE; /* a árvore é do compositor; ela começa assim */
+    wz_rect area = { 0, 0, 1600, 900 };
+    p.gap_in = 2 * area.w / box.w;
+    p.gap_out = 0;
+    p.smart_gaps = 0;
+    wz_rect r[8];
+    int n = wz_tile(&p, area, 4, r, 8);
+    for (int i = n - 1; i >= 0; i--) {
+        double x = box.x + (double)r[i].x * box.w / area.w, y = box.y + (double)r[i].y * box.h / area.h;
+        double w = (double)r[i].w * box.w / area.w, h = (double)r[i].h * box.h / area.h;
+        rgb(cr, 0xc2c0c5);
+        cairo_rectangle(cr, x, y, w, h);
+        cairo_fill(cr);
+        rgb(cr, i == 0 ? 0xe0a030 : 0x30363c);
+        cairo_rectangle(cr, x, y, w, 3);
+        cairo_fill(cr);
+        rgb(cr, 0x303030);
+        cairo_set_line_width(cr, 1);
+        cairo_rectangle(cr, x + 0.5, y + 0.5, w - 1, h - 1);
+        cairo_stroke(cr);
+    }
+}
+
 /* Tecla com LED: afundada e escura apagada, acesa com a letra escura. */
 static void
 led_key(cairo_t *cr, double x, double y, const char *letter, int lit, unsigned color)
 {
-    const double w = 25, h = 14;
+    const double w = 17, h = 14;
     rgb(cr, lit ? color : 0x2a2e33);
     cairo_rectangle(cr, x + 1, y + 1, w - 2, h - 2);
     cairo_fill(cr);
@@ -116,7 +185,7 @@ led_key(cairo_t *cr, double x, double y, const char *letter, int lit, unsigned c
         cairo_rectangle(cr, x + 2, y + 2, w - 4, 1);
         cairo_fill(cr);
     }
-    pixtext(cr, letter, x + (w - 6) / 2, y + 2, lit ? 0x101010 : 0x7a7e84, 2);
+    pixtext(cr, letter, x + (w - 6) / 2 + 1, y + 2, lit ? 0x101010 : 0x7a7e84, 2);
 }
 
 static void
@@ -139,24 +208,34 @@ draw_face(app *a, cairo_t *cr, int W, int H)
     cairo_rectangle(cr, 5, 5, 54, 36);
     cairo_fill(cr);
     bevel(cr, 4, 4, 56, 38, 0);
+    /* Zonas: as regiões do layout; Mosaico: as janelas organizadas pelo
+     * algoritmo; desligado: a pausa. */
     wz_mode m = wz_config_mode(&a->cfg);
-    int on = m != WZ_MODE_OFF;
     const wz_layout_def *l = wz_config_layout(&a->cfg, a->layout[0] ? a->layout : a->cfg.layout);
-    if (l) {
+    if (m == WZ_MODE_ZONES && l) {
         wz_node *t = wz_parse(l->tree, NULL);
         wz_rect zr[64];
         int n = t ? wz_compute(t, (wz_rect){ 8, 8, 48, 30 }, 2, 0, zr, 64) : 0;
         wz_free(t);
         for (int i = 0; i < n && i < 64; i++) {
-            rgb(cr, i == 0 && on ? (m == WZ_MODE_TILING ? 0xe0a030 : 0x7fb0e0) : on ? 0xc2c0c5 : 0x5e6066);
+            rgb(cr, i == 0 ? 0x7fb0e0 : 0xc2c0c5);
             cairo_rectangle(cr, zr[i].x, zr[i].y, zr[i].w, zr[i].h);
             cairo_fill(cr);
             if (zr[i].w >= 4 && zr[i].h >= 4)
                 bevel(cr, zr[i].x, zr[i].y, zr[i].w, zr[i].h, 1);
         }
+    } else if (m == WZ_MODE_TILING) {
+        draw_windows(a, cr, (wz_rect){ 8, 8, 48, 30 });
+    } else {
+        rgb(cr, 0x5e6066);
+        cairo_rectangle(cr, 26, 16, 4, 14);
+        cairo_rectangle(cr, 34, 16, 4, 14);
+        cairo_fill(cr);
     }
-    led_key(cr, 5, 45, "Z", m == WZ_MODE_ZONES, 0x58d858);
-    led_key(cr, 34, 45, "M", m == WZ_MODE_TILING, 0xf0b030);
+    arrow_key(cr, HIT_PREV, m != WZ_MODE_OFF);
+    led_key(cr, row_btn[HIT_Z].x, ROW_Y, "Z", m == WZ_MODE_ZONES, 0x58d858);
+    led_key(cr, row_btn[HIT_M].x, ROW_Y, "M", m == WZ_MODE_TILING, 0xf0b030);
+    arrow_key(cr, HIT_NEXT, m != WZ_MODE_OFF);
     cairo_restore(cr);
 }
 
@@ -248,6 +327,11 @@ command(app *a, const char *cmd)
 static void
 cycle(app *a, int step)
 {
+    if (wz_config_mode(&a->cfg) == WZ_MODE_TILING) {
+        /* No Mosaico, a roda e as setas trocam o algoritmo. */
+        command(a, step < 0 ? "algorithm prev" : "algorithm next");
+        return;
+    }
     command(a, step < 0 ? "layout prev" : "layout next");
     const wz_layout_def *l = wz_config_layout(&a->cfg, a->layout[0] ? a->layout : a->cfg.layout);
     if (l) {
@@ -290,10 +374,19 @@ static const struct zwlmaker_toplevel_icon_v1_listener icon_listener = { icon_co
 /* ---- ponteiro ----------------------------------------------------------- */
 
 static void
+pointer_at(app *a, wl_fixed_t x, wl_fixed_t y)
+{
+    int W = a->width > 0 ? a->width : 64, H = a->height > 0 ? a->height : 64;
+    a->px = wl_fixed_to_double(x) * 64.0 / W;
+    a->py = wl_fixed_to_double(y) * 64.0 / H;
+}
+
+static void
 p_enter(void *data, struct wl_pointer *p, uint32_t serial, struct wl_surface *s, wl_fixed_t x, wl_fixed_t y)
 {
     app *a = data;
     a->pointer_inside = s == a->surface;
+    pointer_at(a, x, y);
 }
 
 static void
@@ -305,6 +398,25 @@ p_leave(void *data, struct wl_pointer *p, uint32_t serial, struct wl_surface *s)
 static void
 p_motion(void *data, struct wl_pointer *p, uint32_t t, wl_fixed_t x, wl_fixed_t y)
 {
+    pointer_at(data, x, y);
+}
+
+/* Teclas da fileira de baixo: setas trocam o layout (Zonas) ou o algoritmo
+ * (Mosaico); Z e M escolhem o modo, e a acesa desliga. */
+static int
+row_click(app *a)
+{
+    int hit = row_hit(a->px, a->py);
+    wz_mode m = wz_config_mode(&a->cfg);
+    if (hit == HIT_PREV || hit == HIT_NEXT) {
+        if (m != WZ_MODE_OFF)
+            cycle(a, hit == HIT_PREV ? -1 : 1);
+    } else if (hit == HIT_Z) {
+        command(a, m == WZ_MODE_ZONES ? "mode off" : "mode zones");
+    } else if (hit == HIT_M) {
+        command(a, m == WZ_MODE_TILING ? "mode off" : "mode tiling");
+    }
+    return hit != HIT_NONE;
 }
 
 static void
@@ -312,6 +424,8 @@ p_button(void *data, struct wl_pointer *p, uint32_t serial, uint32_t t, uint32_t
 {
     app *a = data;
     if (!a->pointer_inside || state != WL_POINTER_BUTTON_STATE_RELEASED)
+        return;
+    if (button == BTN_LEFT && row_click(a))
         return;
     if (button == BTN_LEFT)
         click(a, a->cfg.click[0], 1);

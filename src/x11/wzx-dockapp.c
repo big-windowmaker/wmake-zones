@@ -135,11 +135,96 @@ algo_label(const char *id)
     return id;
 }
 
+/* Fileira de baixo: seta, Z, M, seta (64 px, com a borda do ladrilho). */
+#define ROW_Y 45
+#define ROW_H 14
+enum { HIT_NONE, HIT_PREV, HIT_Z, HIT_M, HIT_NEXT };
+static const struct {
+    int x, w;
+} row_btn[] = { [HIT_PREV] = { 4, 9 }, [HIT_Z] = { 14, 17 }, [HIT_M] = { 33, 17 }, [HIT_NEXT] = { 51, 9 } };
+
+static int
+row_hit(int x, int y)
+{
+    if (y < ROW_Y || y >= ROW_Y + ROW_H)
+        return HIT_NONE;
+    for (int i = HIT_PREV; i <= HIT_NEXT; i++)
+        if (x >= row_btn[i].x && x < row_btn[i].x + row_btn[i].w)
+            return i;
+    return HIT_NONE;
+}
+
+/* Seta do wmsystemtray: botão em relevo com um triângulo; apagada quando não
+ * há o que trocar (modo desligado). */
+static void
+arrow_key(wzx *z, int which, int enabled)
+{
+    int x = row_btn[which].x, w = row_btn[which].w, y = ROW_Y, h = ROW_H;
+    XSetForeground(z->dpy, dgc, wzx_pixel(z, 0xb4b6bb));
+    XFillRectangle(z->dpy, face, dgc, x + 1, y + 1, (unsigned)w - 2, (unsigned)h - 2);
+    wzx_draw_bevel(z, face, dgc, x, y, w, h, 1);
+    XSetForeground(z->dpy, dgc, wzx_pixel(z, enabled ? 0x101010 : 0x8a8c90));
+    int cx = x + w / 2, cy = y + h / 2;
+    for (int i = 0; i < 4; i++) {
+        int col = which == HIT_PREV ? cx - 2 + i : cx + 1 - i;
+        XDrawLine(z->dpy, face, dgc, col, cy - i, col, cy + i);
+    }
+}
+
+/* Mosaico: quatro janelas com barra de título, na disposição do algoritmo do
+ * monitor (a principal com a barra âmbar, a cor do LED M). */
+static void
+draw_windows(wzx *z, wz_rect box, int mon)
+{
+    wz_tile_params p = z->cfg.tile;
+    p.algo = (wz_algo)wz_config_algo_for(&z->cfg, z->mon[mon].name, (int)z->current_desktop + 1);
+    /* O BSP depende da árvore de cada monitor; na miniatura, a subdivisão,
+     * que é como ele começa. Calculado na área útil do monitor (o núcleo não
+     * divide abaixo de 64 px) e reduzido ao ladrilho: a disposição de
+     * verdade. */
+    if (p.algo == WZ_TILE_BSP)
+        p.algo = WZ_TILE_DWINDLE;
+    wzx_update_workarea(z);
+    wz_rect area = z->mon[mon].work;
+    if (area.w < 64 || area.h < 64)
+        area = (wz_rect){ 0, 0, 1600, 900 };
+    p.gap_in = 2 * area.w / box.w;
+    p.gap_out = 0;
+    p.smart_gaps = 0;
+    wz_rect r[8];
+    int n = wz_tile(&p, area, 4, r, 8);
+    for (int i = 0; i < n; i++) {
+        int x1 = box.x + (int)((long)(r[i].x - area.x) * box.w / area.w);
+        int y1 = box.y + (int)((long)(r[i].y - area.y) * box.h / area.h);
+        int x2 = box.x + (int)((long)(r[i].x + r[i].w - area.x) * box.w / area.w);
+        int y2 = box.y + (int)((long)(r[i].y + r[i].h - area.y) * box.h / area.h);
+        r[i] = (wz_rect){ x1, y1, x2 - x1 > 3 ? x2 - x1 : 3, y2 - y1 > 4 ? y2 - y1 : 4 };
+    }
+    for (int i = n - 1; i >= 0; i--) {
+        XSetForeground(z->dpy, dgc, wzx_pixel(z, 0xc2c0c5));
+        XFillRectangle(z->dpy, face, dgc, r[i].x, r[i].y, (unsigned)r[i].w, (unsigned)r[i].h);
+        XSetForeground(z->dpy, dgc, wzx_pixel(z, i == 0 ? 0xe0a030 : 0x30363c));
+        XFillRectangle(z->dpy, face, dgc, r[i].x, r[i].y, (unsigned)r[i].w, 3);
+        XSetForeground(z->dpy, dgc, wzx_pixel(z, 0x303030));
+        XDrawRectangle(z->dpy, face, dgc, r[i].x, r[i].y, (unsigned)r[i].w - 1, (unsigned)r[i].h - 1);
+    }
+}
+
+/* Desligado: a tela apagada com o sinal de pausa. */
+static void
+draw_pause(wzx *z, wz_rect scr)
+{
+    XSetForeground(z->dpy, dgc, wzx_pixel(z, 0x5e6066));
+    int cx = scr.x + scr.w / 2, cy = scr.y + scr.h / 2;
+    XFillRectangle(z->dpy, face, dgc, cx - 6, cy - 7, 4, 14);
+    XFillRectangle(z->dpy, face, dgc, cx + 2, cy - 7, 4, 14);
+}
+
 /* Tecla com LED: afundada e escura apagada, acesa com a letra escura. */
 static void
 led_key(wzx *z, int x, int y, const char *letter, int lit, unsigned color)
 {
-    const int w = 25, h = 14;
+    const int w = 17, h = 14;
     XSetForeground(z->dpy, dgc, wzx_pixel(z, lit ? color : 0x2a2e33));
     XFillRectangle(z->dpy, face, dgc, x + 1, y + 1, w - 2, h - 2);
     wzx_draw_bevel(z, face, dgc, x, y, w, h, 0);
@@ -148,7 +233,7 @@ led_key(wzx *z, int x, int y, const char *letter, int lit, unsigned color)
         XSetForeground(z->dpy, dgc, wzx_pixel(z, wz_rgb_mix(color, 0xffffff, 110)));
         XDrawLine(z->dpy, face, dgc, x + 2, y + 2, x + w - 3, y + 2);
     }
-    pixtext(z, face, letter, x + (w - 6) / 2, y + 2, lit ? 0x101010 : 0x7a7e84, 2);
+    pixtext(z, face, letter, x + (w - 6) / 2 + 1, y + 2, lit ? 0x101010 : 0x7a7e84, 2);
 }
 
 void
@@ -173,15 +258,26 @@ wzx_dockapp_redraw(wzx *z)
     XSetForeground(z->dpy, dgc, wzx_pixel(z, 0x1c2024));
     XFillRectangle(z->dpy, face, dgc, scr.x, scr.y, (unsigned)scr.w, (unsigned)scr.h);
     wzx_draw_bevel(z, face, dgc, scr.x - 1, scr.y - 1, scr.w + 2, scr.h + 2, 0);
+    /* A tela mostra o modo de verdade (o estado do serviço, que é este
+     * processo): Zonas, as regiões de encaixe do layout; Mosaico, as janelas
+     * organizadas pelo algoritmo; desligado, a pausa. */
     wz_mode m = wz_config_mode(&z->cfg);
-    const wz_layout_def *l = current_layout(z);
-    unsigned tile = m != WZ_MODE_OFF ? 0xc2c0c5 : 0x5e6066;
-    if (l)
-        draw_mini(z, face, dgc, l->tree, (wz_rect){ scr.x + 3, scr.y + 3, scr.w - 6, scr.h - 6 }, tile,
-                  m != WZ_MODE_OFF ? 0 : -1, m == WZ_MODE_TILING ? 0xe0a030 : 0x7fb0e0);
-    /* Teclas Z e M: a do modo ativo acesa. */
-    led_key(z, 5, 45, "Z", m == WZ_MODE_ZONES, 0x58d858);
-    led_key(z, 34, 45, "M", m == WZ_MODE_TILING, 0xf0b030);
+    wz_rect inner = { scr.x + 3, scr.y + 3, scr.w - 6, scr.h - 6 };
+    if (m == WZ_MODE_ZONES) {
+        const wz_layout_def *l = current_layout(z);
+        if (l)
+            draw_mini(z, face, dgc, l->tree, inner, 0xc2c0c5, 0, 0x7fb0e0);
+    } else if (m == WZ_MODE_TILING) {
+        draw_windows(z, inner, pointer_mon(z));
+    } else {
+        draw_pause(z, scr);
+    }
+    /* Setas (layout ou algoritmo anterior/seguinte) e as teclas Z e M: a do
+     * modo ativo acesa. */
+    arrow_key(z, HIT_PREV, m != WZ_MODE_OFF);
+    led_key(z, row_btn[HIT_Z].x, ROW_Y, "Z", m == WZ_MODE_ZONES, 0x58d858);
+    led_key(z, row_btn[HIT_M].x, ROW_Y, "M", m == WZ_MODE_TILING, 0xf0b030);
+    arrow_key(z, HIT_NEXT, m != WZ_MODE_OFF);
     XCopyArea(z->dpy, face, z->dock_icon, dgc, 0, 0, TILE, TILE, 0, 0);
     XFlush(z->dpy);
 }
@@ -301,7 +397,12 @@ balloon_show(wzx *z, long ms)
     balloon_close(z);
     char l1[128], l2[200];
     snprintf(l1, sizeof l1, "wmake-zones: %s", mode_label(wz_config_mode(&z->cfg)));
-    snprintf(l2, sizeof l2, _("Layout: %s"), layout_label(current_layout(z)));
+    if (wz_config_mode(&z->cfg) == WZ_MODE_TILING)
+        snprintf(l2, sizeof l2, _("Algorithm: %s"),
+                 algo_label(wz_algo_name((wz_algo)wz_config_algo_for(&z->cfg, z->mon[pointer_mon(z)].name,
+                                                                     (int)z->current_desktop + 1))));
+    else
+        snprintf(l2, sizeof l2, _("Layout: %s"), layout_label(current_layout(z)));
     int w1 = text_w(z, z->font_bold, l1), w2 = text_w(z, z->font, l2);
     int w = (w1 > w2 ? w1 : w2) + 16, h = z->font_bold->height + z->font->height + 12;
     int x, y;
@@ -852,9 +953,38 @@ click(wzx *z, wz_click action, int step)
     case WZ_CLICK_MENU: popup_open(z, POP_MENU); return;
     case WZ_CLICK_ZONES: wzx_command(z, "zones toggle", NULL, 0); break;
     case WZ_CLICK_AUTOTILE: wzx_command(z, "autotile toggle", NULL, 0); break;
-    case WZ_CLICK_CYCLE: wzx_command(z, step < 0 ? "layout prev" : "layout next", NULL, 0); break;
+    case WZ_CLICK_CYCLE:
+        if (wz_config_mode(&z->cfg) == WZ_MODE_TILING)
+            wzx_command(z, step < 0 ? "algorithm prev" : "algorithm next", NULL, 0);
+        else
+            wzx_command(z, step < 0 ? "layout prev" : "layout next", NULL, 0);
+        break;
     default: return;
     }
+    wzx_dockapp_redraw(z);
+    balloon_show(z, 1500);
+}
+
+/* Teclas da fileira de baixo: setas trocam o layout (Zonas) ou o algoritmo
+ * (Mosaico); Z e M escolhem o modo, e a acesa desliga. */
+static void
+row_click(wzx *z, int hit)
+{
+    wz_mode m = wz_config_mode(&z->cfg);
+    const char *cmd = NULL;
+    if (hit == HIT_PREV || hit == HIT_NEXT) {
+        if (m == WZ_MODE_ZONES)
+            cmd = hit == HIT_PREV ? "layout prev" : "layout next";
+        else if (m == WZ_MODE_TILING)
+            cmd = hit == HIT_PREV ? "algorithm prev" : "algorithm next";
+    } else if (hit == HIT_Z) {
+        cmd = m == WZ_MODE_ZONES ? "mode off" : "mode zones";
+    } else if (hit == HIT_M) {
+        cmd = m == WZ_MODE_TILING ? "mode off" : "mode tiling";
+    }
+    if (!cmd)
+        return;
+    wzx_command(z, cmd, NULL, 0);
     wzx_dockapp_redraw(z);
     balloon_show(z, 1500);
 }
@@ -961,6 +1091,10 @@ wzx_dockapp_event(wzx *z, XEvent *e)
         break;
     case ButtonPress:
         tip_at = 0;
+        if (e->xbutton.button == 1 && row_hit(e->xbutton.x, e->xbutton.y) != HIT_NONE) {
+            row_click(z, row_hit(e->xbutton.x, e->xbutton.y));
+            break;
+        }
         switch (e->xbutton.button) {
         case 1: click(z, z->cfg.click[0], 0); break;
         case 2: click(z, z->cfg.click[1], 0); break;

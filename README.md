@@ -59,9 +59,12 @@ meio desliga tudo (e, desligado, nenhum processo fica rodando).
 - **Por monitor e por área de trabalho:** layout, mosaico e algoritmo
   próprios; cada monitor tem a sua área útil, sem cobrir Dock, Clip e o
   Dock com abas. Monitores conectados e desconectados são acompanhados.
-- **Dockapp** no Dock: miniatura do layout e as teclas Z (zonas) e M
-  (mosaico) com LED; clique esquerdo alterna os dois, o do meio desliga e
-  religa, a roda troca o layout, o direito abre o menu.
+- **Dockapp** no Dock: a tela mostra o modo de verdade (Zonas: as regiões
+  do layout; Mosaico: as janelas na disposição do algoritmo; desligado: a
+  pausa); embaixo, as setas ◀ ▶ trocam o layout ou o algoritmo e as teclas
+  Z e M escolhem o modo (a acesa desliga). Clique esquerdo na tela alterna
+  Zonas e Mosaico, o do meio desliga e religa, a roda troca o layout (ou o
+  algoritmo, no Mosaico), o direito abre o menu.
 - **O mesmo no X11 e no Wayland**: no Wayland, um módulo do próprio
   wlmaker, sem XWayland.
 - **Leve:** no X11, um processo de 0,8 a 2,9 MiB que não acorda em repouso;
@@ -83,8 +86,8 @@ Sessão real do Big WindowMaker numa VM (live ISO), com o tema padrão.
 | Arrastar: primeiro o layout, depois a zona (X11) | O mesmo arrasto no Wayland |
 | ![Seletor Super+Z no Wayland: zonas numeradas e a dica embaixo](docs/screenshots/wayland-seletor.png) | ![Menu do dockapp com o submenu do algoritmo do mosaico](docs/screenshots/dockapp-menu.png) |
 | Super+Z: escolher a zona pelo teclado (Wayland) | Clique direito no ladrilho: o menu, como os do Window Maker |
-| <img src="docs/screenshots/dockapp.png" width="128" alt="Ladrilho do wmake-zones no X11: miniatura do layout e as teclas Z (acesa) e M"> | <img src="docs/screenshots/wayland-dockapp.png" width="128" alt="Ladrilho wmake-zones-wl no Dock do wlmaker, com Z aceso"> |
-| O ladrilho no X11: clique esquerdo alterna Z (zonas) e M (mosaico) | O ladrilho nativo do wlmaker, com os mesmos cliques |
+| <img src="docs/screenshots/dockapp.png" width="384" alt="Ladrilho do wmake-zones no X11 nos três modos: Zonas com o layout de quatro zonas e o LED Z aceso; Mosaico com quatro janelas e o LED M aceso; desligado com o sinal de pausa"> | <img src="docs/screenshots/wayland-dockapp.png" width="384" alt="O mesmo ladrilho no Dock do wlmaker nos três modos"> |
+| O ladrilho no X11: Zonas, Mosaico e desligado; setas e teclas Z e M embaixo | O ladrilho nativo do wlmaker, igual |
 
 ## Instalar
 

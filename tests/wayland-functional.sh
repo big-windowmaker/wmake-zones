@@ -165,6 +165,13 @@ if python3 -c 'import gi; gi.require_version("GtkLayerShell", "0.1")' 2>/dev/nul
 	sleep 1.2
 	check "mosaico: painel fechado, as células voltam ($(box alvo))" '[ "$(box alvo)" = "0,0,614,704" ]'
 fi
+# Setas e roda do dockapp no Mosaico: o algoritmo seguinte e o anterior.
+"$WZ" algorithm master >/dev/null
+"$WZ" algorithm next >/dev/null
+a1=$("$WZ" status | sed -n 's/^algorithm=//p' | head -1)
+"$WZ" algorithm prev >/dev/null
+a2=$("$WZ" status | sed -n 's/^algorithm=//p' | head -1)
+check "algorithm next/prev ($a1, $a2)" '[ "$a1" = grid ] && [ "$a2" = master ]'
 "$WZ" autotile off >/dev/null
 sleep 1
 check "mosaico desligado: ninguém no mosaico" '"$WZ" status | grep -q "tiled=0"'
