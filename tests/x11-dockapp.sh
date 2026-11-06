@@ -18,7 +18,7 @@ ok() { n=$((n + 1)); echo "ok $n - $*"; }
 nok() { n=$((n + 1)); fails=$((fails + 1)); echo "not ok $n - $*"; }
 check() { if eval "$2"; then ok "$1"; else nok "$1"; fi; }
 
-for tool in wmaker xdotool import python3; do
+for tool in wmaker xdotool xwininfo import python3; do
 	command -v $tool >/dev/null || { echo "1..0 # SKIP sem $tool"; exit 0; }
 done
 [ -x "$XVFB" ] || { echo "1..0 # SKIP sem Xvfb"; exit 0; }
