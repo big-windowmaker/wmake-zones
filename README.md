@@ -72,6 +72,13 @@ meio desliga tudo (e, desligado, nenhum processo fica rodando).
 
 ## Capturas
 
+O dockapp no modo Mosaico, um ladrilho por algoritmo (principal + pilha,
+grade, colunas, linhas, monóculo, BSP, subdivisão, espiral), calculado na
+área útil do monitor e reduzido:
+
+<img src="docs/screenshots/dockapp-algoritmos.png" alt="Oito ladrilhos do wmake-zones no modo Mosaico, cada um com a miniatura de um algoritmo">
+
+
 Sessão real do Big WindowMaker numa VM (live ISO), com o tema padrão.
 
 | | |
@@ -255,6 +262,17 @@ no Wayland ([o que cada um cobre](docs/testing.md)).
 [Testes](docs/testing.md) ·
 [Desenvolvimento](docs/development.md) ·
 [Mudanças](CHANGELOG.md)
+
+## Créditos
+
+Desenvolvimento do Big WindowMaker:
+
+- **Rafael Ruscher** — <rruscher@gmail.com.br>
+- **Barnabé Di Kartola** — <barnabedikartola@gmail.com>
+
+Sobre os ombros do [Window Maker](https://www.windowmaker.org/), do
+[wlmaker](https://github.com/phkaeser/wlmaker) (Philipp Kaeser), do
+[BigLinux](https://www.biglinux.com.br) e da [BigCommunity](https://communitybig.org).
 
 ## Licença
 
