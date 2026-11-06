@@ -85,7 +85,14 @@ members(wzx *z, int mon, wzx_win **out, int max)
         wzx_win *w = z->win[i];
         if (!wzx_tileable(z, w))
             continue;
-        int m = w->tiled && w->tile_mon >= 0 && w->tile_mon < z->nmon ? w->tile_mon : wzx_monitor_of(z, w->outer);
+        int m = wzx_monitor_of(z, w->outer);
+        /* No mosaico, conta onde nós a pusemos (o wmaker pode ainda não ter
+         * aplicado o pedido), a menos que outro (o usuário pelo teclado ou
+         * pelo menu do Window Maker) a tenha levado para outro monitor: aí
+         * ela entra no mosaico de lá. */
+        if (w->tiled && w->tile_mon >= 0 && w->tile_mon < z->nmon &&
+            !(w->expect_valid && m != w->tile_mon && m != wzx_monitor_of(z, w->expect)))
+            m = w->tile_mon;
         if (m == mon)
             out[n++] = w;
     }
@@ -279,9 +286,14 @@ wzx_tile_run(wzx *z)
 {
     long t0 = wzx_now_us();
     z->tile_dirty = 0;
-    for (int i = 0; i < z->nwin; i++)
+    for (int i = 0; i < z->nwin; i++) {
         if (!z->win[i]->rule_done && z->win[i]->mapped)
             apply_rules(z, z->win[i]);
+        /* "Não coube" vale só para esta rodada: com outro monitor, outra área
+         * útil ou menos janelas ela pode caber agora. Antes ficava fora do
+         * mosaico até o serviço reiniciar. */
+        z->win[i]->fit_float = 0;
+    }
 
     for (int mon = 0; mon < z->nmon; mon++) {
         int active = wzx_tile_active_for(z, mon);
@@ -324,7 +336,7 @@ wzx_tile_run(wzx *z)
             if (worst < 0)
                 break;
             wz_limits l = limits(ws[worst]);
-            ws[worst]->rule_float = 1;
+            ws[worst]->fit_float = 1;
             wzx_log("mosaico: %s não cabe na célula (mínimo %dx%d); fica flutuante",
                     ws[worst]->wm_class ? ws[worst]->wm_class : "?", l.min_w, l.min_h);
             if (ws[worst]->tiled)
@@ -360,6 +372,21 @@ wzx_tile_run(wzx *z)
     XFlush(z->dpy);
     if (getenv("WZ_DEBUG"))
         wzx_log("tempo: mosaico calculado e pedido em %ld µs (%d janelas)", wzx_now_us() - t0, z->nwin);
+}
+
+/* O quadro de uma janela mudou de lugar (ConfigureNotify na raiz). Uma
+ * janela do mosaico que foi parar em outro monitor sem ser por nós entra no
+ * mosaico de lá na próxima rodada. */
+void
+wzx_frame_moved(wzx *z, Window frame)
+{
+    wzx_win *w = wzx_find_frame(z, frame);
+    if (!w || !w->tiled || w->tile_mon < 0 || w->tile_mon >= z->nmon)
+        return;
+    wzx_refresh_geom(z, w);
+    int m = wzx_monitor_of(z, w->outer);
+    if (m != w->tile_mon && (!w->expect_valid || m != wzx_monitor_of(z, w->expect)))
+        wzx_tile_mark(z);
 }
 
 void

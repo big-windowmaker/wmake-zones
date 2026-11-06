@@ -78,7 +78,7 @@ arquivo de configuração por inotify e o layout em efeito, do `status`.
 ## Diferenças em relação ao X11
 
 Desde a 0.3, nenhuma no que o usuário faz. Conferido pelo teste funcional
-do Wayland (45 verificações, com o wlmaker de verdade):
+do Wayland (48 verificações, com o wlmaker de verdade):
 
 | Recurso | X11 | Wayland |
 |---|---|---|

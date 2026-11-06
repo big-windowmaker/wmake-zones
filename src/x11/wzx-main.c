@@ -224,6 +224,8 @@ handle_event(wzx *z, XEvent *e)
             else if (c->override_redirect && !wzx_find_frame(z, c->window))
                 wzx_or_event(z, c->window, c->x, c->y, c->width + 2 * c->border_width,
                              c->height + 2 * c->border_width, 1, 0);
+            else
+                wzx_frame_moved(z, c->window);
         }
         break;
     case MapNotify:

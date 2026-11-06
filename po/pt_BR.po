@@ -194,6 +194,11 @@ msgstr "Subdivisão"
 msgid "Layout: %s"
 msgstr "Layout: %s"
 
+#: src/x11/wzx-dockapp.c:304
+#, c-format
+msgid "Algorithm: %s"
+msgstr "Algoritmo: %s"
+
 #: src/x11/wzx-dockapp.c:385 src/x11/wzx-dockapp.c:402
 msgid "Mode"
 msgstr "Modo"

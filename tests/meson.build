@@ -6,3 +6,16 @@ if have_x11
   test('x11-functional', x11_func, args: [meson.project_build_root()], protocol: 'tap', timeout: 240,
        is_parallel: false)
 endif
+x11_multi = find_program('x11-multimonitor.sh')
+if have_x11
+  # Dois heads num Xephyr (pulado sem Xephyr): Xinerama, Dock, janela que
+  # passa a caber, janela levada para outro monitor.
+  test('x11-multimonitor', x11_multi, args: [meson.project_build_root()], protocol: 'tap', timeout: 180,
+       is_parallel: false)
+endif
+x11_dock = find_program('x11-dockapp.sh')
+if have_x11
+  # Ladrilho do dockapp: o modo na tela e as teclas da fileira de baixo.
+  test('x11-dockapp', x11_dock, args: [meson.project_build_root()], protocol: 'tap', timeout: 120,
+       is_parallel: false)
+endif

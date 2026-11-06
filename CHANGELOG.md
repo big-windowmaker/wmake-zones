@@ -1,5 +1,44 @@
 # Mudanças
 
+## 0.3.1 — 2026-11-06
+
+Mosaico confiável em vários monitores e um dockapp que mostra o modo.
+
+### Mosaico em vários monitores
+
+- Monitores pelos heads do Xinerama quando o RandR não descreve a tela
+  toda (o Window Maker usa os do Xinerama): antes, as janelas do outro
+  monitor contavam como do primeiro e o mosaico as juntava lá.
+- O Dock ou o Clip que muda de lugar (o Window Maker o leva para a borda
+  nova depois de uma troca de monitores) refaz o mosaico na área útil nova;
+  no Wayland, o mesmo com qualquer painel de zona exclusiva e com monitores
+  ligados, desligados ou com outra resolução ou escala (wlmaker 18, patch
+  0119). Antes as células ficavam por baixo do Dock até aplicar de novo.
+- "Não coube na célula" vale só para a rodada: com outro monitor, outra área
+  ou menos janelas, a janela entra. Antes ficava fora até o serviço
+  reiniciar. A regra Float continua permanente.
+- Janela do mosaico levada para outro monitor pelo Window Maker (teclado,
+  menu) entra no mosaico de lá, e o de origem se refaz.
+
+### Dockapp
+
+- A tela mostra o modo: Zonas (as regiões do layout), Mosaico (quatro
+  janelas na disposição do algoritmo do monitor, calculada na área útil de
+  verdade) e desligado (a pausa). Embaixo, setas ◀ ▶ (layout nas Zonas,
+  algoritmo no Mosaico) e as teclas Z e M, que escolhem o modo; a acesa
+  desliga. Igual no X11 e no Wayland.
+- No Mosaico, a roda troca o algoritmo; o balão mostra o algoritmo.
+- `wmake-zones algorithm next|prev`; o `status` do X11 informa `mode=`.
+
+### Testes
+
+- `tests/x11-multimonitor.sh`: dois heads num Xephyr dentro de um Xvfb (13
+  casos; sem as correções, 6 falham).
+- `tests/x11-dockapp.sh`: cliques nas teclas e nas setas, o modo na tela
+  pelos pixels (13 casos).
+- `tests/wayland-functional.sh`: painel layer-shell com zona exclusiva e
+  `algorithm next/prev` (48 casos).
+
 ## 0.3.0 — 2026-11-05
 
 Zonas ligadas por padrão, primeiro o layout e depois a zona, o Wayland com

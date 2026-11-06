@@ -61,7 +61,24 @@ para 2 s).
 Fora da suíte (o Xvfb não troca de resolução), na VM: a troca de
 resolução devolve a janela à zona (ver [Vários monitores](multi-monitor.md)).
 
-## Wayland (`tests/wayland-functional.sh`, 45 verificações)
+## Vários monitores (`tests/x11-multimonitor.sh`, 13 verificações)
+
+Dois heads de 1280x800 num Xephyr (`+xinerama`) dentro de um Xvfb próprio;
+o RandR do Xephyr mostra um monitor só, como alguns drivers. Pula sem
+Xephyr (`XEPHYR=/caminho/Xephyr`). Confere: os dois monitores pelo
+Xinerama e um mosaico em cada; uma coluna de ladrilhos (o Dock) que aparece
+e some refaz o mosaico; uma janela com tamanho mínimo que não cabe fica
+flutuando e entra quando passa a caber; uma janela levada para o outro
+monitor (como pelo teclado do Window Maker) entra no mosaico de lá.
+
+## Dockapp (`tests/x11-dockapp.sh`, 13 verificações)
+
+O ladrilho aberto com `--dockapp`: o modo na tela pelos pixels (LED Z ou M,
+zona destacada, barra da janela principal, pausa), as teclas Z e M, as setas
+no Mosaico (algoritmo) e nas Zonas (layout), setas sem efeito com tudo
+desligado e o clique esquerdo na tela.
+
+## Wayland (`tests/wayland-functional.sh`, 48 verificações)
 
 wlmaker aninhado no Xvfb (`WLR_BACKENDS=x11`, pixman) e janelas GTK 3
 nativas (`tests/tools/janela.py`): socket; arrasto encaixa exatamente no

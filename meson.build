@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 project('wmake-zones', 'c',
-  version: '0.3.0',
+  version: '0.3.1',
   license: 'GPL-2.0-or-later',
   meson_version: '>= 0.62',
   default_options: ['c_std=gnu11', 'warning_level=2', 'buildtype=debugoptimized', 'b_ndebug=if-release'])
@@ -50,6 +50,9 @@ xrandr = dependency('xrandr', version: '>= 1.5', required: get_option('x11'))
 xext = dependency('xext', required: get_option('x11'))
 xft = dependency('xft', required: get_option('x11'))
 xrender = dependency('xrender', required: get_option('x11'))
+# Heads do Xinerama quando o RandR não descreve a tela toda (drivers que só
+# publicam os heads pelo Xinerama, Xephyr): opcional.
+xinerama = dependency('xinerama', required: false)
 fontconfig = dependency('fontconfig', required: get_option('x11'))
 have_x11 = x11.found() and xi.found() and xrandr.found() and xext.found() and xft.found() and xrender.found() and fontconfig.found()
 
@@ -62,8 +65,8 @@ if have_x11
   executable('wmake-zones',
     files('src/x11/wzx-main.c', 'src/x11/wzx-wm.c', 'src/x11/wzx-drag.c', 'src/x11/wzx-overlay.c',
           'src/x11/wzx-tile.c', 'src/x11/wzx-keys.c', 'src/x11/wzx-ipc.c', 'src/x11/wzx-dockapp.c'),
-    dependencies: [engine_dep, x11, xi, xrandr, xext, xft, xrender, fontconfig],
-    c_args: have_wl ? ['-DWZ_HAVE_WAYLAND_DOCKAPP'] : [],
+    dependencies: [engine_dep, x11, xi, xrandr, xext, xft, xrender, fontconfig, xinerama],
+    c_args: (have_wl ? ['-DWZ_HAVE_WAYLAND_DOCKAPP'] : []) + (xinerama.found() ? ['-DWZ_HAVE_XINERAMA'] : []),
     install: true)
 endif
 

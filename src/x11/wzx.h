@@ -75,7 +75,8 @@ typedef struct {
     int mapped;
     /* mosaico */
     int user_float;       /* o usuário tirou do mosaico */
-    int rule_float;       /* regra ou restrição */
+    int rule_float;       /* regra do usuário (Float) */
+    int fit_float;        /* não coube na célula nesta rodada do mosaico */
     int tiled;
     int tile_mon;
     long order;           /* posição no mosaico (menor = principal) */
@@ -317,6 +318,7 @@ void wzx_picker_close(wzx *z);
 
 /* wzx-tile.c */
 void wzx_tile_mark(wzx *z);
+void wzx_frame_moved(wzx *z, Window frame);
 void wzx_tile_run(wzx *z);
 void wzx_tile_disable_all(wzx *z);
 int wzx_tile_active_for(wzx *z, int mon);

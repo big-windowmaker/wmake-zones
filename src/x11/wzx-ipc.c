@@ -397,6 +397,7 @@ static void
 status(wzx *z, char *out, size_t len)
 {
     outf(out, len, "backend=x11\nversion=%s\n", WZ_VERSION);
+    outf(out, len, "mode=%s\n", wz_mode_name(wz_config_mode(&z->cfg)));
     outf(out, len, "zones=%s\nautotile=%s\n", z->cfg.zones ? "on" : "off", z->cfg.autotile ? "on" : "off");
     outf(out, len, "layout=%s\nalgorithm=%s\n", z->cfg.layout, wz_algo_name(z->cfg.tile.algo));
     outf(out, len, "desktop=%ld\ncompositor=%s\n", z->current_desktop + 1, wzx_compositing(z) ? "yes" : "no");
@@ -476,11 +477,18 @@ wzx_command(wzx *z, const char *line, char *out, size_t outlen)
             wzx_apply_config(z);
         }
         outf(out, outlen, "mode=%s\n", wz_mode_name(wz_config_mode(&z->cfg)));
-    } else if (!strcmp(cmd, "algorithm") && arg && wz_algo_from_name(arg) >= 0) {
+    } else if (!strcmp(cmd, "algorithm") && arg &&
+               (wz_algo_from_name(arg) >= 0 || !strcmp(arg, "next") || !strcmp(arg, "prev"))) {
+        /* next/prev: o algoritmo seguinte ou o anterior (setas do dockapp,
+         * roda do mouse no modo Mosaico). */
+        const char *name = arg;
+        if (!strcmp(arg, "next") || !strcmp(arg, "prev"))
+            name = wz_algo_name((wz_algo)(((int)z->cfg.tile.algo + (arg[0] == 'n' ? 1 : WZ_TILE_N - 1)) % WZ_TILE_N));
         record_cfg(z, 0, "Tiling", "Algorithm", (char *)NULL);
-        z->cfg.tile.algo = wz_algo_from_name(arg);
-        wzx_save_cfg(z, "Tiling", "Algorithm", arg);
+        z->cfg.tile.algo = wz_algo_from_name(name);
+        wzx_save_cfg(z, "Tiling", "Algorithm", name);
         wzx_tile_mark(z);
+        wzx_dockapp_redraw(z); /* a miniatura do Mosaico mostra o algoritmo */
     } else if (!strcmp(cmd, "layout")) {
         if (arg && !strcmp(arg, "next"))
             wzx_cycle_layout(z, 1, pointer_monitor(z));
