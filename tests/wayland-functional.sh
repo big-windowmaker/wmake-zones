@@ -151,6 +151,20 @@ sleep 1.2
 check "mosaico: três no mosaico" '"$WZ" status | grep -q "tiled=3"'
 check "mosaico: a primeira janela é a principal, 60% à esquerda ($(box alvo)/$(box dois)/$(box tres))" \
 	'[ "$(box alvo)" = "0,0,614,704" ] && [ "$(box dois)" = "614,0,410,352" ] && [ "$(box tres)" = "614,352,410,352" ]'
+# Um painel com zona exclusiva (o Dock, a bandeja) aparece e some: o
+# mosaico acompanha a área útil sem ninguém pedir (antes as células ficavam
+# por baixo do painel até "aplicar de novo").
+if python3 -c 'import gi; gi.require_version("GtkLayerShell", "0.1")' 2>/dev/null; then
+	python3 -I "$HERE/tools/painel-wl.py" 64 >/dev/null 2>&1 &
+	PAINEL=$!
+	PIDS="$PIDS $PAINEL"
+	sleep 1.2
+	check "mosaico: painel de 64 na direita, a principal fica com 60% de 960 ($(box alvo)/$(box dois))" \
+		'[ "$(box alvo)" = "0,0,576,704" ] && [ "$(box dois)" = "576,0,384,352" ]'
+	kill "$PAINEL"
+	sleep 1.2
+	check "mosaico: painel fechado, as células voltam ($(box alvo))" '[ "$(box alvo)" = "0,0,614,704" ]'
+fi
 "$WZ" autotile off >/dev/null
 sleep 1
 check "mosaico desligado: ninguém no mosaico" '"$WZ" status | grep -q "tiled=0"'

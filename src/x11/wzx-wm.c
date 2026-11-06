@@ -14,6 +14,9 @@
 
 #include <X11/Xatom.h>
 #include <X11/extensions/Xrandr.h>
+#ifdef WZ_HAVE_XINERAMA
+#include <X11/extensions/Xinerama.h>
+#endif
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -88,6 +91,19 @@ wzx_compositing(wzx *z)
 
 /* ---- monitores ---------------------------------------------------------- */
 
+#ifdef WZ_HAVE_XINERAMA
+/* Sem principal entre os heads do Xinerama, o primeiro (o do Window Maker). */
+static void
+o_primary_default(wzx *z)
+{
+    for (int i = 0; i < z->nmon; i++)
+        if (z->mon[i].primary)
+            return;
+    if (z->nmon > 0)
+        z->mon[0].primary = 1;
+}
+#endif
+
 void
 wzx_update_monitors(wzx *z)
 {
@@ -108,6 +124,41 @@ wzx_update_monitors(wzx *z)
         if (m)
             XRRFreeMonitors(m);
     }
+#ifdef WZ_HAVE_XINERAMA
+    /* Heads do Xinerama quando o RandR não descreve a tela toda: drivers que
+     * só publicam os heads pelo Xinerama (o Window Maker usa os dele), ou o
+     * Xephyr com +xinerama, cujo RandR mostra um monitor só com metade da
+     * tela. Sem isso, as janelas do outro head contavam como do primeiro (e o
+     * mosaico as levava para lá). O nome do monitor do RandR com a mesma
+     * geometria continua valendo (preferências por monitor). */
+    int nx = 0;
+    XineramaScreenInfo *xs = XineramaIsActive(z->dpy) ? XineramaQueryScreens(z->dpy, &nx) : NULL;
+    long randr_area = 0, xin_area = 0;
+    for (int i = 0; i < z->nmon; i++)
+        randr_area += (long)z->mon[i].geom.w * z->mon[i].geom.h;
+    for (int i = 0; xs && i < nx; i++)
+        xin_area += (long)xs[i].width * xs[i].height;
+    if (xs && nx > 0 && xin_area > randr_area) {
+        wzx_monitor rr[WZX_MAX_MON];
+        int nrr = z->nmon;
+        memcpy(rr, z->mon, sizeof rr);
+        z->nmon = 0;
+        for (int i = 0; i < nx && z->nmon < WZX_MAX_MON; i++) {
+            wzx_monitor *o = &z->mon[z->nmon++];
+            memset(o, 0, sizeof *o);
+            o->geom = (wz_rect){ xs[i].x_org, xs[i].y_org, xs[i].width, xs[i].height };
+            snprintf(o->name, sizeof o->name, "XINERAMA-%d", i);
+            for (int k = 0; k < nrr; k++)
+                if (!memcmp(&rr[k].geom, &o->geom, sizeof o->geom)) {
+                    memcpy(o->name, rr[k].name, sizeof o->name);
+                    o->primary = rr[k].primary;
+                }
+        }
+        o_primary_default(z);
+    }
+    if (xs)
+        XFree(xs);
+#endif
     if (z->nmon == 0) {
         wzx_monitor *o = &z->mon[z->nmon++];
         memset(o, 0, sizeof *o);
@@ -288,6 +339,18 @@ cut(wz_rect *m, wz_rect r)
     *m = (wz_rect){ x1, y1, x2 - x1, y2 - y1 };
 }
 
+/* O Dock ou o Clip mudou (o wmaker o leva para outro monitor ou outra borda
+ * depois de uma troca de monitores, ou o usuário o moveu): a área útil muda
+ * e o mosaico se refaz nela. Antes só a área era marcada, e o mosaico ficava
+ * com as células velhas (por cima do Dock, ou com um buraco) até alguém
+ * pedir para aplicar de novo. */
+static void
+work_changed(wzx *z)
+{
+    z->work_dirty = 1;
+    wzx_tile_mark(z);
+}
+
 void
 wzx_or_event(wzx *z, Window w, int x, int y, int wd, int ht, int mapped, int destroyed)
 {
@@ -300,7 +363,7 @@ wzx_or_event(wzx *z, Window w, int x, int y, int wd, int ht, int mapped, int des
             int was = z->ors[i].mapped;
             z->ors[i] = z->ors[--z->nor];
             if (was)
-                z->work_dirty = 1;
+                work_changed(z);
         }
         return;
     }
@@ -312,13 +375,16 @@ wzx_or_event(wzx *z, Window w, int x, int y, int wd, int ht, int mapped, int des
             z->ors[i] = z->ors[--z->nor];
         return;
     }
+    wz_rect r = { x, y, wd, ht };
     if (i == z->nor) {
         if (z->nor >= WZX_MAX_OR)
             return;
         z->nor++;
+    } else if (z->ors[i].mapped && !memcmp(&z->ors[i].r, &r, sizeof r)) {
+        return; /* o mesmo ladrilho no mesmo lugar */
     }
-    z->ors[i] = (wzx_or){ w, { x, y, wd, ht }, 1 };
-    z->work_dirty = 1;
+    z->ors[i] = (wzx_or){ w, r, 1 };
+    work_changed(z);
 }
 
 /* Coluna do Dock: dois ou mais ladrilhos contíguos, um embaixo do outro,
@@ -775,7 +841,7 @@ wzx_tileable(wzx *z, wzx_win *w)
         return 0;
     if ((w->state & WS_MODAL) || (!w->rule_tile && (w->state & (WS_STICKY | WS_SKIP_TASKBAR | WS_ABOVE))))
         return 0;
-    if (w->user_float || w->rule_float)
+    if (w->user_float || w->rule_float || w->fit_float)
         return 0;
     if (w->desktop != z->current_desktop)
         return 0;
