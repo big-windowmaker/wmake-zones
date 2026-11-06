@@ -1265,3 +1265,29 @@ msgstr "Navegador"
 #~ "O Window Maker tradicional continua sendo o padrão: as janelas flutuam "
 #~ "até você ligar as Zonas ou o Mosaico automático. O ladrilho do wmake-"
 #~ "zones no Dock faz o mesmo em dois cliques."
+
+msgid "The service is not running."
+msgstr "O serviço não está rodando."
+
+msgid "Title"
+msgstr "Título"
+
+msgid "Always _float this application"
+msgstr "Sempre _flutuante este aplicativo"
+
+msgid ""
+"A window whose minimum size is larger than its cell floats instead of "
+"overlapping the others (GTK4 and libadwaita applications often ask for large "
+"minimum sizes); with fewer windows, or with a wider layout, it comes back to "
+"the tiling."
+msgstr ""
+"Uma janela cujo tamanho mínimo é maior que a célula fica flutuante em vez de "
+"ficar por cima das outras (aplicativos GTK4 e libadwaita costumam pedir "
+"mínimos grandes); com menos janelas, ou com um layout mais largo, ela volta "
+"ao mosaico."
+
+msgid "Application compatibility"
+msgstr "Compatibilidade de aplicativos"
+
+msgid "Windows and tiling"
+msgstr "Janelas e mosaico"

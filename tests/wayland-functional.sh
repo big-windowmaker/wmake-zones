@@ -172,6 +172,25 @@ a1=$("$WZ" status | sed -n 's/^algorithm=//p' | head -1)
 "$WZ" algorithm prev >/dev/null
 a2=$("$WZ" status | sed -n 's/^algorithm=//p' | head -1)
 check "algorithm next/prev ($a1, $a2)" '[ "$a1" = grid ] && [ "$a2" = master ]'
+# Uma janela com mínimo de 700 de largura (GTK4: o Pamac pede 760) não cabe
+# em célula nenhuma (a principal tem 614): fica flutuante, com o motivo no
+# "windows -d", e não desarruma as outras.
+# (Só com um wlmaker que já confere o mínimo: o que responde "windows -d".)
+if "$WZ" windows -d | grep -q $'\ttiled='; then
+	python3 -I "$HERE/tools/janela.py" larga 700x300 700x300 >/dev/null 2>&1 &
+	LARGA=$!
+	PIDS="$PIDS $LARGA"
+	for _ in $(seq 1 50); do [ -n "$(win larga)" ] && break; sleep 0.1; done
+	sleep 1.2
+	check "mosaico: a que não cabe fica flutuante ($(win larga | cut -f3))" 'win larga | grep -q "tiled=0"'
+	check "windows -d diz por que ($("$WZ" windows -d | grep -P "\tlarga$" | cut -f3))" \
+		'"$WZ" windows -d | grep -P "\tlarga$" | grep -q "não cabe: mínimo 7[0-9][0-9]x"'
+	check "as outras continuam no mosaico ($(box alvo))" '"$WZ" status | grep -q "tiled=3" && [ "$(box alvo)" = "0,0,614,704" ]'
+	kill "$LARGA"
+	sleep 0.8
+else
+	echo "# SKIP mínimo das janelas no mosaico: este wlmaker ainda não confere (sem \"windows -d\")"
+fi
 "$WZ" autotile off >/dev/null
 sleep 1
 check "mosaico desligado: ninguém no mosaico" '"$WZ" status | grep -q "tiled=0"'

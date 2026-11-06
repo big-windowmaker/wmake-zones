@@ -917,6 +917,88 @@ editable_col(const char *title, int col)
     return NULL;
 }
 
+/* ---- Compatibilidade de aplicativos -------------------------------------- */
+
+/* As janelas abertas e por que cada uma está ou não no mosaico ("windows
+ * -d" do serviço): mínimo maior que a célula (GTK4/libadwaita), diálogo,
+ * tamanho fixo, regra... Uma regra "float" sai daqui com um clique. */
+static GtkListStore *compat_store;
+static GtkWidget *compat_view;
+
+static void
+compat_fill(GtkButton *b, gpointer d)
+{
+    gtk_list_store_clear(compat_store);
+    char out[32768];
+    if (wzp_request("windows -d", out, sizeof out) != 0) {
+        GtkTreeIter it;
+        gtk_list_store_append(compat_store, &it);
+        gtk_list_store_set(compat_store, &it, 0, "", 1, "", 2, _("The service is not running."), -1);
+        return;
+    }
+    char *save = NULL;
+    for (char *l = strtok_r(out, "\n", &save); l; l = strtok_r(NULL, "\n", &save)) {
+        char **f = g_strsplit(l, "\t", 4);
+        /* classe, tiled=N, motivo, título; um serviço antigo responde com
+         * classe, instância e título: sem motivo. */
+        if (f[0] && f[1] && g_str_has_prefix(f[1], "tiled=") && f[2]) {
+            GtkTreeIter it;
+            gtk_list_store_append(compat_store, &it);
+            gtk_list_store_set(compat_store, &it, 0, f[0], 1, f[3] ? f[3] : "", 2, f[2], -1);
+        }
+        g_strfreev(f);
+    }
+}
+
+static void
+on_compat_float(GtkButton *b, gpointer d)
+{
+    GtkTreeIter it;
+    GtkTreeSelection *s = gtk_tree_view_get_selection(GTK_TREE_VIEW(compat_view));
+    if (!gtk_tree_selection_get_selected(s, NULL, &it))
+        return;
+    char *cls;
+    gtk_tree_model_get(GTK_TREE_MODEL(compat_store), &it, 0, &cls, -1);
+    if (cls && *cls)
+        add_rule(cls); /* Action=float */
+    g_free(cls);
+}
+
+static GtkWidget *
+compat_frame(void)
+{
+    compat_store = gtk_list_store_new(3, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
+    compat_view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(compat_store));
+    const char *titles[] = { N_("Window class"), N_("Title"), N_("Tiling") };
+    for (int c = 0; c < 3; c++) {
+        GtkCellRenderer *r = gtk_cell_renderer_text_new();
+        if (c == 1)
+            g_object_set(r, "ellipsize", PANGO_ELLIPSIZE_END, "width-chars", 18, NULL);
+        gtk_tree_view_append_column(GTK_TREE_VIEW(compat_view),
+                                    gtk_tree_view_column_new_with_attributes(_(titles[c]), r, "text", c, NULL));
+    }
+    compat_fill(NULL, NULL);
+    GtkWidget *sw = gtk_scrolled_window_new(NULL, NULL);
+    gtk_widget_set_size_request(sw, -1, 140);
+    gtk_container_add(GTK_CONTAINER(sw), compat_view);
+    GtkWidget *v = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
+    gtk_box_pack_start(GTK_BOX(v), sw, TRUE, TRUE, 0);
+    GtkWidget *hb = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+    GtkWidget *refresh = gtk_button_new_with_mnemonic(_("_Refresh"));
+    g_signal_connect(refresh, "clicked", G_CALLBACK(compat_fill), NULL);
+    GtkWidget *flt = gtk_button_new_with_mnemonic(_("Always _float this application"));
+    g_signal_connect(flt, "clicked", G_CALLBACK(on_compat_float), NULL);
+    gtk_box_pack_start(GTK_BOX(hb), refresh, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(hb), flt, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(v), hb, FALSE, FALSE, 0);
+    GtkWidget *n = label(_("A window whose minimum size is larger than its cell floats instead of overlapping the "
+                           "others (GTK4 and libadwaita applications often ask for large minimum sizes); with "
+                           "fewer windows, or with a wider layout, it comes back to the tiling."));
+    gtk_label_set_line_wrap(GTK_LABEL(n), TRUE);
+    gtk_box_pack_start(GTK_BOX(v), n, FALSE, FALSE, 0);
+    return frame(_("Application compatibility"), v);
+}
+
 static GtkWidget *
 page_rules(void)
 {
@@ -959,6 +1041,7 @@ page_rules(void)
                              wzp.cfg.rules_enabled, NULL),
                        FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(box), frame(_("Per-application rules"), v), TRUE, TRUE, 0);
+    gtk_box_pack_start(GTK_BOX(box), compat_frame(), TRUE, TRUE, 0);
     GtkWidget *n = label(_("Windows are matched by their class (WM_CLASS on X11, app_id on Wayland), not by the title, "
                            "which changes. What you do by hand wins over a rule until the window is closed."));
     gtk_label_set_line_wrap(GTK_LABEL(n), TRUE);
@@ -978,6 +1061,9 @@ diag_fill(GtkButton *b, gpointer d)
     g_string_append_printf(s, "%s: %s\n\n", _("Configuration file"), wzp.path);
     if (wzp_request("status", out, sizeof out) == 0) {
         g_string_append(s, out);
+        char why[16384] = "";
+        if (wzp_request("windows -d", why, sizeof why) == 0)
+            g_string_append_printf(s, "\n%s:\n%s", _("Windows and tiling"), why);
         wzp_request("log", log, sizeof log);
         g_string_append_printf(s, "\n%s:\n%s", _("Recent log"), log);
     } else {
@@ -1179,7 +1265,15 @@ build(const char *first)
         gtk_box_pack_start(GTK_BOX(strip), b, FALSE, FALSE, 0);
         GtkWidget *page = sections[i].build();
         gtk_container_set_border_width(GTK_CONTAINER(page), 4);
-        gtk_stack_add_named(GTK_STACK(wzp.stack), page, sections[i].id);
+        /* Rolagem vertical: a página mais alta pedia 883 linhas e a janela
+         * não cabia numa tela de 768. */
+        GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
+        gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+        gtk_scrolled_window_set_propagate_natural_height(GTK_SCROLLED_WINDOW(scroll), TRUE);
+        gtk_scrolled_window_set_max_content_height(GTK_SCROLLED_WINDOW(scroll), 600);
+        gtk_scrolled_window_set_shadow_type(GTK_SCROLLED_WINDOW(scroll), GTK_SHADOW_NONE);
+        gtk_container_add(GTK_CONTAINER(scroll), page);
+        gtk_stack_add_named(GTK_STACK(wzp.stack), scroll, sections[i].id);
         if (first && !strcmp(first, sections[i].id))
             first_btn = b;
     }
