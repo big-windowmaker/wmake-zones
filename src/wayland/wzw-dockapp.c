@@ -362,8 +362,11 @@ static void
 icon_configure(void *data, struct zwlmaker_toplevel_icon_v1 *icon, int32_t w, int32_t h, uint32_t serial)
 {
     app *a = data;
-    a->width = w > 0 ? w : 64;
-    a->height = h > 0 ? h : 64;
+    /* O ladrilho inteiro, com o relevo próprio, como o dockapp do X11 (a
+     * janela de ícone de 64x64): o wlmaker sugere o tamanho dos dockapps
+     * nativos (58), menor que isso. */
+    a->width = w > 64 ? w : 64;
+    a->height = h > 64 ? h : 64;
     zwlmaker_toplevel_icon_v1_ack_configure(icon, serial);
     a->configured = 1;
     redraw(a);
