@@ -358,8 +358,14 @@ wzx_tile_run(wzx *z)
          * crescem e as outras podem passar a caber. Tirar todas as que não
          * cabiam numa passada só deixava de fora quem cabia na seguinte. */
         tset *ts = set_for(z, mon, 0);
+        /* Uma troca de lugar por vez no monitor: sem ela, o mesmo conflito
+         * podia trocar e destrocar a cada passada, gastando as 16 antes de
+         * a janela flutuar. */
+        int swaps = 0;
         for (int pass = 0; pass < 16; pass++) {
             n = compute(z, mon, ws, rects, WZX_MAX_WIN);
+            /* O conjunto (BSP) que o compute pode ter criado agora. */
+            ts = set_for(z, mon, 0);
             /* Uma única janela não cabe: antes de tirá-la, ela troca de
              * lugar com outra do conjunto quando assim as duas cabem (a
              * célula maior para quem pede mais; GTK4/libadwaita declaram
@@ -374,7 +380,7 @@ wzx_tile_run(wzx *z)
                 conflicts += wz_fit(&ri, &li) == WZ_FIT_CONFLICT;
             }
             int swapped = 0;
-            for (int i = 0; i < n && !swapped && conflicts == 1; i++) {
+            for (int i = 0; i < n && !swapped && conflicts == 1 && swaps == 0; i++) {
                 wz_limits li = limits(ws[i]);
                 wz_rect ri = rects[i];
                 if (wz_fit(&ri, &li) != WZ_FIT_CONFLICT)
@@ -395,6 +401,7 @@ wzx_tile_run(wzx *z)
                             ws[i]->wm_class ? ws[i]->wm_class : "?", ws[j]->wm_class ? ws[j]->wm_class : "?",
                             li.min_w, li.min_h);
                     swapped = 1;
+                    swaps++;
                 }
             }
             if (swapped)

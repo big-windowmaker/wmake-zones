@@ -22,7 +22,7 @@ for tool in wmaker xdotool xwininfo import python3; do
 	command -v $tool >/dev/null || { echo "1..0 # SKIP sem $tool"; exit 0; }
 done
 [ -x "$XVFB" ] || { echo "1..0 # SKIP sem Xvfb"; exit 0; }
-python3 -c 'import PIL' 2>/dev/null || { echo "1..0 # SKIP sem python-pillow"; exit 0; }
+python3 -I -c 'import PIL' 2>/dev/null || { echo "1..0 # SKIP sem python-pillow"; exit 0; }
 
 TMP=$(mktemp -d "${TMPDIR:-/tmp}/wzd.XXXXXX")
 [ ${#TMP} -le 60 ] || { rmdir "$TMP"; TMP=$(mktemp -d /tmp/wzd.XXXXXX); }

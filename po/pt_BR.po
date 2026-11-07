@@ -1273,7 +1273,7 @@ msgid "Title"
 msgstr "Título"
 
 msgid "Always _float this application"
-msgstr "Sempre _flutuante este aplicativo"
+msgstr "Manter este aplicativo sempre _flutuante"
 
 msgid ""
 "A window whose minimum size is larger than its cell floats instead of "
