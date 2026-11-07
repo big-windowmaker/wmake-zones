@@ -1291,3 +1291,6 @@ msgstr "Compatibilidade de aplicativos"
 
 msgid "Windows and tiling"
 msgstr "Janelas e mosaico"
+
+msgid "Window Maker options..."
+msgstr "Opções do Window Maker..."

@@ -91,6 +91,19 @@ mudam; uma troca de zonas só redesenha.
   `~/GNUstep/Defaults/WindowMaker` (MenuTitleBack, MenuTextBack,
   HighlightColor...). O balão de troca de modo some sozinho em 1,5 s; a
   dica ao parar o ponteiro é a do próprio Window Maker.
+* Arrastar e o menu do Window Maker: o ladrilho cobre o ícone e pede os
+  cliques, e o servidor só entrega ButtonPress a um cliente por janela: o
+  Window Maker não os recebe (só moveria com Alt). O clique esquerdo vale
+  ao soltar; se o ponteiro anda mais de 4 pontos antes, o serviço solta a
+  captura implícita e passa o clique à janela do ícone (a pai do ladrilho)
+  como evento sintético, como o Window Maker prevê para dockapps; ele pega
+  o ponteiro e move o ícone (Dock, Clip, gaveteiro). O clique direito na
+  borda de 3 pontos, e o item "Opções do Window Maker..." do menu, passam o
+  botão 3 do mesmo jeito: o menu do Dock, do Clip ou do ícone solto. O
+  windowmaker do Big WindowMaker (patch 0018) pega o ponteiro ao arrastar,
+  fecha esse menu com o próximo clique quando o botão já foi solto e
+  devolve o ponteiro no fim; sem ele o arrastar só acompanha o ponteiro
+  devagar e o menu aberto pelo item espera um clique direito.
 * Monitores: `RRScreenChangeNotify` e `RRNotify` (CRTC e saída) marcam a
   lista para ser refeita depois do lote; se ela mudou, o seletor e o
   overlay fecham, o mosaico se refaz e janelas que ficaram fora de todos os

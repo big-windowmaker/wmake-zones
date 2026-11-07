@@ -125,5 +125,62 @@ check "seta ▶ nas Zonas: o layout seguinte" '[ "$("$WZ" status | sed -n "s/^la
 press 32 20
 check "clique na tela: alterna Zonas e Mosaico (clique esquerdo padrão) ($(mode))" '[ "$(mode)" = tiling ]'
 check "o serviço continua no ar" '"$WZ" status >/dev/null 2>&1'
+
+# O ladrilho cobre o ícone e pede os cliques; arrastar e o menu do Window
+# Maker chegam a ele como eventos sintéticos (send_event) na janela do
+# ícone. Borda, clique direito (apertado, como a mão): o menu do Window
+# Maker (aqui o do ícone solto) muda a tela em volta do ladrilho; soltar
+# fora dele o fecha.
+around() {
+	import -window root -crop 300x300+"$tx"+$((ty - 236)) +repage "$TMP/$1.png"
+}
+changed() {
+	python3 -I -c 'import sys
+from PIL import Image, ImageChops
+d = ImageChops.difference(Image.open(sys.argv[1]).convert("RGB"), Image.open(sys.argv[2]).convert("RGB"))
+print(sum(1 for p in d.getdata() if p != (0, 0, 0)))' "$TMP/$1.png" "$TMP/$2.png"
+}
+xdotool mousemove 500 200
+sleep 2 # o balão da última troca de modo some
+around a0
+xdotool mousemove $((tx + 1)) $((ty + 30)) mousedown 3
+sleep 0.8
+around a1
+c1=$(changed a0 a1)
+check "borda, clique direito: o menu do Window Maker ($c1 pontos mudaram)" '[ "$c1" -gt 2000 ]'
+xdotool mousemove 500 200 mouseup 3
+sleep 0.8
+around a2
+c2=$(changed a0 a2)
+check "soltar fora do menu o fecha ($c2 pontos diferentes)" '[ "$c2" -lt 2000 ]'
+# Arrastar o ladrilho solto até a coluna do Dock (no canto de cima, à
+# direita, só com o ícone principal): ele entra no Dock.
+xdotool mousemove $((tx + 32)) $((ty + 20))
+sleep 0.3
+xdotool mousedown 1
+sleep 0.2
+for i in $(seq 1 30); do
+	xdotool mousemove $((tx + 32 + (992 - tx - 32) * i / 30)) $((ty + 20 + (84 - ty - 20) * i / 30))
+	sleep 0.06
+done
+sleep 0.3
+xdotool mouseup 1
+sleep 1.2
+docked=$(python3 - <<'PY'
+import re, subprocess
+out = subprocess.run(["xwininfo", "-root", "-children"], capture_output=True, text=True).stdout
+for m in re.finditer(r"(0x[0-9a-f]+) .*?\s(\d+)x(\d+)\+(-?\d+)\+(-?\d+)", out):
+    w, h, x, y = map(int, m.group(2, 3, 4, 5))
+    if (w, h) == (64, 64) and x >= 960 and 32 <= y <= 160:
+        g = subprocess.run(["xwininfo", "-id", m.group(1)], capture_output=True, text=True).stdout
+        if "IsViewable" in g:
+            print(x, y)
+PY
+)
+check "arrastar o ladrilho até a coluna do Dock: ele entra no Dock (${docked:-não entrou})" '[ -n "$docked" ]'
+[ -n "$docked" ] && read -r tx ty <<<"$docked"
+mode_before=$(mode)
+press 32 20
+check "um clique (sem arrastar) continua trocando o modo ($mode_before -> $(mode))" '[ "$(mode)" != "$mode_before" ]'
 echo "1..$n"
 [ "$fails" = 0 ]
