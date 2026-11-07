@@ -923,9 +923,17 @@ do_action(wzx *z, int id)
 {
     char cmd[300];
     switch (id) {
-    case A_WM_MENU:
-        wm_forward(z, Button3, last_right.x, last_right.y, last_right.xr, last_right.yr, last_right.state);
+    case A_WM_MENU: {
+        /* A posição na raiz vem de onde o ladrilho está agora (o menu pode
+         * ter sido aberto por outro botão, e o ladrilho, mudado de lugar);
+         * sem um clique direito anotado, o centro do ladrilho. */
+        int ix, iy;
+        tile_origin(z, &ix, &iy);
+        int x = last_right.x ? last_right.x : TILE / 2;
+        int y = last_right.y ? last_right.y : TILE / 2;
+        wm_forward(z, Button3, x, y, ix + x, iy + y, last_right.state);
         break;
+    }
     case A_UNDO: wzx_command(z, "undo", NULL, 0); break;
     case A_REDO: wzx_command(z, "redo", NULL, 0); break;
     case A_RESTORE: wzx_command(z, "restore", NULL, 0); break;
