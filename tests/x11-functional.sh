@@ -285,7 +285,21 @@ if python3 -c 'import gi; gi.require_version("Gtk", "3.0")' 2>/dev/null; then
 	sleep 2.5
 	check "uma janela grande demais não tira as outras do mosaico" '"$WZ" status | grep -q "tiled=4"'
 	check "a grande demais fica flutuante" '"$WZ" windows -l | grep -P "\tgrande$" | grep -q "tiled=0"'
+	check "windows -d diz por que a grande ficou de fora" '"$WZ" windows -d | grep -P "\tgrande$" | grep -q "não cabe: mínimo"'
+	check "windows -d marca as do mosaico" '"$WZ" windows -d | grep -P "\tmedia$" | grep -qP "\ttiled=1\tmosaico\t"'
 	for p in $(pgrep -f "janela.py (grande|media)"); do
+		grep -qz "^DISPLAY=$DISPLAY$" /proc/"$p"/environ 2>/dev/null && kill "$p"
+	done
+	sleep 0.8
+	# Só uma não cabe (mínimo de 500 de altura, só a principal tem): troca
+	# de lugar com a principal e entra no mosaico (como o Pamac, que pede
+	# 760 de largura), em vez de ficar flutuante.
+	python3 "$JAN" alta 300x500+900+50 300x500 >/dev/null 2>&1 &
+	PIDS="$PIDS $!"
+	sleep 2.5
+	check "a única que não cabe troca de lugar e entra no mosaico" '"$WZ" windows -l | grep -P "\talta$" | grep -q "tiled=1"'
+	check "a troca fica no log e a alta não saiu" '"$WZ" log | grep -q "Janela.py troca de lugar com" && ! "$WZ" log | grep -q "não cabe.*mínimo 302x5"'
+	for p in $(pgrep -f "janela.py alta"); do
 		grep -qz "^DISPLAY=$DISPLAY$" /proc/"$p"/environ 2>/dev/null && kill "$p"
 	done
 	sleep 0.8

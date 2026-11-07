@@ -89,7 +89,7 @@ execução de programa.
 `algorithm NOME`, `picker`, `arrange`, `snap N`,
 `move|swap|focus left|right|up|down`, `restore`, `restore-all`, `float`,
 `promote`, `grow`, `shrink`, `undo`, `redo`, `preview ÁRVORE`,
-`windows [-l]`, `overlay`, `editor`, `prefs [PÁGINA]`, `reload`, `log`,
+`windows [-l|-d]`, `overlay`, `editor`, `prefs [PÁGINA]`, `reload`, `log`,
 `ping`, `quit`; `help` mostra a lista (sem falar com o serviço) e
 `man wmake-zones` descreve todos. Os mesmos comandos valem no X11 e no
 wlmaker.
@@ -97,7 +97,13 @@ wlmaker.
 `mode toggle` é o clique esquerdo do dockapp (Zonas ↔ Mosaico; desligado,
 liga o último modo) e `mode enable` o do meio (desliga ou religa o último).
 
-`windows` dá classe, instância e título (o que as regras usam); `windows -l`
+`windows` dá classe, instância e título (o que as regras usam); `windows -d`
+diz por que cada janela está ou não no mosaico (por exemplo "não cabe:
+mínimo 760x200, célula 402x343": aplicativos GTK4/libadwaita pedem mínimos
+grandes; uma janela só que não cabe troca de lugar com outra quando assim as
+duas cabem, e as outras ficam flutuantes em vez de passar por cima das
+vizinhas). A mesma lista está em *Regras > Compatibilidade de aplicativos*
+nas preferências. `windows -l`
 dá o monitor, a zona, se está no mosaico e o quadro (`LxA+X+Y`, com a
 decoração), para conferir um encaixe:
 

@@ -584,6 +584,11 @@ wzx_command(wzx *z, const char *line, char *out, size_t outlen)
                 outf(out, outlen, "%s\tzone=%ld\ttiled=%d\t%dx%d%+d%+d\t%s\t%s\n",
                      mon >= 0 && mon < z->nmon ? z->mon[mon].name : "?", zone, w->tiled, w->outer.w, w->outer.h,
                      w->outer.x, w->outer.y, w->wm_class ? w->wm_class : "", title);
+            } else if (arg && (!strcmp(arg, "-d") || !strcmp(arg, "why"))) {
+                /* Diagnóstico do mosaico: classe, no mosaico, motivo, título. */
+                char why[160];
+                outf(out, outlen, "%s\ttiled=%d\t%s\t%s\n", w->wm_class ? w->wm_class : "", w->tiled,
+                     wzx_tile_reason(z, w, why, sizeof why), title);
             } else {
                 outf(out, outlen, "%s\t%s\t%s\n", w->wm_class ? w->wm_class : "", w->instance ? w->instance : "",
                      title);

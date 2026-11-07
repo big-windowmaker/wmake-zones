@@ -77,6 +77,9 @@ typedef struct {
     int user_float;       /* o usuário tirou do mosaico */
     int rule_float;       /* regra do usuário (Float) */
     int fit_float;        /* não coube na célula nesta rodada do mosaico */
+    int fit_prev;         /* não coube na rodada anterior (o log sai uma vez) */
+    wz_limits fit_min;    /* o mínimo que não coube... */
+    wz_rect fit_cell;     /* ...e a célula (para "windows -d") */
     int tiled;
     int tile_mon;
     long order;           /* posição no mosaico (menor = principal) */
@@ -323,6 +326,7 @@ void wzx_tile_run(wzx *z);
 void wzx_tile_disable_all(wzx *z);
 int wzx_tile_active_for(wzx *z, int mon);
 int wzx_tile_cells(wzx *z, int mon, wz_rect *out, wzx_win **ws, int max);
+const char *wzx_tile_reason(wzx *z, wzx_win *w, char *buf, size_t len);
 void wzx_tile_drop(wzx *z, wzx_win *w, int px, int py);
 void wzx_tile_user_resize(wzx *z, wzx_win *w);
 void wzx_tile_swap_dir(wzx *z, wzx_win *w, int dir);

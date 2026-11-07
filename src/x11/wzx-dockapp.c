@@ -5,8 +5,22 @@
  *
  *   clique esquerdo   Zonas <-> Mosaico          ([Dockapp] LeftClick)
  *   clique do meio    desliga / religa o último   ([Dockapp] MiddleClick)
- *   clique direito    menu no estilo do Window Maker, com submenus
+ *   clique direito    menu no estilo do Window Maker, com submenus, e
+ *                     "Opções do Window Maker..." (o menu do Dock, do Clip
+ *                     ou do ícone, do próprio Window Maker)
  *   roda              layout anterior/seguinte    ([Dockapp] Wheel)
+ *   arrastar          move o ladrilho como qualquer ícone do Window Maker
+ *                     (para o Dock, o Clip, um gaveteiro, fora deles)
+ *   borda (3 px)      como a borda dos outros dockapps: arrastar move,
+ *                     clique direito abre o menu do Window Maker
+ *
+ * O ladrilho cobre o ícone inteiro e pede os cliques; o Window Maker então
+ * não os recebe (um cliente só pode pedir ButtonPress numa janela) e só
+ * moveria o ladrilho com Alt. Por isso o arrastar e o menu dele chegam como
+ * o próprio Window Maker prevê para dockapps: o clique vai para a janela do
+ * ícone, a pai da nossa, como evento sintético (send_event), depois de
+ * soltarmos a captura implícita do ponteiro; ele então pega o ponteiro e
+ * move o ícone ou abre o menu (dock.c e appicon.c tratam send_event).
  *
  * O ladrilho mostra a miniatura do layout ativo numa "tela" afundada e,
  * embaixo, duas teclas com LED: Z (zonas, verde) e M (mosaico, âmbar);
@@ -286,8 +300,8 @@ void
 wzx_dockapp_create(wzx *z)
 {
     XSetWindowAttributes a = { 0 };
-    a.event_mask = ExposureMask | ButtonPressMask | ButtonReleaseMask | StructureNotifyMask | EnterWindowMask |
-                   LeaveWindowMask;
+    a.event_mask = ExposureMask | ButtonPressMask | ButtonReleaseMask | Button1MotionMask | StructureNotifyMask |
+                   EnterWindowMask | LeaveWindowMask;
     a.background_pixmap = ParentRelative;
     z->dock_win = XCreateWindow(z->dpy, z->root, 0, 0, TILE, TILE, 0, CopyFromParent, InputOutput, CopyFromParent,
                                 CWEventMask, &a);
@@ -441,7 +455,7 @@ balloon_show(wzx *z, long ms)
 enum { K_ACT = 0, K_SUB, K_RADIO };
 enum { M_TOP = 0, M_MODE, M_LAYOUT, M_ALGO, M_SETTINGS, M_HELP };
 enum {
-    A_NONE = 0, A_UNDO, A_REDO, A_RESTORE, A_RESTORE_ALL, A_ARRANGE, A_FLOAT, A_EDITOR, A_PREFS, A_KEYS, A_RULES,
+    A_NONE = 0, A_WM_MENU, A_UNDO, A_REDO, A_RESTORE, A_RESTORE_ALL, A_ARRANGE, A_FLOAT, A_EDITOR, A_PREFS, A_KEYS, A_RULES,
     A_MONITORS, A_HELP_KEYS, A_ABOUT, A_MODE_ZONES, A_MODE_TILING, A_MODE_OFF, A_EMERGENCY,
     A_LAYOUT0 = 100, A_ALGO0 = 1000,
 };
@@ -492,6 +506,65 @@ menu_title(int menu)
     }
 }
 
+/* A janela do ícone do Window Maker em que o ladrilho está (Dock, Clip,
+ * gaveteiro ou ícone solto); None sem gerenciador que o tenha adotado. */
+static Window
+wm_parent(wzx *z)
+{
+    Window root, parent = None, *kids = NULL;
+    unsigned nk = 0;
+    if (!z->dock_icon || !XQueryTree(z->dpy, z->dock_icon, &root, &parent, &kids, &nk))
+        return None;
+    if (kids)
+        XFree(kids);
+    return parent == z->root ? None : parent;
+}
+
+/* Passa um clique ao Window Maker como ele prevê para dockapps: evento
+ * sintético na janela do ícone, com a nossa captura implícita solta antes
+ * (senão a dele falha). Botão 1: ele move o ícone; botão 3: o menu. */
+static int
+wm_forward(wzx *z, unsigned button, int x, int y, int xr, int yr, unsigned state)
+{
+    Window parent = wm_parent(z), child;
+    if (parent == None)
+        return 0;
+    int px = x, py = y;
+    XTranslateCoordinates(z->dpy, z->dock_icon, parent, x, y, &px, &py, &child);
+    XUngrabPointer(z->dpy, CurrentTime);
+    XEvent ev = { 0 };
+    ev.xbutton.type = ButtonPress;
+    ev.xbutton.display = z->dpy;
+    ev.xbutton.window = parent;
+    ev.xbutton.root = z->root;
+    ev.xbutton.subwindow = None;
+    ev.xbutton.time = CurrentTime;
+    ev.xbutton.x = px;
+    ev.xbutton.y = py;
+    ev.xbutton.x_root = xr;
+    ev.xbutton.y_root = yr;
+    ev.xbutton.state = state;
+    ev.xbutton.button = button;
+    ev.xbutton.same_screen = True;
+    XSendEvent(z->dpy, parent, False, ButtonPressMask, &ev);
+    XFlush(z->dpy);
+    return 1;
+}
+
+/* Clique esquerdo no ladrilho: vale ao soltar; se o ponteiro andar antes,
+ * é um arrastar e vai para o Window Maker. Último clique direito: onde o
+ * menu do Window Maker abre. */
+#define DRAG_THRESHOLD 4
+#define EDGE 3
+static struct {
+    int pending, x, y, xr, yr;
+    unsigned state;
+} press;
+static struct {
+    int x, y, xr, yr;
+    unsigned state;
+} last_right;
+
 static void
 fill_menu(wzx *z, mpop *p, int menu)
 {
@@ -511,6 +584,11 @@ fill_menu(wzx *z, mpop *p, int menu)
         add(p, K_ACT, A_FLOAT, 0, _("Active window: floating/tiled"));
         add(p, K_SUB, M_SETTINGS, 0, _("Settings"));
         add(p, K_SUB, M_HELP, 0, _("Help"));
+        /* O menu do Window Maker para este lugar (Dock: posição, monitor,
+         * gaveteiro, executar, trazer aqui, esconder, configurações,
+         * terminar; Clip: o do Clip; solto: o do ícone). */
+        if (wm_parent(z) != None)
+            add(p, K_ACT, A_WM_MENU, 0, _("Window Maker options..."));
         break;
     case M_MODE:
         add(p, K_RADIO, A_MODE_ZONES, m == WZ_MODE_ZONES, _("Zones"));
@@ -845,6 +923,9 @@ do_action(wzx *z, int id)
 {
     char cmd[300];
     switch (id) {
+    case A_WM_MENU:
+        wm_forward(z, Button3, last_right.x, last_right.y, last_right.xr, last_right.yr, last_right.state);
+        break;
     case A_UNDO: wzx_command(z, "undo", NULL, 0); break;
     case A_REDO: wzx_command(z, "redo", NULL, 0); break;
     case A_RESTORE: wzx_command(z, "restore", NULL, 0); break;
@@ -1089,18 +1170,46 @@ wzx_dockapp_event(wzx *z, XEvent *e)
         if (balloon && !balloon_hide_at)
             balloon_close(z);
         break;
-    case ButtonPress:
+    case ButtonPress: {
         tip_at = 0;
-        if (e->xbutton.button == 1 && row_hit(e->xbutton.x, e->xbutton.y) != HIT_NONE) {
-            row_click(z, row_hit(e->xbutton.x, e->xbutton.y));
+        XButtonEvent *b = &e->xbutton;
+        int edge = b->x < EDGE || b->y < EDGE || b->x >= TILE - EDGE || b->y >= TILE - EDGE;
+        /* A borda é do Window Maker, como nos outros dockapps. */
+        if (edge && (b->button == 1 || b->button == 3) &&
+            wm_forward(z, b->button, b->x, b->y, b->x_root, b->y_root, b->state)) {
+            press.pending = 0;
             break;
         }
-        switch (e->xbutton.button) {
-        case 1: click(z, z->cfg.click[0], 0); break;
+        if (b->button == 1) {
+            press = (typeof(press)){ 1, b->x, b->y, b->x_root, b->y_root, b->state };
+            break;
+        }
+        if (b->button == 3)
+            last_right = (typeof(last_right)){ b->x, b->y, b->x_root, b->y_root, b->state };
+        switch (b->button) {
         case 2: click(z, z->cfg.click[1], 0); break;
         case 3: click(z, z->cfg.click[2], 0); break;
         case 4: click(z, z->cfg.click[3], -1); break;
         case 5: click(z, z->cfg.click[3], 1); break;
+        }
+        break;
+    }
+    case MotionNotify:
+        /* Andou com o botão esquerdo apertado: o Window Maker move o ícone
+         * (e o encaixa no Dock, no Clip ou num gaveteiro). */
+        if (press.pending && (abs(e->xmotion.x - press.x) > DRAG_THRESHOLD ||
+                              abs(e->xmotion.y - press.y) > DRAG_THRESHOLD)) {
+            press.pending = 0;
+            wm_forward(z, Button1, press.x, press.y, press.xr, press.yr, press.state);
+        }
+        break;
+    case ButtonRelease:
+        if (e->xbutton.button == 1 && press.pending) {
+            press.pending = 0;
+            if (row_hit(press.x, press.y) != HIT_NONE)
+                row_click(z, row_hit(press.x, press.y));
+            else
+                click(z, z->cfg.click[0], 0);
         }
         break;
     case DestroyNotify:

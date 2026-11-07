@@ -179,6 +179,46 @@ compute(wzx *z, int mon, wzx_win **ws, wz_rect *rects, int max)
     return k <= 0 ? 0 : k < n ? k : n;
 }
 
+/* Por que a janela está (ou não) no mosaico: para "windows -d" e para a
+ * seção de compatibilidade das preferências. A ordem segue wzx_tileable. */
+const char *
+wzx_tile_reason(wzx *z, wzx_win *w, char *buf, size_t len)
+{
+    int mon = wzx_monitor_of(z, w->outer);
+    if (w->tiled)
+        snprintf(buf, len, "mosaico");
+    else if (w->rule_ignore)
+        snprintf(buf, len, "regra: ignorar");
+    else if (w->special)
+        snprintf(buf, len, "tipo especial (diálogo, utilitário, menu)");
+    else if (w->fixed)
+        snprintf(buf, len, "tamanho fixo (%dx%d)", w->hints.min_w, w->hints.min_h);
+    else if (w->state & WS_FULLSCREEN)
+        snprintf(buf, len, "tela cheia");
+    else if (w->state & (WS_SHADED | WS_HIDDEN) || !w->mapped)
+        snprintf(buf, len, "minimizada ou enrolada");
+    else if (w->transient)
+        snprintf(buf, len, "janela filha (transient)");
+    else if (w->state & WS_MODAL)
+        snprintf(buf, len, "modal");
+    else if (!w->rule_tile && (w->state & (WS_STICKY | WS_SKIP_TASKBAR | WS_ABOVE)))
+        snprintf(buf, len, "em todas as áreas, sempre acima ou fora da barra de tarefas");
+    else if (w->user_float)
+        snprintf(buf, len, "flutuante por escolha do usuário");
+    else if (w->rule_float)
+        snprintf(buf, len, "regra: flutuante");
+    else if (w->fit_float)
+        snprintf(buf, len, "não cabe: mínimo %dx%d, célula %dx%d", w->fit_min.min_w, w->fit_min.min_h,
+                 w->fit_cell.w, w->fit_cell.h);
+    else if (w->desktop != z->current_desktop)
+        snprintf(buf, len, "outra área de trabalho");
+    else if (!wzx_tile_active_for(z, mon))
+        snprintf(buf, len, "mosaico desligado neste monitor");
+    else
+        snprintf(buf, len, "aguardando");
+    return buf;
+}
+
 int
 wzx_tile_cells(wzx *z, int mon, wz_rect *out, wzx_win **ws, int max)
 {
@@ -292,6 +332,7 @@ wzx_tile_run(wzx *z)
         /* "Não coube" vale só para esta rodada: com outro monitor, outra área
          * útil ou menos janelas ela pode caber agora. Antes ficava fora do
          * mosaico até o serviço reiniciar. */
+        z->win[i]->fit_prev = z->win[i]->fit_float;
         z->win[i]->fit_float = 0;
     }
 
@@ -316,10 +357,51 @@ wzx_tile_run(wzx *z)
          * caber), e o layout é refeito: com uma janela a menos as células
          * crescem e as outras podem passar a caber. Tirar todas as que não
          * cabiam numa passada só deixava de fora quem cabia na seguinte. */
+        tset *ts = set_for(z, mon, 0);
         for (int pass = 0; pass < 16; pass++) {
             n = compute(z, mon, ws, rects, WZX_MAX_WIN);
+            /* Uma única janela não cabe: antes de tirá-la, ela troca de
+             * lugar com outra do conjunto quando assim as duas cabem (a
+             * célula maior para quem pede mais; GTK4/libadwaita declaram
+             * mínimos grandes: 760 de largura no Pamac). Com mais de uma
+             * fora, sai primeiro a mais longe de caber (abaixo): a troca
+             * ali só mudaria quem fica de fora e tiraria a principal do
+             * lugar. */
+            int conflicts = 0;
+            for (int i = 0; i < n; i++) {
+                wz_limits li = limits(ws[i]);
+                wz_rect ri = rects[i];
+                conflicts += wz_fit(&ri, &li) == WZ_FIT_CONFLICT;
+            }
+            int swapped = 0;
+            for (int i = 0; i < n && !swapped && conflicts == 1; i++) {
+                wz_limits li = limits(ws[i]);
+                wz_rect ri = rects[i];
+                if (wz_fit(&ri, &li) != WZ_FIT_CONFLICT)
+                    continue;
+                for (int j = 0; j < n && !swapped; j++) {
+                    if (j == i)
+                        continue;
+                    wz_limits lj = limits(ws[j]);
+                    wz_rect a = rects[j], b = rects[i];
+                    if (wz_fit(&a, &li) == WZ_FIT_CONFLICT || wz_fit(&b, &lj) == WZ_FIT_CONFLICT)
+                        continue;
+                    long o = ws[i]->order;
+                    ws[i]->order = ws[j]->order;
+                    ws[j]->order = o;
+                    if (ts)
+                        wz_bsp_swap(&ts->bsp, (long)ws[i]->client, (long)ws[j]->client);
+                    wzx_log("mosaico: %s troca de lugar com %s para caber (mínimo %dx%d)",
+                            ws[i]->wm_class ? ws[i]->wm_class : "?", ws[j]->wm_class ? ws[j]->wm_class : "?",
+                            li.min_w, li.min_h);
+                    swapped = 1;
+                }
+            }
+            if (swapped)
+                continue;
             int worst = -1;
             long worst_def = 0;
+            wz_rect worst_cell = { 0 };
             for (int i = 0; i < n; i++) {
                 wz_limits l = limits(ws[i]);
                 wz_rect r = rects[i];
@@ -329,6 +411,7 @@ wzx_tile_run(wzx *z)
                     if (worst < 0 || def > worst_def) {
                         worst = i;
                         worst_def = def;
+                        worst_cell = rects[i];
                     }
                 }
                 rects[i] = r;
@@ -337,8 +420,13 @@ wzx_tile_run(wzx *z)
                 break;
             wz_limits l = limits(ws[worst]);
             ws[worst]->fit_float = 1;
-            wzx_log("mosaico: %s não cabe na célula (mínimo %dx%d); fica flutuante",
-                    ws[worst]->wm_class ? ws[worst]->wm_class : "?", l.min_w, l.min_h);
+            ws[worst]->fit_min = l;
+            ws[worst]->fit_cell = worst_cell;
+            /* Uma vez por mudança, não a cada rodada. */
+            if (!ws[worst]->fit_prev)
+                wzx_log("mosaico: %s não cabe na célula %dx%d (mínimo %dx%d); fica flutuante",
+                        ws[worst]->wm_class ? ws[worst]->wm_class : "?", worst_cell.w, worst_cell.h, l.min_w,
+                        l.min_h);
             if (ws[worst]->tiled)
                 untile(z, ws[worst], 1);
         }

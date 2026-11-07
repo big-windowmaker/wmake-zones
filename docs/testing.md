@@ -71,12 +71,15 @@ e some refaz o mosaico; uma janela com tamanho mínimo que não cabe fica
 flutuando e entra quando passa a caber; uma janela levada para o outro
 monitor (como pelo teclado do Window Maker) entra no mosaico de lá.
 
-## Dockapp (`tests/x11-dockapp.sh`, 13 verificações)
+## Dockapp (`tests/x11-dockapp.sh`, 17 verificações)
 
 O ladrilho aberto com `--dockapp`: o modo na tela pelos pixels (LED Z ou M,
 zona destacada, barra da janela principal, pausa), as teclas Z e M, as setas
 no Mosaico (algoritmo) e nas Zonas (layout), setas sem efeito com tudo
-desligado e o clique esquerdo na tela.
+desligado e o clique esquerdo na tela. Depois, com o Window Maker: clique
+direito na borda abre o menu dele e soltar fora o fecha; arrastar o
+ladrilho solto até a coluna do Dock o encaixa; um clique sem arrastar
+continua trocando o modo.
 
 ## Wayland (`tests/wayland-functional.sh`, 48 verificações)
 
