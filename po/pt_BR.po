@@ -832,11 +832,11 @@ msgstr "Tela cheia"
 
 #: src/prefs/wzp-main.c:944
 msgid "Minimized or shaded"
-msgstr "Miniaturizada ou enrolada"
+msgstr "Minimizada ou sombreada"
 
 #: src/prefs/wzp-main.c:945
 msgid "Minimized"
-msgstr "Miniaturizada"
+msgstr "Minimizada"
 
 #: src/prefs/wzp-main.c:946
 msgid "Child window (transient)"
