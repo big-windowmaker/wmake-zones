@@ -64,8 +64,10 @@ Undo	Desfazer	GTK 3
 Redo	Refazer	GTK 3
 Quit	Sair	GTK 3 (aplicativo); "Encerrar" para encerrar outro programa
 Exit	Sair	GTK 3
-Hide	Esconder	wmaker pt_BR.po (menu do appicon); GTK usa "Ocultar" — manter "Esconder" no Window Maker por consistência histórica
-Hide Others	Esconder os outros	wmaker pt_BR.po
+Hide	Ocultar	GTK 3, menu raiz e Dock com abas; decisão do usuário (09/11/2026): "Esconder" do wmaker antigo trocado por "Ocultar" em todos os domínios
+Hide Others	Ocultar os outros	idem (aplicativos; o menu raiz X11 diz "Ocultar as outras")
+Destroy Last (workspace)	Remover a última	menu raiz; decisão do usuário (09/11/2026), também no wmaker e no Clip do wlmaker ("Destruir" descartado)
+Icon sets (menu)	Conjuntos de ícones	menu raiz Aparência; o submenu gerado (big-wm-appmenu) usa o mesmo nome
 Unhide	Mostrar	wmaker pt_BR.po
 Show	Mostrar	GTK 3
 Miniaturize	Miniaturizar	wmaker pt_BR.po (termo histórico; não "Minimizar" no Window Maker)
@@ -121,8 +123,3 @@ Locate pointer	Localizar o ponteiro	projeto
 Pointer	Ponteiro	projeto
 Cursor	Cursor	GTK 3
 Add/Remove Software	Adicionar/remover programas	projeto (menu)
-Auto Tiling	Mosaico automático	wmake-zones pt_BR.po (projeto)
-Floating	Flutuante	wmake-zones pt_BR.po ("Sempre flutuante")
-Shaded	Enrolada	wmaker pt_BR.po (Enrolar), no feminino concordando com janela
-Snap	Encaixar	wmake-zones pt_BR.po (zonas de encaixe)
-Main + stack	Principal + pilha	wmake-zones pt_BR.po (algoritmo master)
