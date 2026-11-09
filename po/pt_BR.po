@@ -99,7 +99,7 @@ msgstr ""
 
 #: src/x11/wzx-main.c:414
 msgid "could not start the service"
-msgstr "não consegui iniciar o serviço"
+msgstr "não foi possível iniciar o serviço"
 
 #: src/x11/wzx-main.c:423
 msgid "the service is not running"
@@ -111,7 +111,8 @@ msgstr "sem display"
 
 #: src/x11/wzx-main.c:446
 msgid "Zones and Auto Tiling are off; Window Maker is back to normal."
-msgstr "Zones e Auto Tiling desligados; o Window Maker voltou ao normal."
+msgstr ""
+"Zonas e Mosaico automático desligados; o Window Maker voltou ao normal."
 
 #. no Wayland quem faz o trabalho é o wlmaker
 #: src/x11/wzx-main.c:495
@@ -127,7 +128,7 @@ msgid ""
 "could not create the control socket in $XDG_RUNTIME_DIR/wmake-zones (path "
 "too long or no permission)"
 msgstr ""
-"não consegui criar o socket de controle em $XDG_RUNTIME_DIR/wmake-zones "
+"não foi possível criar o socket de controle em $XDG_RUNTIME_DIR/wmake-zones "
 "(caminho longo demais ou sem permissão)"
 
 #: src/x11/wzx-main.c:542
@@ -243,7 +244,7 @@ msgstr "Organizar a área de trabalho"
 
 #: src/x11/wzx-dockapp.c:584
 msgid "Active window: floating/tiled"
-msgstr "Janela ativa: flutuante/mosaico"
+msgstr "Janela ativa: flutuante/no mosaico"
 
 #: src/x11/wzx-dockapp.c:591
 msgid "Window Maker options..."
@@ -299,11 +300,11 @@ msgstr "o compositor não oferece o protocolo de ícones do wlmaker"
 
 #: src/prefs/wzp-main.c:34
 msgid "Could not write the configuration file."
-msgstr "Não foi possível gravar o arquivo de configuração."
+msgstr "Não foi possível salvar o arquivo de configuração."
 
 #: src/prefs/wzp-main.c:205
 msgid "(same as the general layout)"
-msgstr "(o mesmo do layout geral)"
+msgstr "(igual ao layout geral)"
 
 #: src/prefs/wzp-main.c:277
 msgid "Go on to the next monitor"
@@ -351,7 +352,7 @@ msgstr "Encaixar as janelas em _zonas ao arrastá-las"
 
 #: src/prefs/wzp-main.c:310
 msgid "_Auto Tiling: arrange windows automatically"
-msgstr "_Mosaico automático: organizar as janelas sozinho"
+msgstr "_Mosaico automático: organizar as janelas automaticamente"
 
 #: src/prefs/wzp-main.c:314 src/prefs/wzp-editor.c:872
 msgid "Layout:"
@@ -392,7 +393,7 @@ msgstr "Passos guardados para desfazer:"
 
 #: src/prefs/wzp-main.c:344
 msgid "Focusing the window next to it, at the screen edge:"
-msgstr "Foco na janela ao lado, na borda da tela:"
+msgstr "Ao focar a janela vizinha na borda da tela:"
 
 #: src/prefs/wzp-main.c:352
 msgid "Behaviour"
@@ -467,7 +468,7 @@ msgstr "As zonas do layout atual"
 
 #: src/prefs/wzp-main.c:382
 msgid "The layouts only while the modifier key is held"
-msgstr "Os layouts só com a tecla modificadora apertada"
+msgstr "Os layouts só enquanto a tecla modificadora estiver pressionada"
 
 #: src/prefs/wzp-main.c:383
 msgid "The layouts at the top edge of the screen"
@@ -519,7 +520,7 @@ msgstr "Margem nas bordas da tela (px):"
 
 #: src/prefs/wzp-main.c:434
 msgid "Keep windows off the Dock and the Clip"
-msgstr "Não cobrir o Dock e o Clip"
+msgstr "Não cobrir o Dock nem o Clip com janelas"
 
 #: src/prefs/wzp-main.c:436
 msgid "Show zone numbers"
@@ -590,7 +591,7 @@ msgstr ""
 
 #: src/prefs/wzp-main.c:504 src/prefs/wzp-main.c:543
 msgid "(same as general)"
-msgstr "(o mesmo do geral)"
+msgstr "(igual ao geral)"
 
 #: src/prefs/wzp-main.c:504
 msgid "On"
@@ -622,7 +623,7 @@ msgstr "Área de trabalho (0 = todas):"
 
 #: src/prefs/wzp-main.c:592
 msgid "Settings for a monitor or workspace"
-msgstr "Ajustes de um monitor ou de uma área de trabalho"
+msgstr "Configurações de um monitor ou de uma área de trabalho"
 
 #: src/prefs/wzp-main.c:597
 msgid ""
@@ -630,13 +631,13 @@ msgid ""
 "When a monitor is unplugged, its windows are arranged again on the remaining "
 "monitors."
 msgstr ""
-"Um monitor ou área de trabalho sem ajustes próprios segue os gerais. Quando "
-"um monitor é desconectado, as janelas dele são reorganizadas nos monitores "
-"que ficaram."
+"Um monitor ou área de trabalho sem configurações próprias segue as gerais. "
+"Quando um monitor é desconectado, as janelas dele são reorganizadas nos "
+"monitores que ficaram."
 
 #: src/prefs/wzp-main.c:629
 msgid "Highlight colour:"
-msgstr "Cor do destaque:"
+msgstr "Cor de destaque:"
 
 #: src/prefs/wzp-main.c:635
 msgid "Use the _theme colour"
@@ -739,7 +740,7 @@ msgstr "Soltar a janela do mosaico ou devolvê-la"
 
 #: src/prefs/wzp-main.c:658
 msgid "Make it the main window"
-msgstr "Tornar a janela principal"
+msgstr "Torná-la a janela principal"
 
 #: src/prefs/wzp-main.c:659
 msgid "Grow the main area"
@@ -767,7 +768,7 @@ msgstr "Atalho"
 
 #: src/prefs/wzp-main.c:748
 msgid "Change"
-msgstr "Trocar"
+msgstr "Alterar"
 
 #: src/prefs/wzp-main.c:753
 msgid "Conflict"
@@ -775,7 +776,7 @@ msgstr "Conflito"
 
 #: src/prefs/wzp-main.c:761
 msgid "Click \"Change\" and press the new combination; Backspace clears it."
-msgstr "Clique em \"Trocar\" e pressione a nova combinação; Backspace apaga."
+msgstr "Clique em \"Alterar\" e pressione a nova combinação; Backspace apaga."
 
 #: src/prefs/wzp-main.c:763
 msgid "Restore _defaults"
@@ -791,7 +792,7 @@ msgstr "Sempre flutuante"
 
 #: src/prefs/wzp-main.c:775
 msgid "Tile"
-msgstr "Mosaico"
+msgstr "Pôr no mosaico"
 
 #: src/prefs/wzp-main.c:776
 msgid "Put in zone"
@@ -835,7 +836,7 @@ msgstr "Miniaturizada ou enrolada"
 
 #: src/prefs/wzp-main.c:945
 msgid "Minimized"
-msgstr "Minimizada"
+msgstr "Miniaturizada"
 
 #: src/prefs/wzp-main.c:946
 msgid "Child window (transient)"
@@ -893,7 +894,7 @@ msgstr " (mínimo %d×%d)"
 
 #: src/prefs/wzp-main.c:990
 msgid "The service is not running."
-msgstr "O serviço não está rodando."
+msgstr "O serviço não está em execução."
 
 #: src/prefs/wzp-main.c:1028 src/prefs/wzp-main.c:1064
 msgid "Window class"
@@ -905,7 +906,7 @@ msgstr "Título"
 
 #: src/prefs/wzp-main.c:1043 src/prefs/wzp-main.c:1211
 msgid "_Refresh"
-msgstr "_Atualizar"
+msgstr "A_tualizar"
 
 #: src/prefs/wzp-main.c:1045
 msgid "Always _float this application"
@@ -941,7 +942,7 @@ msgstr "_Adicionar"
 
 #: src/prefs/wzp-main.c:1087
 msgid "From an _open window..."
-msgstr "De uma janela _aberta..."
+msgstr "De uma janela a_berta..."
 
 #: src/prefs/wzp-main.c:1089
 msgid "_Remove"
@@ -984,7 +985,7 @@ msgstr ""
 
 #: src/prefs/wzp-main.c:1135
 msgid "Export settings"
-msgstr "Exportar os ajustes"
+msgstr "Exportar configurações"
 
 #: src/prefs/wzp-main.c:1136 src/prefs/wzp-editor.c:659
 msgid "_Export"
@@ -992,7 +993,7 @@ msgstr "_Exportar"
 
 #: src/prefs/wzp-main.c:1154
 msgid "Import settings"
-msgstr "Importar ajustes"
+msgstr "Importar configurações"
 
 #: src/prefs/wzp-main.c:1155 src/prefs/wzp-editor.c:713
 msgid "_Import"
@@ -1003,16 +1004,16 @@ msgid ""
 "Imported. The previous settings were kept as .bak; reopen this window to see "
 "them."
 msgstr ""
-"Importado. Os ajustes anteriores ficaram em .bak; reabra esta janela para vê-"
-"los."
+"Importado. As configurações anteriores ficaram em .bak; reabra esta janela "
+"para vê-las."
 
 #: src/prefs/wzp-main.c:1185
 msgid ""
 "Turn everything off and restore the default settings? The current file is "
 "kept as wmake-zones.conf.bak."
 msgstr ""
-"Desligar tudo e restaurar os ajustes padrão? O arquivo atual fica guardado "
-"como wmake-zones.conf.bak."
+"Desligar tudo e restaurar as configurações padrão? O arquivo atual fica "
+"guardado como wmake-zones.conf.bak."
 
 #: src/prefs/wzp-main.c:1192
 msgid "Defaults restored; reopen this window."
@@ -1020,11 +1021,11 @@ msgstr "Padrões restaurados; reabra esta janela."
 
 #: src/prefs/wzp-main.c:1214
 msgid "_Export settings..."
-msgstr "_Exportar ajustes..."
+msgstr "_Exportar configurações..."
 
 #: src/prefs/wzp-main.c:1217
 msgid "_Import settings..."
-msgstr "_Importar ajustes..."
+msgstr "_Importar configurações..."
 
 #: src/prefs/wzp-main.c:1220
 msgid "Restore _defaults..."
@@ -1279,7 +1280,7 @@ msgstr "Ctrl+Z"
 
 #: src/prefs/wzp-editor.c:948
 msgid "Re_do"
-msgstr "Re_fazer"
+msgstr "Refa_zer"
 
 #: src/prefs/wzp-editor.c:948
 msgid "Ctrl+Shift+Z"
