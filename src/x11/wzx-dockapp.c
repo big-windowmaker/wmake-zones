@@ -30,7 +30,7 @@
  */
 #define _GNU_SOURCE
 #include "wzx.h"
-#include "wz-i18n.h"
+#include "../engine/wz-i18n.h"
 
 #include <X11/Xatom.h>
 #include <X11/keysym.h>

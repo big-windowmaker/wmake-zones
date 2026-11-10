@@ -16,9 +16,9 @@
  * de título da janela em foco.
  */
 #define _GNU_SOURCE
-#include "wz-alloc.h"
+#include "../engine/wz-alloc.h"
 #include "wzx.h"
-#include "wz-i18n.h"
+#include "../engine/wz-i18n.h"
 
 #include <X11/Xatom.h>
 #include <X11/extensions/Xrender.h>

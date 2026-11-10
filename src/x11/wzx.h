@@ -8,11 +8,11 @@
 
 #define WZX_GRAB_IDLE_MS 30000
 
-#include "wz-config.h"
-#include "wz-history.h"
-#include "wz-layout.h"
-#include "wz-tile.h"
-#include "wz-theme.h"
+#include "../engine/wz-config.h"
+#include "../engine/wz-history.h"
+#include "../engine/wz-layout.h"
+#include "../engine/wz-tile.h"
+#include "../engine/wz-theme.h"
 
 #include <sys/stat.h>
 #include <X11/Xlib.h>
