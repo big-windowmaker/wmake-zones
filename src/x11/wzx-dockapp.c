@@ -34,13 +34,15 @@
 
 #include <X11/Xatom.h>
 #include <X11/keysym.h>
+#include <X11/extensions/shape.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
-#define TILE 64
+#define TILE 60
+
 
 enum { POP_NONE = 0, POP_LAYOUTS, POP_MENU };
 
@@ -260,15 +262,10 @@ wzx_dockapp_redraw(wzx *z)
         face = XCreatePixmap(z->dpy, z->dock_icon, TILE, TILE, (unsigned)DefaultDepth(z->dpy, z->screen));
     if (!dgc)
         dgc = XCreateGC(z->dpy, face, 0, NULL);
-    /* Fundo: ladrilho de ícone (degradê diagonal do IconBack). */
-    for (int i = 0; i < 2 * TILE; i++) {
-        XSetForeground(z->dpy, dgc, wzx_pixel(z, wz_rgb_mix(z->theme.icon1, z->theme.icon2, i * 255 / (2 * TILE))));
-        XDrawLine(z->dpy, face, dgc, i, 0, i - TILE, TILE);
-        XDrawLine(z->dpy, face, dgc, i, 0, 0, i);
-    }
-    wzx_draw_bevel(z, face, dgc, 0, 0, TILE, TILE, 1);
-    /* Tela afundada com a miniatura do layout. */
-    wz_rect scr = { 5, 5, 54, 36 };
+    /* Fundo: amarelo só para garantir que será removido */
+    XSetForeground(z->dpy, dgc, wzx_pixel(z, 0xffff00));
+    XFillRectangle(z->dpy, face, dgc, 0, 0, TILE, TILE);
+    wz_rect scr = { 3, 3, 55, 37 };
     XSetForeground(z->dpy, dgc, wzx_pixel(z, 0x1c2024));
     XFillRectangle(z->dpy, face, dgc, scr.x, scr.y, (unsigned)scr.w, (unsigned)scr.h);
     wzx_draw_bevel(z, face, dgc, scr.x - 1, scr.y - 1, scr.w + 2, scr.h + 2, 0);
@@ -292,6 +289,14 @@ wzx_dockapp_redraw(wzx *z)
     led_key(z, row_btn[HIT_Z].x, ROW_Y, "Z", m == WZ_MODE_ZONES, 0x58d858);
     led_key(z, row_btn[HIT_M].x, ROW_Y, "M", m == WZ_MODE_TILING, 0xf0b030);
     arrow_key(z, HIT_NEXT, m != WZ_MODE_OFF);
+    /* Usando shapes para atualizar apenas a área desenhada, garantindo fundo 'transparente' */
+    XRectangle rects[4] = {
+        { 2, 2, 57, 39 },
+        { 4, 45, 9, 14 },
+        { 14, 45, 35, 14 },
+        { 51, 45, 10, 14 },
+    };
+    XShapeCombineRectangles(z->dpy, z->dock_icon, ShapeBounding, 0, 0, rects, 4, ShapeSet, Unsorted);
     XCopyArea(z->dpy, face, z->dock_icon, dgc, 0, 0, TILE, TILE, 0, 0);
     XFlush(z->dpy);
 }
