@@ -302,6 +302,7 @@ void wzx_fonts(wzx *z);
 void wzx_theme_reload(wzx *z);
 unsigned long wzx_pixel(wzx *z, unsigned rgb);
 void wzx_draw_bevel(wzx *z, Drawable d, GC gc, int x, int y, int w, int h, int raised);
+void wzx_draw_bevel_1px(wzx *z, Drawable d, GC gc, int x, int y, int w, int h, int raised);
 /* Painel de layouts no overlay do monitor mon (ainda não mostrado ou já
  * mostrado nele); bottom: embaixo em vez de em cima. */
 void wzx_strip_build(wzx *z, int mon, int bottom);

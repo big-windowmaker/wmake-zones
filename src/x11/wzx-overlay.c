@@ -141,6 +141,21 @@ wzx_draw_bevel(wzx *z, Drawable d, GC gc, int x, int y, int w, int h, int raised
     }
 }
 
+void
+wzx_draw_bevel_1px(wzx *z, Drawable d, GC gc, int x, int y, int w, int h, int raised)
+{
+    unsigned light = 0xC0C0C0, dark = 0x202020;
+    if (raised) {
+        light = 0xf8fcf8;
+    }
+    XSetForeground(z->dpy, gc, wzx_pixel(z, raised ? light : dark));
+    XDrawLine(z->dpy, d, gc, x, y, x + w - 1, y);
+    XDrawLine(z->dpy, d, gc, x, y, x, y + h - 1);
+    XSetForeground(z->dpy, gc, wzx_pixel(z, raised ? dark : light));
+    XDrawLine(z->dpy, d, gc, x, y + h - 1, x + w - 1, y + h - 1);
+    XDrawLine(z->dpy, d, gc, x + w - 1, y, x + w - 1, y + h - 1);
+}
+
 /* ---- desenho ------------------------------------------------------------ */
 
 static XRenderColor

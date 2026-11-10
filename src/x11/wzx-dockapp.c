@@ -43,6 +43,10 @@
 
 #define TILE 60
 
+#define COLOR_CYAN_ON 0X20b2ac
+#define COLOR_CYAN_HALF 0X004941
+#define COLOR_CYAN_OFF 0X1f1f1f
+#define COLOR_YELLOW_ON 0Xe0a030
 
 enum { POP_NONE = 0, POP_LAYOUTS, POP_MENU };
 
@@ -151,13 +155,13 @@ algo_label(const char *id)
     return id;
 }
 
-/* Fileira de baixo: seta, Z, M, seta (64 px, com a borda do ladrilho). */
-#define ROW_Y 45
+/* Fileira de baixo: seta, Z, M, seta (60 px). */
+#define ROW_Y 44
 #define ROW_H 14
 enum { HIT_NONE, HIT_PREV, HIT_Z, HIT_M, HIT_NEXT };
 static const struct {
     int x, w;
-} row_btn[] = { [HIT_PREV] = { 4, 9 }, [HIT_Z] = { 14, 17 }, [HIT_M] = { 33, 17 }, [HIT_NEXT] = { 51, 9 } };
+} row_btn[] = { [HIT_PREV] = { 2, 9 }, [HIT_Z] = { 14, 15 }, [HIT_M] = { 29, 15 }, [HIT_NEXT] = { 49, 9 } };
 
 static int
 row_hit(int x, int y)
@@ -243,12 +247,6 @@ led_key(wzx *z, int x, int y, const char *letter, int lit, unsigned color)
     const int w = 17, h = 14;
     XSetForeground(z->dpy, dgc, wzx_pixel(z, lit ? color : 0x2a2e33));
     XFillRectangle(z->dpy, face, dgc, x + 1, y + 1, w - 2, h - 2);
-    wzx_draw_bevel(z, face, dgc, x, y, w, h, 0);
-    if (lit) {
-        /* brilho no alto do LED */
-        XSetForeground(z->dpy, dgc, wzx_pixel(z, wz_rgb_mix(color, 0xffffff, 110)));
-        XDrawLine(z->dpy, face, dgc, x + 2, y + 2, x + w - 3, y + 2);
-    }
     pixtext(z, face, letter, x + (w - 6) / 2 + 1, y + 2, lit ? 0x101010 : 0x7a7e84, 2);
 }
 
@@ -265,15 +263,16 @@ wzx_dockapp_redraw(wzx *z)
     /* Fundo: amarelo só para garantir que será removido */
     XSetForeground(z->dpy, dgc, wzx_pixel(z, 0xffff00));
     XFillRectangle(z->dpy, face, dgc, 0, 0, TILE, TILE);
+    /* Tela afundada com a miniatura do layout, borda fina */
     wz_rect scr = { 3, 3, 55, 37 };
     XSetForeground(z->dpy, dgc, wzx_pixel(z, 0x1c2024));
     XFillRectangle(z->dpy, face, dgc, scr.x, scr.y, (unsigned)scr.w, (unsigned)scr.h);
-    wzx_draw_bevel(z, face, dgc, scr.x - 1, scr.y - 1, scr.w + 2, scr.h + 2, 0);
+    wzx_draw_bevel_1px(z, face, dgc, scr.x - 1, scr.y - 1, scr.w + 1, scr.h + 1, 0);
     /* A tela mostra o modo de verdade (o estado do serviço, que é este
      * processo): Zonas, as regiões de encaixe do layout; Mosaico, as janelas
      * organizadas pelo algoritmo; desligado, a pausa. */
     wz_mode m = wz_config_mode(&z->cfg);
-    wz_rect inner = { scr.x + 3, scr.y + 3, scr.w - 6, scr.h - 6 };
+    wz_rect inner = { scr.x + 2, scr.y + 2, scr.w - 6, scr.h - 6 };
     if (m == WZ_MODE_ZONES) {
         const wz_layout_def *l = current_layout(z);
         if (l)
@@ -286,15 +285,21 @@ wzx_dockapp_redraw(wzx *z)
     /* Setas (layout ou algoritmo anterior/seguinte) e as teclas Z e M: a do
      * modo ativo acesa. */
     arrow_key(z, HIT_PREV, m != WZ_MODE_OFF);
+    /* Tela LCD para os modos */
+    wz_rect scr2 = { 15, 45, 31, 13 };
+    XSetForeground(z->dpy, dgc, wzx_pixel(z, COLOR_CYAN_OFF));
+    XFillRectangle(z->dpy, face, dgc, scr2.x, scr2.y, (unsigned)scr2.w, (unsigned)scr2.h);
+    wzx_draw_bevel_1px(z, face, dgc, scr2.x - 1, scr2.y - 1, scr2.w + 1, scr2.h + 1, 0);
+    /* Desenha modos */
     led_key(z, row_btn[HIT_Z].x, ROW_Y, "Z", m == WZ_MODE_ZONES, 0x58d858);
     led_key(z, row_btn[HIT_M].x, ROW_Y, "M", m == WZ_MODE_TILING, 0xf0b030);
     arrow_key(z, HIT_NEXT, m != WZ_MODE_OFF);
     /* Usando shapes para atualizar apenas a área desenhada, garantindo fundo 'transparente' */
     XRectangle rects[4] = {
-        { 2, 2, 57, 39 },
-        { 4, 45, 9, 14 },
-        { 14, 45, 35, 14 },
-        { 51, 45, 10, 14 },
+        { 2, 2, 56, 38 },
+        { 2, 44, 9, 14 },
+        { 14, 44, 32, 14 },
+        { 49, 44, 9, 14 },
     };
     XShapeCombineRectangles(z->dpy, z->dock_icon, ShapeBounding, 0, 0, rects, 4, ShapeSet, Unsorted);
     XCopyArea(z->dpy, face, z->dock_icon, dgc, 0, 0, TILE, TILE, 0, 0);
