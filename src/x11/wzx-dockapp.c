@@ -89,16 +89,11 @@ draw_mini(wzx *z, Drawable d, GC gc, const char *tree, wz_rect box, unsigned til
     int n = wz_compute(t, box, 2, 0, zr, 64);
     wz_free(t);
     for (int i = 0; i < n && i < 64; i++) {
-        XSetForeground(z->dpy, gc, wzx_pixel(z, i == hl_index ? hl_rgb : tile_rgb));
+        XSetForeground(z->dpy, gc, wzx_pixel(z, i == hl_index ? COLOR_CYAN_ON : COLOR_CYAN_HALF));
         XFillRectangle(z->dpy, d, gc, zr[i].x, zr[i].y, (unsigned)zr[i].w, (unsigned)zr[i].h);
         if (zr[i].w >= 4 && zr[i].h >= 4) {
-            /* chanfro de um pixel: o ladrilho do OpenStep em miniatura */
-            XSetForeground(z->dpy, gc, wzx_pixel(z, 0xffffff));
-            XDrawLine(z->dpy, d, gc, zr[i].x, zr[i].y, zr[i].x + zr[i].w - 1, zr[i].y);
-            XDrawLine(z->dpy, d, gc, zr[i].x, zr[i].y, zr[i].x, zr[i].y + zr[i].h - 1);
-            XSetForeground(z->dpy, gc, wzx_pixel(z, 0x303030));
-            XDrawLine(z->dpy, d, gc, zr[i].x, zr[i].y + zr[i].h - 1, zr[i].x + zr[i].w - 1, zr[i].y + zr[i].h - 1);
-            XDrawLine(z->dpy, d, gc, zr[i].x + zr[i].w - 1, zr[i].y, zr[i].x + zr[i].w - 1, zr[i].y + zr[i].h - 1);
+            XSetForeground(z->dpy, gc, wzx_pixel(z, COLOR_CYAN_ON));
+            XDrawRectangle(z->dpy, face, gc, zr[i].x, zr[i].y, (unsigned)zr[i].w - 1, (unsigned)zr[i].h - 1);
         }
     }
 }
@@ -191,8 +186,8 @@ arrow_key(wzx *z, int which, int enabled)
     }
 }
 
-/* Mosaico: quatro janelas com barra de título, na disposição do algoritmo do
- * monitor (a principal com a barra âmbar, a cor do LED M). */
+/* Mosaico: quatro janelas na disposição do algoritmo do
+ * monitor (a principal em ciano, a cor do LED). */
 static void
 draw_windows(wzx *z, wz_rect box, int mon)
 {
@@ -221,11 +216,9 @@ draw_windows(wzx *z, wz_rect box, int mon)
         r[i] = (wz_rect){ x1, y1, x2 - x1 > 3 ? x2 - x1 : 3, y2 - y1 > 4 ? y2 - y1 : 4 };
     }
     for (int i = n - 1; i >= 0; i--) {
-        XSetForeground(z->dpy, dgc, wzx_pixel(z, 0xc2c0c5));
+        XSetForeground(z->dpy, dgc, wzx_pixel(z, i == 0 ? COLOR_CYAN_ON : COLOR_CYAN_HALF));
         XFillRectangle(z->dpy, face, dgc, r[i].x, r[i].y, (unsigned)r[i].w, (unsigned)r[i].h);
-        XSetForeground(z->dpy, dgc, wzx_pixel(z, i == 0 ? 0xe0a030 : 0x30363c));
-        XFillRectangle(z->dpy, face, dgc, r[i].x, r[i].y, (unsigned)r[i].w, 3);
-        XSetForeground(z->dpy, dgc, wzx_pixel(z, 0x303030));
+        XSetForeground(z->dpy, dgc, wzx_pixel(z, COLOR_CYAN_ON));
         XDrawRectangle(z->dpy, face, dgc, r[i].x, r[i].y, (unsigned)r[i].w - 1, (unsigned)r[i].h - 1);
     }
 }
@@ -234,7 +227,7 @@ draw_windows(wzx *z, wz_rect box, int mon)
 static void
 draw_pause(wzx *z, wz_rect scr)
 {
-    XSetForeground(z->dpy, dgc, wzx_pixel(z, 0x5e6066));
+    XSetForeground(z->dpy, dgc, wzx_pixel(z, COLOR_CYAN_ON));
     int cx = scr.x + scr.w / 2, cy = scr.y + scr.h / 2;
     XFillRectangle(z->dpy, face, dgc, cx - 6, cy - 7, 4, 14);
     XFillRectangle(z->dpy, face, dgc, cx + 2, cy - 7, 4, 14);
@@ -265,7 +258,7 @@ wzx_dockapp_redraw(wzx *z)
     XFillRectangle(z->dpy, face, dgc, 0, 0, TILE, TILE);
     /* Tela afundada com a miniatura do layout, borda fina */
     wz_rect scr = { 3, 3, 55, 37 };
-    XSetForeground(z->dpy, dgc, wzx_pixel(z, 0x1c2024));
+    XSetForeground(z->dpy, dgc, wzx_pixel(z, COLOR_CYAN_OFF));
     XFillRectangle(z->dpy, face, dgc, scr.x, scr.y, (unsigned)scr.w, (unsigned)scr.h);
     wzx_draw_bevel_1px(z, face, dgc, scr.x - 1, scr.y - 1, scr.w + 1, scr.h + 1, 0);
     /* A tela mostra o modo de verdade (o estado do serviço, que é este
