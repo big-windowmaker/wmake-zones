@@ -23,6 +23,7 @@ nok() { n=$((n + 1)); fails=$((fails + 1)); echo "not ok $n - $*"; }
 check() { if eval "$2"; then ok "$1"; else nok "$1"; fi; }
 
 [ -x "$WLMAKER" ] || { echo "1..0 # SKIP sem wlmaker"; exit 0; }
+[ -x "$WZ" ] || { echo "1..0 # SKIP sem o cliente wmake-zones (compilado sem X11)"; exit 0; }
 # Só o wlmaker do Big WindowMaker tem as zonas (lê o wmake-zones.conf); um
 # wlmaker do upstream não é falha deste projeto.
 grep -aqF 'wmake-zones/wmake-zones.conf' "$WLMAKER" || { echo "1..0 # SKIP wlmaker sem as zonas"; exit 0; }

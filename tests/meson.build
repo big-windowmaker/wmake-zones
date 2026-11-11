@@ -27,6 +27,9 @@ endif
 # Wayland: o wlmaker do Big WindowMaker aninhado num Xvfb (WLMAKER=caminho,
 # senão o do PATH). Sem ele, ou com um wlmaker sem as zonas, SKIP: isso não
 # prova nada, só não bloqueia quem não tem o compositor.
-wl_func = find_program('wayland-functional.sh')
-test('wayland-functional', wl_func, args: [meson.project_build_root()], protocol: 'tap', timeout: 300,
-     is_parallel: false, suite: 'wayland')
+# Usa o cliente wmake-zones, que só existe com o X11.
+if have_x11
+  wl_func = find_program('wayland-functional.sh')
+  test('wayland-functional', wl_func, args: [meson.project_build_root()], protocol: 'tap', timeout: 300,
+       is_parallel: false, suite: 'wayland')
+endif
