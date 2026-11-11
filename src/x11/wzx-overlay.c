@@ -141,13 +141,12 @@ wzx_draw_bevel(wzx *z, Drawable d, GC gc, int x, int y, int w, int h, int raised
     }
 }
 
+/* Chanfro de um pixel (a tela LCD do dockapp): afundado, escuro em cima e à
+ * esquerda e claro embaixo e à direita; em relevo, o contrário. */
 void
 wzx_draw_bevel_1px(wzx *z, Drawable d, GC gc, int x, int y, int w, int h, int raised)
 {
-    unsigned light = 0xC0C0C0, dark = 0x202020;
-    if (raised) {
-        light = 0xf8fcf8;
-    }
+    unsigned light = raised ? 0xf8fcf8 : 0xc0c0c0, dark = 0x202020;
     XSetForeground(z->dpy, gc, wzx_pixel(z, raised ? light : dark));
     XDrawLine(z->dpy, d, gc, x, y, x + w - 1, y);
     XDrawLine(z->dpy, d, gc, x, y, x, y + h - 1);
