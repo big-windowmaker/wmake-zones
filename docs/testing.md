@@ -71,17 +71,21 @@ e some refaz o mosaico; uma janela com tamanho mínimo que não cabe fica
 flutuando e entra quando passa a caber; uma janela levada para o outro
 monitor (como pelo teclado do Window Maker) entra no mosaico de lá.
 
-## Dockapp (`tests/x11-dockapp.sh`, 17 verificações)
+## Dockapp (`tests/x11-dockapp.sh`, 26 verificações; também sem X Shape)
 
-O ladrilho aberto com `--dockapp`: o modo na tela pelos pixels (LED Z ou M,
-zona destacada, barra da janela principal, pausa), as teclas Z e M, as setas
-no Mosaico (algoritmo) e nas Zonas (layout), setas sem efeito com tudo
-desligado e o clique esquerdo na tela. Depois, com o Window Maker: clique
+O ladrilho aberto com `--dockapp` (60x60 no quadro de 64): o modo na tela
+pelos pixels (LED Z ou M; ciano aceso e meio aceso nas zonas e janelas, só
+o aceso na pausa; nunca o amarelo de teste), as teclas Z e M, as setas no
+Mosaico (algoritmo) e nas Zonas (layout), setas sem efeito com tudo
+desligado e o clique esquerdo na tela. Cada borda das teclas Z, M, ◀ e ▶,
+também onde chegam à borda do ladrilho (a tecla, não o Window Maker). O
+`x11-dockapp-noshape` repete tudo com `WZX_NO_SHAPE=1` (como num servidor
+sem a extensão: fundo do pai e cópia só das partes desenhadas). Depois, com o Window Maker: clique
 direito na borda abre o menu dele e soltar fora o fecha; arrastar o
 ladrilho solto até a coluna do Dock o encaixa; um clique sem arrastar
 continua trocando o modo.
 
-## Wayland (`tests/wayland-functional.sh`, 48 verificações)
+## Wayland (`tests/wayland-functional.sh`, 51 verificações; suíte `wayland` do meson)
 
 wlmaker aninhado no Xvfb (`WLR_BACKENDS=x11`, pixman) e janelas GTK 3
 nativas (`tests/tools/janela.py`): socket; arrasto encaixa exatamente no
