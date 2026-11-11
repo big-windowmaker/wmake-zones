@@ -8,11 +8,11 @@
 
 #define WZX_GRAB_IDLE_MS 30000
 
-#include "wz-config.h"
-#include "wz-history.h"
-#include "wz-layout.h"
-#include "wz-tile.h"
-#include "wz-theme.h"
+#include "../engine/wz-config.h"
+#include "../engine/wz-history.h"
+#include "../engine/wz-layout.h"
+#include "../engine/wz-tile.h"
+#include "../engine/wz-theme.h"
 
 #include <sys/stat.h>
 #include <X11/Xlib.h>
@@ -302,6 +302,7 @@ void wzx_fonts(wzx *z);
 void wzx_theme_reload(wzx *z);
 unsigned long wzx_pixel(wzx *z, unsigned rgb);
 void wzx_draw_bevel(wzx *z, Drawable d, GC gc, int x, int y, int w, int h, int raised);
+void wzx_draw_bevel_1px(wzx *z, Drawable d, GC gc, int x, int y, int w, int h, int raised);
 /* Painel de layouts no overlay do monitor mon (ainda não mostrado ou já
  * mostrado nele); bottom: embaixo em vez de em cima. */
 void wzx_strip_build(wzx *z, int mon, int bottom);

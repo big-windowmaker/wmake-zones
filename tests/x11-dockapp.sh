@@ -61,16 +61,20 @@ sleep 1
 
 # O ladrilho: o ícone de aplicativo do wmaker (quadro 64x64 na fileira de
 # baixo, solto, sem Dock). Numa máquina lenta (CI) ele demora: até 10 s.
+# O quadro vem da própria janela do dockapp (60x60, centrada no quadro de
+# 64): a posição absoluta dela menos a dentro do quadro. Um 64x64 qualquer
+# na parte de baixo pode ser outro ícone, ou o quadro antes de o Window
+# Maker o assentar (2 px acima).
 find_tile() {
 	python3 - <<'PY'
 import re, subprocess
-out = subprocess.run(["xwininfo", "-root", "-children"], capture_output=True, text=True).stdout
-for m in re.finditer(r"(0x[0-9a-f]+) .*?\s(\d+)x(\d+)\+(-?\d+)\+(-?\d+)", out):
-    w, h, x, y = map(int, m.group(2, 3, 4, 5))
-    if (w, h) == (64, 64) and y >= 600:
+out = subprocess.run(["xwininfo", "-root", "-tree"], capture_output=True, text=True).stdout
+for m in re.finditer(r"(0x[0-9a-f]+) .*?\s(\d+)x(\d+)\+(-?\d+)\+(-?\d+)\s+\+(-?\d+)\+(-?\d+)", out):
+    w, h, rx, ry, ax, ay = map(int, m.group(2, 3, 4, 5, 6, 7))
+    if (w, h) == (60, 60) and (rx, ry) == (2, 2) and ay >= 600:
         g = subprocess.run(["xwininfo", "-id", m.group(1)], capture_output=True, text=True).stdout
         if "IsViewable" in g:
-            print(x, y)
+            print(ax - rx, ay - ry)
             break
 PY
 }
@@ -81,7 +85,7 @@ for _ in $(seq 1 50); do
 	sleep 0.2
 done
 sleep 0.5
-check "ladrilho do dockapp aberto" '[ -n "${tx:-}" ]'
+check "ladrilho do dockapp aberto (${tx:-?},${ty:-?})" '[ -n "${tx:-}" ]'
 if [ -z "${tx:-}" ]; then
 	echo "# janelas na raiz:"; xwininfo -root -children | sed 's/^/# /' | head -30
 	echo "# log do serviço:"; sed 's/^/# /' "$TMP/wz.log" | tail -10
@@ -91,29 +95,31 @@ fi
 mode() { "$WZ" status | sed -n 's/^mode=//p' | head -1; }
 algo() { "$WZ" status | sed -n 's/^algorithm=//p' | head -1; }
 press() { xdotool mousemove $((tx + $1)) $((ty + $2)) click 1; sleep 0.6; }
-# Pixels do ladrilho: LED Z aceso (verde), LED M aceso (âmbar), barra âmbar
-# da janela principal (Mosaico), azul da zona destacada (Zonas).
+# Pixels do ladrilho (tela LCD): LED Z aceso (verde), LED M aceso (âmbar),
+# ciano aceso (a zona destacada, a janela principal ou a pausa) e ciano meio
+# aceso (as outras zonas e janelas: não há na pausa). Amarelo nunca (era o
+# fundo de teste do pixmap, que aparecia sem a máscara do X Shape).
 look() {
 	import -window root -crop 64x64+"$tx"+"$ty" +repage "$TMP/t.png"
 	python3 -I -c 'import sys
 from PIL import Image
 px = {c for _n, c in Image.open(sys.argv[1]).convert("RGB").getcolors(64 * 64)}
 print(" ".join(k for k, c in (("Z", (0x58, 0xd8, 0x58)), ("M", (0xf0, 0xb0, 0x30)),
-                              ("barra", (0xe0, 0xa0, 0x30)), ("zona", (0x7f, 0xb0, 0xe0)),
-                              ("pausa", (0x5e, 0x60, 0x66))) if c in px))' "$TMP/t.png"
+                              ("tela", (0x20, 0xb2, 0xac)), ("meia", (0x00, 0x49, 0x41)),
+                              ("amarelo", (0xff, 0xff, 0x00))) if c in px))' "$TMP/t.png"
 }
 
-check "Zonas: LED Z aceso e a zona destacada na tela ($(look))" '[ "$(look)" = "Z zona" ]'
+check "Zonas: LED Z aceso e as zonas na tela ($(look))" '[ "$(look)" = "Z tela meia" ]'
 press 41 51
 check "tecla M: modo Mosaico ($(mode))" '[ "$(mode)" = tiling ]'
-check "Mosaico: LED M aceso e a barra da janela principal ($(look))" '[ "$(look)" = "M barra" ]'
+check "Mosaico: LED M aceso e as janelas na tela ($(look))" '[ "$(look)" = "M tela meia" ]'
 press 55 51
 check "seta ▶ no Mosaico: o algoritmo seguinte ($(algo))" '[ "$(algo)" = grid ]'
 press 8 51
 check "seta ◀: volta ao anterior ($(algo))" '[ "$(algo)" = master ]'
 press 41 51
 check "M aceso: desliga ($(mode))" '[ "$(mode)" = off ]'
-check "desligado: nenhum LED, a pausa na tela ($(look))" '[ "$(look)" = "pausa" ]'
+check "desligado: nenhum LED, só a pausa na tela ($(look))" '[ "$(look)" = "tela" ]'
 a=$(algo)
 press 55 51
 check "seta com tudo desligado não faz nada" '[ "$(mode)" = off ] && [ "$(algo)" = "$a" ]'
@@ -125,6 +131,37 @@ check "seta ▶ nas Zonas: o layout seguinte" '[ "$("$WZ" status | sed -n "s/^la
 press 32 20
 check "clique na tela: alterna Zonas e Mosaico (clique esquerdo padrão) ($(mode))" '[ "$(mode)" = tiling ]'
 check "o serviço continua no ar" '"$WZ" status >/dev/null 2>&1'
+
+# As bordas de cada tecla (coordenadas do quadro de 64; o ladrilho de 60 fica
+# em +2,+2): a área clicável é a desenhada, e as teclas que chegam à borda
+# do ladrilho (3 px) são delas, não do Window Maker. Z 16..31, M 32..47,
+# ◀ 4..12, ▶ 51..59; a fileira, y 46..59.
+"$WZ" mode zones >/dev/null
+sleep 0.4
+# O Window Maker reacomoda o ícone solto depois de abri-lo (2 px): aqui cada
+# pixel conta, então a posição de agora.
+read -r tx ty < <(find_tile)
+check "quadro do ladrilho, já assentado ($tx,$ty)" '[ -n "${tx:-}" ]'
+press 32 59
+check "M, canto de baixo à esquerda (32,59): Mosaico ($(mode))" '[ "$(mode)" = tiling ]'
+press 47 46
+check "M, canto de cima à direita (47,46): desliga ($(mode))" '[ "$(mode)" = off ]'
+press 31 59
+check "Z, último pixel (31,59; antes era do M): Zonas ($(mode))" '[ "$(mode)" = zones ]'
+press 16 46
+check "Z, primeiro pixel (16,46): desliga ($(mode))" '[ "$(mode)" = off ]'
+press 31 46
+check "Z (31,46): Zonas de novo ($(mode))" '[ "$(mode)" = zones ]'
+l0=$("$WZ" status | sed -n 's/^layout=//p' | head -1)
+press 59 59
+l1=$("$WZ" status | sed -n 's/^layout=//p' | head -1)
+check "▶ no último pixel (59,59; na borda do ladrilho): o layout seguinte ($l0 -> $l1)" '[ "$l1" != "$l0" ]'
+press 4 46
+l2=$("$WZ" status | sed -n 's/^layout=//p' | head -1)
+check "◀ no primeiro pixel (4,46; na borda): volta ($l2)" '[ "$l2" = "$l0" ]'
+check "nenhum amarelo no ladrilho ($(look))" '! look | grep -qw amarelo'
+"$WZ" mode tiling >/dev/null
+sleep 0.4
 
 # O ladrilho cobre o ícone e pede os cliques; arrastar e o menu do Window
 # Maker chegam a ele como eventos sintéticos (send_event) na janela do

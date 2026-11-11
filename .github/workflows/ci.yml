@@ -13,8 +13,8 @@ jobs:
           pacman -Syu --noconfirm --needed base-devel git meson ninja \
             libx11 libxi libxrandr libxext libxft libxrender fontconfig gtk3 cairo \
             wayland wayland-protocols librsvg \
-            xorg-server-xvfb xdotool xorg-xprop xterm windowmaker \
-            python python-gobject python-xlib appstream
+            xorg-server-xvfb xorg-server-xephyr xdotool xorg-xprop xorg-xwininfo xterm windowmaker \
+            imagemagick python python-gobject python-xlib python-pillow appstream
       - uses: actions/checkout@v4
       - name: Compilar
         run: |
@@ -24,6 +24,8 @@ jobs:
         run: |
           # A saída TAP (qual verificação falhou) fica no testlog.txt.
           meson test -C build --print-errorlogs || { cat build/meson-logs/testlog.txt; exit 1; }
+          # Um SKIP não é aprovação: o motivo de cada um fica no log.
+          grep -h '# SKIP' build/meson-logs/testlog.txt || true
       - name: Núcleo com sanitizers
         run: |
           meson setup asan -Db_sanitize=address,undefined -Db_lundef=false -Dprefs=disabled -Dwayland_dockapp=disabled

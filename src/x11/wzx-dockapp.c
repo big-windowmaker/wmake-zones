@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later
  *
- * Dockapp wmake-zones: ladrilho de 64x64 no Dock/Clip do Window Maker,
+ * Dockapp wmake-zones: ladrilho de 60x60 (no quadro de 64 do Window Maker,
+ * que o centra) no Dock/Clip,
  * dentro do próprio daemon (um processo só, sem serviço duplicado).
  *
  *   clique esquerdo   Zonas <-> Mosaico          ([Dockapp] LeftClick)
@@ -12,7 +13,8 @@
  *   arrastar          move o ladrilho como qualquer ícone do Window Maker
  *                     (para o Dock, o Clip, um gaveteiro, fora deles)
  *   borda (3 px)      como a borda dos outros dockapps: arrastar move,
- *                     clique direito abre o menu do Window Maker
+ *                     clique direito abre o menu do Window Maker (fora
+ *                     das teclas, que chegam até a borda)
  *
  * O ladrilho cobre o ícone inteiro e pede os cliques; o Window Maker então
  * não os recebe (um cliente só pode pedir ButtonPress numa janela) e só
@@ -22,25 +24,33 @@
  * soltarmos a captura implícita do ponteiro; ele então pega o ponteiro e
  * move o ícone ou abre o menu (dock.c e appicon.c tratam send_event).
  *
- * O ladrilho mostra a miniatura do layout ativo numa "tela" afundada e,
- * embaixo, duas teclas com LED: Z (zonas, verde) e M (mosaico, âmbar);
- * nenhuma acesa = desligado. Cada troca mostra um balão discreto com o modo
+ * O ladrilho mostra a miniatura do layout ativo numa tela LCD (ciano) e,
+ * embaixo, as setas e duas teclas com LED: Z (zonas, verde) e M (mosaico,
+ * âmbar); nenhuma acesa = desligado. Só a tela e as teclas são desenhadas:
+ * o resto mostra o ladrilho do Dock (X Shape; sem a extensão, o fundo do
+ * pai, ParentRelative, e a cópia só das partes desenhadas). Cada troca mostra um balão discreto com o modo
  * e o layout, que some sozinho (a dica ao parar o ponteiro é o balão do
  * próprio Window Maker, com o nome do dockapp). Só redesenha quando algo muda; parado, não acorda.
  */
 #define _GNU_SOURCE
 #include "wzx.h"
-#include "wz-i18n.h"
+#include "../engine/wz-i18n.h"
 
 #include <X11/Xatom.h>
 #include <X11/keysym.h>
+#include <X11/extensions/shape.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
-#define TILE 64
+#define TILE 60
+
+/* Tela LCD: aceso, meio aceso (zonas e janelas) e apagado (o fundo). */
+#define COLOR_CYAN_ON 0x20b2ac
+#define COLOR_CYAN_HALF 0x004941
+#define COLOR_CYAN_OFF 0x1f1f1f
 
 enum { POP_NONE = 0, POP_LAYOUTS, POP_MENU };
 
@@ -83,16 +93,11 @@ draw_mini(wzx *z, Drawable d, GC gc, const char *tree, wz_rect box, unsigned til
     int n = wz_compute(t, box, 2, 0, zr, 64);
     wz_free(t);
     for (int i = 0; i < n && i < 64; i++) {
-        XSetForeground(z->dpy, gc, wzx_pixel(z, i == hl_index ? hl_rgb : tile_rgb));
+        XSetForeground(z->dpy, gc, wzx_pixel(z, i == hl_index ? COLOR_CYAN_ON : COLOR_CYAN_HALF));
         XFillRectangle(z->dpy, d, gc, zr[i].x, zr[i].y, (unsigned)zr[i].w, (unsigned)zr[i].h);
         if (zr[i].w >= 4 && zr[i].h >= 4) {
-            /* chanfro de um pixel: o ladrilho do OpenStep em miniatura */
-            XSetForeground(z->dpy, gc, wzx_pixel(z, 0xffffff));
-            XDrawLine(z->dpy, d, gc, zr[i].x, zr[i].y, zr[i].x + zr[i].w - 1, zr[i].y);
-            XDrawLine(z->dpy, d, gc, zr[i].x, zr[i].y, zr[i].x, zr[i].y + zr[i].h - 1);
-            XSetForeground(z->dpy, gc, wzx_pixel(z, 0x303030));
-            XDrawLine(z->dpy, d, gc, zr[i].x, zr[i].y + zr[i].h - 1, zr[i].x + zr[i].w - 1, zr[i].y + zr[i].h - 1);
-            XDrawLine(z->dpy, d, gc, zr[i].x + zr[i].w - 1, zr[i].y, zr[i].x + zr[i].w - 1, zr[i].y + zr[i].h - 1);
+            XSetForeground(z->dpy, gc, wzx_pixel(z, COLOR_CYAN_ON));
+            XDrawRectangle(z->dpy, d, gc, zr[i].x, zr[i].y, (unsigned)zr[i].w - 1, (unsigned)zr[i].h - 1);
         }
     }
 }
@@ -149,13 +154,24 @@ algo_label(const char *id)
     return id;
 }
 
-/* Fileira de baixo: seta, Z, M, seta (64 px, com a borda do ladrilho). */
-#define ROW_Y 45
+/* Fileira de baixo: seta, Z, M, seta (60 px). Z e M dividem a tela LCD
+ * (x 14..45, com o chanfro): Z 14..29, M 30..45, a área clicável igual à
+ * desenhada. */
+#define ROW_Y 44
 #define ROW_H 14
 enum { HIT_NONE, HIT_PREV, HIT_Z, HIT_M, HIT_NEXT };
 static const struct {
     int x, w;
-} row_btn[] = { [HIT_PREV] = { 4, 9 }, [HIT_Z] = { 14, 17 }, [HIT_M] = { 33, 17 }, [HIT_NEXT] = { 51, 9 } };
+} row_btn[] = { [HIT_PREV] = { 2, 9 }, [HIT_Z] = { 14, 16 }, [HIT_M] = { 30, 16 }, [HIT_NEXT] = { 49, 9 } };
+
+/* As partes desenhadas do ladrilho: a tela, as setas e a tela LCD de Z e M. */
+static XRectangle dock_parts[] = {
+    { 2, 2, 56, 38 },
+    { 2, ROW_Y, 9, ROW_H },
+    { 14, ROW_Y, 32, ROW_H },
+    { 49, ROW_Y, 9, ROW_H },
+};
+#define DOCK_NPARTS ((int)(sizeof dock_parts / sizeof dock_parts[0]))
 
 static int
 row_hit(int x, int y)
@@ -185,8 +201,8 @@ arrow_key(wzx *z, int which, int enabled)
     }
 }
 
-/* Mosaico: quatro janelas com barra de título, na disposição do algoritmo do
- * monitor (a principal com a barra âmbar, a cor do LED M). */
+/* Mosaico: quatro janelas na disposição do algoritmo do
+ * monitor (a principal em ciano, a cor do LED). */
 static void
 draw_windows(wzx *z, wz_rect box, int mon)
 {
@@ -215,11 +231,9 @@ draw_windows(wzx *z, wz_rect box, int mon)
         r[i] = (wz_rect){ x1, y1, x2 - x1 > 3 ? x2 - x1 : 3, y2 - y1 > 4 ? y2 - y1 : 4 };
     }
     for (int i = n - 1; i >= 0; i--) {
-        XSetForeground(z->dpy, dgc, wzx_pixel(z, 0xc2c0c5));
+        XSetForeground(z->dpy, dgc, wzx_pixel(z, i == 0 ? COLOR_CYAN_ON : COLOR_CYAN_HALF));
         XFillRectangle(z->dpy, face, dgc, r[i].x, r[i].y, (unsigned)r[i].w, (unsigned)r[i].h);
-        XSetForeground(z->dpy, dgc, wzx_pixel(z, i == 0 ? 0xe0a030 : 0x30363c));
-        XFillRectangle(z->dpy, face, dgc, r[i].x, r[i].y, (unsigned)r[i].w, 3);
-        XSetForeground(z->dpy, dgc, wzx_pixel(z, 0x303030));
+        XSetForeground(z->dpy, dgc, wzx_pixel(z, COLOR_CYAN_ON));
         XDrawRectangle(z->dpy, face, dgc, r[i].x, r[i].y, (unsigned)r[i].w - 1, (unsigned)r[i].h - 1);
     }
 }
@@ -228,26 +242,23 @@ draw_windows(wzx *z, wz_rect box, int mon)
 static void
 draw_pause(wzx *z, wz_rect scr)
 {
-    XSetForeground(z->dpy, dgc, wzx_pixel(z, 0x5e6066));
+    XSetForeground(z->dpy, dgc, wzx_pixel(z, COLOR_CYAN_ON));
     int cx = scr.x + scr.w / 2, cy = scr.y + scr.h / 2;
     XFillRectangle(z->dpy, face, dgc, cx - 6, cy - 7, 4, 14);
     XFillRectangle(z->dpy, face, dgc, cx + 2, cy - 7, 4, 14);
 }
 
-/* Tecla com LED: afundada e escura apagada, acesa com a letra escura. */
+/* Tecla com LED dentro da tela LCD (a área de row_btn[which] sem o chanfro
+ * da tela): apagada escura, acesa com a letra escura. */
 static void
-led_key(wzx *z, int x, int y, const char *letter, int lit, unsigned color)
+led_key(wzx *z, int which, const char *letter, int lit, unsigned color)
 {
-    const int w = 17, h = 14;
+    int x = row_btn[which].x, w = row_btn[which].w;
+    /* Z começa no chanfro esquerdo da tela, M termina no direito. */
+    int x0 = which == HIT_Z ? x + 1 : x, w0 = w - 1;
     XSetForeground(z->dpy, dgc, wzx_pixel(z, lit ? color : 0x2a2e33));
-    XFillRectangle(z->dpy, face, dgc, x + 1, y + 1, w - 2, h - 2);
-    wzx_draw_bevel(z, face, dgc, x, y, w, h, 0);
-    if (lit) {
-        /* brilho no alto do LED */
-        XSetForeground(z->dpy, dgc, wzx_pixel(z, wz_rgb_mix(color, 0xffffff, 110)));
-        XDrawLine(z->dpy, face, dgc, x + 2, y + 2, x + w - 3, y + 2);
-    }
-    pixtext(z, face, letter, x + (w - 6) / 2 + 1, y + 2, lit ? 0x101010 : 0x7a7e84, 2);
+    XFillRectangle(z->dpy, face, dgc, x0, ROW_Y + 1, (unsigned)w0, ROW_H - 2);
+    pixtext(z, face, letter, x0 + (w0 - 6) / 2 + 1, ROW_Y + 2, lit ? 0x101010 : 0x7a7e84, 2);
 }
 
 void
@@ -260,23 +271,20 @@ wzx_dockapp_redraw(wzx *z)
         face = XCreatePixmap(z->dpy, z->dock_icon, TILE, TILE, (unsigned)DefaultDepth(z->dpy, z->screen));
     if (!dgc)
         dgc = XCreateGC(z->dpy, face, 0, NULL);
-    /* Fundo: ladrilho de ícone (degradê diagonal do IconBack). */
-    for (int i = 0; i < 2 * TILE; i++) {
-        XSetForeground(z->dpy, dgc, wzx_pixel(z, wz_rgb_mix(z->theme.icon1, z->theme.icon2, i * 255 / (2 * TILE))));
-        XDrawLine(z->dpy, face, dgc, i, 0, i - TILE, TILE);
-        XDrawLine(z->dpy, face, dgc, i, 0, 0, i);
-    }
-    wzx_draw_bevel(z, face, dgc, 0, 0, TILE, TILE, 1);
-    /* Tela afundada com a miniatura do layout. */
-    wz_rect scr = { 5, 5, 54, 36 };
-    XSetForeground(z->dpy, dgc, wzx_pixel(z, 0x1c2024));
+    /* Fundo do pixmap: fica fora das partes desenhadas, que são as únicas
+     * mostradas (sem cor de teste: nada aparece se a máscara falhar). */
+    XSetForeground(z->dpy, dgc, wzx_pixel(z, z->theme.icon1));
+    XFillRectangle(z->dpy, face, dgc, 0, 0, TILE, TILE);
+    /* Tela afundada com a miniatura do layout, borda fina */
+    wz_rect scr = { 3, 3, 55, 37 };
+    XSetForeground(z->dpy, dgc, wzx_pixel(z, COLOR_CYAN_OFF));
     XFillRectangle(z->dpy, face, dgc, scr.x, scr.y, (unsigned)scr.w, (unsigned)scr.h);
-    wzx_draw_bevel(z, face, dgc, scr.x - 1, scr.y - 1, scr.w + 2, scr.h + 2, 0);
+    wzx_draw_bevel_1px(z, face, dgc, scr.x - 1, scr.y - 1, scr.w + 1, scr.h + 1, 0);
     /* A tela mostra o modo de verdade (o estado do serviço, que é este
      * processo): Zonas, as regiões de encaixe do layout; Mosaico, as janelas
      * organizadas pelo algoritmo; desligado, a pausa. */
     wz_mode m = wz_config_mode(&z->cfg);
-    wz_rect inner = { scr.x + 3, scr.y + 3, scr.w - 6, scr.h - 6 };
+    wz_rect inner = { scr.x + 2, scr.y + 2, scr.w - 4, scr.h - 4 };
     if (m == WZ_MODE_ZONES) {
         const wz_layout_def *l = current_layout(z);
         if (l)
@@ -289,10 +297,33 @@ wzx_dockapp_redraw(wzx *z)
     /* Setas (layout ou algoritmo anterior/seguinte) e as teclas Z e M: a do
      * modo ativo acesa. */
     arrow_key(z, HIT_PREV, m != WZ_MODE_OFF);
-    led_key(z, row_btn[HIT_Z].x, ROW_Y, "Z", m == WZ_MODE_ZONES, 0x58d858);
-    led_key(z, row_btn[HIT_M].x, ROW_Y, "M", m == WZ_MODE_TILING, 0xf0b030);
+    /* Tela LCD para os modos */
+    wz_rect scr2 = { 15, 45, 31, 13 };
+    XSetForeground(z->dpy, dgc, wzx_pixel(z, COLOR_CYAN_OFF));
+    XFillRectangle(z->dpy, face, dgc, scr2.x, scr2.y, (unsigned)scr2.w, (unsigned)scr2.h);
+    wzx_draw_bevel_1px(z, face, dgc, scr2.x - 1, scr2.y - 1, scr2.w + 1, scr2.h + 1, 0);
+    /* Desenha modos */
+    led_key(z, HIT_Z, "Z", m == WZ_MODE_ZONES, 0x58d858);
+    led_key(z, HIT_M, "M", m == WZ_MODE_TILING, 0xf0b030);
     arrow_key(z, HIT_NEXT, m != WZ_MODE_OFF);
-    XCopyArea(z->dpy, face, z->dock_icon, dgc, 0, 0, TILE, TILE, 0, 0);
+    /* Só as partes desenhadas aparecem; o resto é o ladrilho do Dock. Com o
+     * X Shape, a janela tem a forma delas (os cliques fora caem no
+     * Window Maker); sem ele, o fundo do pai (ParentRelative) e a cópia só
+     * delas. */
+    static Window shaped;
+    if (z->has_shape) {
+        if (shaped != z->dock_icon) {
+            XShapeCombineRectangles(z->dpy, z->dock_icon, ShapeBounding, 0, 0, dock_parts, DOCK_NPARTS, ShapeSet,
+                                    Unsorted);
+            shaped = z->dock_icon;
+        }
+        XCopyArea(z->dpy, face, z->dock_icon, dgc, 0, 0, TILE, TILE, 0, 0);
+    } else {
+        XClearWindow(z->dpy, z->dock_icon);
+        for (int i = 0; i < DOCK_NPARTS; i++)
+            XCopyArea(z->dpy, face, z->dock_icon, dgc, dock_parts[i].x, dock_parts[i].y, dock_parts[i].width,
+                      dock_parts[i].height, dock_parts[i].x, dock_parts[i].y);
+    }
     XFlush(z->dpy);
 }
 
@@ -1181,7 +1212,10 @@ wzx_dockapp_event(wzx *z, XEvent *e)
     case ButtonPress: {
         tip_at = 0;
         XButtonEvent *b = &e->xbutton;
-        int edge = b->x < EDGE || b->y < EDGE || b->x >= TILE - EDGE || b->y >= TILE - EDGE;
+        /* As teclas vão até a borda (x 2..57, y até 57): nelas o clique é
+         * da tecla, não do Window Maker. */
+        int edge = (b->x < EDGE || b->y < EDGE || b->x >= TILE - EDGE || b->y >= TILE - EDGE) &&
+                   row_hit(b->x, b->y) == HIT_NONE;
         /* A borda é do Window Maker, como nos outros dockapps. */
         if (edge && (b->button == 1 || b->button == 3) &&
             wm_forward(z, b->button, b->x, b->y, b->x_root, b->y_root, b->state)) {

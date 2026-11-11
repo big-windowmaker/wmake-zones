@@ -550,7 +550,9 @@ main(int argc, char **argv)
     if (!z->has_xi)
         wzx_log("XInput 2.1 ausente: o arrasto não será detectado (só atalhos e comandos)");
     z->has_randr = XRRQueryExtension(z->dpy, &z->randr_event, &err);
-    z->has_shape = XShapeQueryExtension(z->dpy, &ev, &err);
+    /* WZX_NO_SHAPE: como num servidor sem a extensão (testes: o X.Org de
+     * hoje não deixa desligar o X Shape). */
+    z->has_shape = XShapeQueryExtension(z->dpy, &ev, &err) && !getenv("WZX_NO_SHAPE");
 
     wzx_wm_init(z);
     wzx_update_monitors(z);

@@ -16,9 +16,9 @@
  * de título da janela em foco.
  */
 #define _GNU_SOURCE
-#include "wz-alloc.h"
+#include "../engine/wz-alloc.h"
 #include "wzx.h"
-#include "wz-i18n.h"
+#include "../engine/wz-i18n.h"
 
 #include <X11/Xatom.h>
 #include <X11/extensions/Xrender.h>
@@ -139,6 +139,20 @@ wzx_draw_bevel(wzx *z, Drawable d, GC gc, int x, int y, int w, int h, int raised
         XDrawLine(z->dpy, d, gc, x + 1, y + 1, x + w - 2, y + 1);
         XDrawLine(z->dpy, d, gc, x + 1, y + 1, x + 1, y + h - 2);
     }
+}
+
+/* Chanfro de um pixel (a tela LCD do dockapp): afundado, escuro em cima e à
+ * esquerda e claro embaixo e à direita; em relevo, o contrário. */
+void
+wzx_draw_bevel_1px(wzx *z, Drawable d, GC gc, int x, int y, int w, int h, int raised)
+{
+    unsigned light = raised ? 0xf8fcf8 : 0xc0c0c0, dark = 0x202020;
+    XSetForeground(z->dpy, gc, wzx_pixel(z, raised ? light : dark));
+    XDrawLine(z->dpy, d, gc, x, y, x + w - 1, y);
+    XDrawLine(z->dpy, d, gc, x, y, x, y + h - 1);
+    XSetForeground(z->dpy, gc, wzx_pixel(z, raised ? dark : light));
+    XDrawLine(z->dpy, d, gc, x, y + h - 1, x + w - 1, y + h - 1);
+    XDrawLine(z->dpy, d, gc, x + w - 1, y, x + w - 1, y + h - 1);
 }
 
 /* ---- desenho ------------------------------------------------------------ */
