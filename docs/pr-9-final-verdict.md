@@ -20,5 +20,7 @@
 
 ## Recomendação
 
-APPROVE, condicionado à CI do HEAD final do PR (o mesmo código validado:
-depois de `146fe2d` só mudaram documentos e o workflow).
+APPROVE, condicionado à CI do HEAD final do PR. Depois do código validado
+(`146fe2d`) só mudaram documentos, o workflow e o registro do teste do
+Wayland (só com o cliente X11 compilado, como apontou o CodeRabbit;
+51/51 de novo depois da mudança).
