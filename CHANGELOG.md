@@ -1,5 +1,13 @@
 # Mudanças
 
+## 0.4.1 — 2026-11-12
+
+- Dockapp do Wayland (`wmake-zones-wl`) volta a ser arrastável para o Dock e
+  o Clip do wlmaker: desde a 0.3.1 ele desenha o ladrilho inteiro (64 px) e
+  cobria a borda de 3 px por onde o wlmaker arrasta os dockapps; agora a
+  borda fica fora da região de entrada da superfície (o desenho continua no
+  ladrilho inteiro). Os cliques no meio continuam indo para o dockapp.
+
 ## 0.4.0 — 2026-11-11
 
 Mosaico que lida com janelas GTK4, dockapp no estilo LCD e arrastável, e o
