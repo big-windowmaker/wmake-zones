@@ -14,5 +14,6 @@ Exec=wmake-zones-prefs
 Icon=wmake-zones
 Categories=Settings;DesktopSettings;
 Keywords=tiling;snap;zones;layout;mosaico;zonas;encaixe;
+Keywords[pt_BR]=mosaico;zonas;encaixe;layout;janelas;organizar;tiling;snap;
 OnlyShowIn=WindowMaker;wlmaker;
 StartupNotify=false

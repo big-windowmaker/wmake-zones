@@ -33,3 +33,6 @@ if have_x11
   test('wayland-functional', wl_func, args: [meson.project_build_root()], protocol: 'tap', timeout: 300,
        is_parallel: false, suite: 'wayland')
 endif
+# Tradução: POTFILES completo, POT em dia com o código, catálogos válidos.
+po_check = find_program('po-check.sh')
+test('po', po_check, args: [meson.project_source_root()], protocol: 'tap')

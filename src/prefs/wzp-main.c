@@ -925,6 +925,60 @@ editable_col(const char *title, int col)
 static GtkListStore *compat_store;
 static GtkWidget *compat_view;
 
+/* O motivo do "windows -d" é texto do protocolo, o mesmo no serviço do X11
+ * e no wlmaker (os testes dos dois procuram por ele): fica como está lá e
+ * só a coluna das preferências o mostra no idioma do usuário. Um motivo
+ * desconhecido (serviço mais novo) aparece como veio. */
+static char *
+compat_reason(const char *why)
+{
+    static const struct {
+        const char *proto, *label;
+    } fixed[] = {
+        { "mosaico", N_("Tiled") },
+        { "regra: ignorar", N_("Rule: ignore") },
+        { "tipo especial (diálogo, utilitário, menu)", N_("Special type (dialog, utility, menu)") },
+        { "diálogo", N_("Dialog") },
+        { "tamanho fixo", N_("Fixed size") },
+        { "tela cheia", N_("Full screen") },
+        { "minimizada ou enrolada", N_("Minimized or shaded") },
+        { "minimizada", N_("Minimized") },
+        { "janela filha (transient)", N_("Child window (transient)") },
+        { "modal", N_("Modal") },
+        { "em todas as áreas, sempre acima ou fora da barra de tarefas",
+          N_("On all workspaces, always on top or not in the taskbar") },
+        { "flutuante por escolha do usuário", N_("Floating by choice of the user") },
+        { "regra: flutuante", N_("Rule: floating") },
+        { "outra área de trabalho", N_("On another workspace") },
+        { "mosaico desligado neste monitor", N_("Tiling is off on this monitor") },
+        { "mosaico desligado ou aguardando", N_("Tiling is off, or waiting") },
+        { "aguardando", N_("Waiting") },
+    };
+    int a, b, c, e, n = 0;
+    if (sscanf(why, "não cabe: mínimo %dx%d, célula %dx%d%n", &a, &b, &c, &e, &n) == 4 && !why[n])
+        /* TRANSLATORS: the window's minimum size and the size of its cell, in pixels. */
+        return g_strdup_printf(_("Does not fit: minimum %d×%d, cell %d×%d"), a, b, c, e);
+    if (sscanf(why, "tamanho fixo (%dx%d)%n", &a, &b, &n) == 2 && !why[n])
+        return g_strdup_printf(_("Fixed size (%d×%d)"), a, b);
+    /* O wlmaker acrescenta " (mínimo LxA)" quando a janela pede um mínimo. */
+    char *base = g_strdup(why);
+    char *suffix = NULL;
+    char *p = strstr(base, " (mínimo ");
+    if (p && sscanf(p, " (mínimo %dx%d)%n", &a, &b, &n) == 2 && !p[n]) {
+        *p = '\0';
+        /* TRANSLATORS: appended to a reason; the window's minimum size in pixels. */
+        suffix = g_strdup_printf(_(" (minimum %d×%d)"), a, b);
+    }
+    const char *label = NULL;
+    for (size_t i = 0; i < G_N_ELEMENTS(fixed); i++)
+        if (!strcmp(base, fixed[i].proto))
+            label = _(fixed[i].label);
+    char *r = label ? g_strconcat(label, suffix ? suffix : "", NULL) : g_strdup(why);
+    g_free(base);
+    g_free(suffix);
+    return r;
+}
+
 static void
 compat_fill(GtkButton *b, gpointer d)
 {
@@ -943,8 +997,10 @@ compat_fill(GtkButton *b, gpointer d)
          * classe, instância e título: sem motivo. */
         if (f[0] && f[1] && g_str_has_prefix(f[1], "tiled=") && f[2]) {
             GtkTreeIter it;
+            char *why = compat_reason(f[2]);
             gtk_list_store_append(compat_store, &it);
-            gtk_list_store_set(compat_store, &it, 0, f[0], 1, f[3] ? f[3] : "", 2, f[2], -1);
+            gtk_list_store_set(compat_store, &it, 0, f[0], 1, f[3] ? f[3] : "", 2, why, -1);
+            g_free(why);
         }
         g_strfreev(f);
     }
@@ -1202,6 +1258,14 @@ on_section(GtkToggleButton *b, gpointer idx)
 static void
 about(GtkWindow *parent)
 {
+    /* the maintainers of Big WindowMaker, and the projects it builds on
+     * ("Name URL": GTK shows the name as a link) */
+    static const char *maintainers[] = { "Rafael Ruscher <rruscher@gmail.com>",
+                                         "Barnabé Di Kartola <barnabedikartola@gmail.com>", NULL };
+    static const char *thanks[] = { "Alfredo Kojima — Window Maker https://www.windowmaker.org/",
+                                    "Philipp Kaeser — wlmaker https://github.com/phkaeser/wlmaker",
+                                    "Bruno Gonçalves — BigLinux https://www.biglinux.com.br/",
+                                    "Tales A. Mendonça — BigCommunity", NULL };
     GtkWidget *d = gtk_about_dialog_new();
     gtk_about_dialog_set_program_name(GTK_ABOUT_DIALOG(d), "wmake-zones");
     gtk_about_dialog_set_version(GTK_ABOUT_DIALOG(d), WZ_VERSION);
@@ -1211,6 +1275,9 @@ about(GtkWindow *parent)
     gtk_about_dialog_set_website(GTK_ABOUT_DIALOG(d), "https://github.com/big-windowmaker/wmake-zones");
     gtk_about_dialog_set_license_type(GTK_ABOUT_DIALOG(d), GTK_LICENSE_GPL_2_0);
     gtk_about_dialog_set_logo_icon_name(GTK_ABOUT_DIALOG(d), "wmake-zones");
+    gtk_about_dialog_set_copyright(GTK_ABOUT_DIALOG(d), "© 2026 Big WindowMaker");
+    gtk_about_dialog_add_credit_section(GTK_ABOUT_DIALOG(d), _("Maintainers of Big WindowMaker"), maintainers);
+    gtk_about_dialog_add_credit_section(GTK_ABOUT_DIALOG(d), _("Special thanks"), thanks);
     if (parent)
         gtk_window_set_transient_for(GTK_WINDOW(d), parent);
     gtk_dialog_run(GTK_DIALOG(d));

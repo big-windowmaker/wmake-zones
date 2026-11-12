@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: wmake-zones\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-05 09:09-0300\n"
+"POT-Creation-Date: 2026-11-11 22:05-0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -18,7 +18,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
 
-#: src/x11/wzx-main.c:296
+#: src/x11/wzx-main.c:293
 #, c-format
 msgid ""
 "Usage: wmake-zones [OPTION | COMMAND [ARGUMENT]]\n"
@@ -51,7 +51,8 @@ msgid ""
 "  undo | redo                undo or redo the last change\n"
 "  picker                     choose a zone with the keyboard\n"
 "  preview TREE               show a layout for a moment, e.g. \"H(2,1)\"\n"
-"  windows [-l]               open windows (-l: monitor, zone and geometry)\n"
+"  windows [-l|-d]            open windows (-l: monitor, zone and geometry;\n"
+"                             -d: why each one is or is not tiled)\n"
 "  editor | prefs [PAGE]      open the zone editor or the preferences\n"
 "  overlay                    state of the zones overlay (diagnostics)\n"
 "  reload | log | ping | quit\n"
@@ -59,191 +60,200 @@ msgid ""
 "Configuration: ~/.config/wmake-zones/wmake-zones.conf\n"
 msgstr ""
 
-#: src/x11/wzx-main.c:416
+#: src/x11/wzx-main.c:414
 msgid "could not start the service"
 msgstr ""
 
-#: src/x11/wzx-main.c:425
+#: src/x11/wzx-main.c:423
 msgid "the service is not running"
 msgstr ""
 
-#: src/x11/wzx-main.c:425
+#: src/x11/wzx-main.c:423
 msgid "no display"
 msgstr ""
 
-#: src/x11/wzx-main.c:448
+#: src/x11/wzx-main.c:446
 msgid "Zones and Auto Tiling are off; Window Maker is back to normal."
 msgstr ""
 
 #. no Wayland quem faz o trabalho é o wlmaker
-#: src/x11/wzx-main.c:497
+#: src/x11/wzx-main.c:495
 msgid "in a Wayland session the zones belong to wlmaker; use the commands."
 msgstr ""
 
-#: src/x11/wzx-main.c:516
+#: src/x11/wzx-main.c:514
 msgid "no X server (DISPLAY)"
 msgstr ""
 
-#: src/x11/wzx-main.c:530
+#: src/x11/wzx-main.c:528
 msgid ""
 "could not create the control socket in $XDG_RUNTIME_DIR/wmake-zones (path "
 "too long or no permission)"
 msgstr ""
 
-#: src/x11/wzx-main.c:544
+#: src/x11/wzx-main.c:542
 msgid "already running on this display"
 msgstr ""
 
-#: src/x11/wzx-overlay.c:274
+#: src/x11/wzx-overlay.c:288
 msgid ""
 "1–9 or arrows to choose · Enter snaps · Tab changes the layout · Esc cancels"
 msgstr ""
 
-#: src/x11/wzx-overlay.c:475
+#: src/x11/wzx-overlay.c:489
 msgid "Window layout: choose a layout, then a zone"
 msgstr ""
 
-#: src/x11/wzx-dockapp.c:116 src/x11/wzx-dockapp.c:416
-#: src/prefs/wzp-main.c:1097
+#: src/x11/wzx-dockapp.c:135 src/x11/wzx-dockapp.c:626
+#: src/prefs/wzp-main.c:1028 src/prefs/wzp-main.c:1239
 msgid "Tiling"
 msgstr ""
 
-#: src/x11/wzx-dockapp.c:116 src/x11/wzx-dockapp.c:415 src/prefs/wzp-main.c:441
-#: src/prefs/wzp-main.c:1096
+#: src/x11/wzx-dockapp.c:135 src/x11/wzx-dockapp.c:625 src/prefs/wzp-main.c:441
+#: src/prefs/wzp-main.c:1238
 msgid "Zones"
 msgstr ""
 
-#: src/x11/wzx-dockapp.c:116 src/x11/wzx-dockapp.c:417 src/prefs/wzp-main.c:504
+#: src/x11/wzx-dockapp.c:135 src/x11/wzx-dockapp.c:627 src/prefs/wzp-main.c:504
 msgid "Off"
 msgstr ""
 
 #. ---- Mosaico --------------------------------------------------------------
-#: src/x11/wzx-dockapp.c:128 src/prefs/wzp-main.c:447 src/engine/wz-config.c:70
+#: src/x11/wzx-dockapp.c:147 src/prefs/wzp-main.c:447 src/engine/wz-config.c:70
 msgid "Main + stack"
 msgstr ""
 
-#: src/x11/wzx-dockapp.c:128 src/prefs/wzp-main.c:447
+#: src/x11/wzx-dockapp.c:147 src/prefs/wzp-main.c:447
 msgid "Columns"
 msgstr ""
 
-#: src/x11/wzx-dockapp.c:128 src/prefs/wzp-main.c:448
+#: src/x11/wzx-dockapp.c:147 src/prefs/wzp-main.c:448
 msgid "Rows"
 msgstr ""
 
-#: src/x11/wzx-dockapp.c:129 src/prefs/wzp-main.c:447
+#: src/x11/wzx-dockapp.c:148 src/prefs/wzp-main.c:447
 msgid "Grid"
 msgstr ""
 
-#: src/x11/wzx-dockapp.c:129
+#: src/x11/wzx-dockapp.c:148
 msgid "BSP (binary tree)"
 msgstr ""
 
-#: src/x11/wzx-dockapp.c:129
+#: src/x11/wzx-dockapp.c:148
 msgid "Monocle"
 msgstr ""
 
-#: src/x11/wzx-dockapp.c:130 src/prefs/wzp-main.c:449
+#: src/x11/wzx-dockapp.c:149 src/prefs/wzp-main.c:449
 msgid "Spiral"
 msgstr ""
 
-#: src/x11/wzx-dockapp.c:130 src/prefs/wzp-main.c:449
+#: src/x11/wzx-dockapp.c:149 src/prefs/wzp-main.c:449
 msgid "Dwindle"
 msgstr ""
 
-#: src/x11/wzx-dockapp.c:304
+#: src/x11/wzx-dockapp.c:446
+#, c-format
+msgid "Algorithm: %s"
+msgstr ""
+
+#: src/x11/wzx-dockapp.c:450
 #, c-format
 msgid "Layout: %s"
 msgstr ""
 
-#: src/x11/wzx-dockapp.c:385 src/x11/wzx-dockapp.c:402
+#: src/x11/wzx-dockapp.c:531 src/x11/wzx-dockapp.c:607
 msgid "Mode"
 msgstr ""
 
-#: src/x11/wzx-dockapp.c:386 src/x11/wzx-dockapp.c:403 src/prefs/wzp-main.c:478
+#: src/x11/wzx-dockapp.c:532 src/x11/wzx-dockapp.c:608 src/prefs/wzp-main.c:478
 msgid "Layout"
 msgstr ""
 
-#: src/x11/wzx-dockapp.c:387 src/x11/wzx-dockapp.c:404
+#: src/x11/wzx-dockapp.c:533 src/x11/wzx-dockapp.c:609
 msgid "Tiling algorithm"
 msgstr ""
 
-#: src/x11/wzx-dockapp.c:388 src/x11/wzx-dockapp.c:411
+#: src/x11/wzx-dockapp.c:534 src/x11/wzx-dockapp.c:616
 msgid "Settings"
 msgstr ""
 
-#: src/x11/wzx-dockapp.c:389 src/x11/wzx-dockapp.c:412
+#: src/x11/wzx-dockapp.c:535 src/x11/wzx-dockapp.c:617
 msgid "Help"
 msgstr ""
 
-#: src/x11/wzx-dockapp.c:405
+#: src/x11/wzx-dockapp.c:610
 msgid "Undo"
 msgstr ""
 
-#: src/x11/wzx-dockapp.c:406
+#: src/x11/wzx-dockapp.c:611
 msgid "Redo"
 msgstr ""
 
-#: src/x11/wzx-dockapp.c:407
+#: src/x11/wzx-dockapp.c:612
 msgid "Restore window"
 msgstr ""
 
-#: src/x11/wzx-dockapp.c:408
+#: src/x11/wzx-dockapp.c:613
 msgid "Restore all arranged windows"
 msgstr ""
 
-#: src/x11/wzx-dockapp.c:409
+#: src/x11/wzx-dockapp.c:614
 msgid "Arrange the desktop"
 msgstr ""
 
-#: src/x11/wzx-dockapp.c:410
+#: src/x11/wzx-dockapp.c:615
 msgid "Active window: floating/tiled"
 msgstr ""
 
-#: src/x11/wzx-dockapp.c:418
+#: src/x11/wzx-dockapp.c:622
+msgid "Window Maker options..."
+msgstr ""
+
+#: src/x11/wzx-dockapp.c:628
 msgid "Float everything now"
 msgstr ""
 
-#: src/x11/wzx-dockapp.c:424 src/x11/wzx-dockapp.c:435
+#: src/x11/wzx-dockapp.c:634 src/x11/wzx-dockapp.c:645
 msgid "Edit zones..."
 msgstr ""
 
-#: src/x11/wzx-dockapp.c:436
+#: src/x11/wzx-dockapp.c:646
 msgid "Preferences..."
 msgstr ""
 
-#: src/x11/wzx-dockapp.c:437
+#: src/x11/wzx-dockapp.c:647
 msgid "Shortcuts..."
 msgstr ""
 
-#: src/x11/wzx-dockapp.c:438
+#: src/x11/wzx-dockapp.c:648
 msgid "Application rules..."
 msgstr ""
 
-#: src/x11/wzx-dockapp.c:439
+#: src/x11/wzx-dockapp.c:649
 msgid "Monitors..."
 msgstr ""
 
-#: src/x11/wzx-dockapp.c:442
+#: src/x11/wzx-dockapp.c:652
 msgid "Available shortcuts..."
 msgstr ""
 
-#: src/x11/wzx-dockapp.c:443
+#: src/x11/wzx-dockapp.c:653
 msgid "About wmake-zones"
 msgstr ""
 
-#: src/x11/wzx-dockapp.c:598
+#: src/x11/wzx-dockapp.c:808
 msgid "Layouts"
 msgstr ""
 
-#: src/wayland/wzw-dockapp.c:240
+#: src/wayland/wzw-dockapp.c:319
 msgid "wlmaker did not answer (zones disabled at build time?)"
 msgstr ""
 
-#: src/wayland/wzw-dockapp.c:404
+#: src/wayland/wzw-dockapp.c:522
 msgid "no Wayland compositor"
 msgstr ""
 
-#: src/wayland/wzw-dockapp.c:411
+#: src/wayland/wzw-dockapp.c:529
 msgid "the compositor does not offer the wlmaker icon protocol"
 msgstr ""
 
@@ -688,7 +698,7 @@ msgstr ""
 msgid "in use by another program"
 msgstr ""
 
-#: src/prefs/wzp-main.c:741 src/prefs/wzp-main.c:938
+#: src/prefs/wzp-main.c:741 src/prefs/wzp-main.c:1076
 msgid "Action"
 msgstr ""
 
@@ -736,152 +746,273 @@ msgstr ""
 msgid "The service is not running; type the class by hand."
 msgstr ""
 
-#: src/prefs/wzp-main.c:926
-msgid "Window class"
-msgstr ""
-
-#: src/prefs/wzp-main.c:927
-msgid "Title contains"
+#: src/prefs/wzp-main.c:938
+msgid "Tiled"
 msgstr ""
 
 #: src/prefs/wzp-main.c:939
-msgid "Zone"
+msgid "Rule: ignore"
+msgstr ""
+
+#: src/prefs/wzp-main.c:940
+msgid "Special type (dialog, utility, menu)"
+msgstr ""
+
+#: src/prefs/wzp-main.c:941
+msgid "Dialog"
+msgstr ""
+
+#: src/prefs/wzp-main.c:942
+msgid "Fixed size"
+msgstr ""
+
+#: src/prefs/wzp-main.c:943
+msgid "Full screen"
+msgstr ""
+
+#: src/prefs/wzp-main.c:944
+msgid "Minimized or shaded"
+msgstr ""
+
+#: src/prefs/wzp-main.c:945
+msgid "Minimized"
+msgstr ""
+
+#: src/prefs/wzp-main.c:946
+msgid "Child window (transient)"
 msgstr ""
 
 #: src/prefs/wzp-main.c:947
-msgid "_Add"
+msgid "Modal"
 msgstr ""
 
 #: src/prefs/wzp-main.c:949
-msgid "From an _open window..."
+msgid "On all workspaces, always on top or not in the taskbar"
+msgstr ""
+
+#: src/prefs/wzp-main.c:950
+msgid "Floating by choice of the user"
 msgstr ""
 
 #: src/prefs/wzp-main.c:951
-msgid "_Remove"
+msgid "Rule: floating"
 msgstr ""
 
-#: src/prefs/wzp-main.c:958
-msgid "Apply the rules (uncheck to suspend them for now)"
+#: src/prefs/wzp-main.c:952
+msgid "On another workspace"
 msgstr ""
 
-#: src/prefs/wzp-main.c:961
-msgid "Per-application rules"
+#: src/prefs/wzp-main.c:953
+msgid "Tiling is off on this monitor"
+msgstr ""
+
+#: src/prefs/wzp-main.c:954
+msgid "Tiling is off, or waiting"
+msgstr ""
+
+#: src/prefs/wzp-main.c:955
+msgid "Waiting"
+msgstr ""
+
+#. TRANSLATORS: the window's minimum size and the size of its cell, in pixels.
+#: src/prefs/wzp-main.c:960
+#, c-format
+msgid "Does not fit: minimum %d×%d, cell %d×%d"
 msgstr ""
 
 #: src/prefs/wzp-main.c:962
+#, c-format
+msgid "Fixed size (%d×%d)"
+msgstr ""
+
+#. TRANSLATORS: appended to a reason; the window's minimum size in pixels.
+#: src/prefs/wzp-main.c:970
+#, c-format
+msgid " (minimum %d×%d)"
+msgstr ""
+
+#: src/prefs/wzp-main.c:990
+msgid "The service is not running."
+msgstr ""
+
+#: src/prefs/wzp-main.c:1028 src/prefs/wzp-main.c:1064
+msgid "Window class"
+msgstr ""
+
+#: src/prefs/wzp-main.c:1028
+msgid "Title"
+msgstr ""
+
+#: src/prefs/wzp-main.c:1043 src/prefs/wzp-main.c:1211
+msgid "_Refresh"
+msgstr ""
+
+#: src/prefs/wzp-main.c:1045
+msgid "Always _float this application"
+msgstr ""
+
+#: src/prefs/wzp-main.c:1050
+msgid ""
+"A window whose minimum size is larger than its cell floats instead of "
+"overlapping the others (GTK4 and libadwaita applications often ask for large "
+"minimum sizes); with fewer windows, or with a wider layout, it comes back to "
+"the tiling."
+msgstr ""
+
+#: src/prefs/wzp-main.c:1055
+msgid "Application compatibility"
+msgstr ""
+
+#: src/prefs/wzp-main.c:1065
+msgid "Title contains"
+msgstr ""
+
+#: src/prefs/wzp-main.c:1077
+msgid "Zone"
+msgstr ""
+
+#: src/prefs/wzp-main.c:1085
+msgid "_Add"
+msgstr ""
+
+#: src/prefs/wzp-main.c:1087
+msgid "From an _open window..."
+msgstr ""
+
+#: src/prefs/wzp-main.c:1089
+msgid "_Remove"
+msgstr ""
+
+#: src/prefs/wzp-main.c:1096
+msgid "Apply the rules (uncheck to suspend them for now)"
+msgstr ""
+
+#: src/prefs/wzp-main.c:1099
+msgid "Per-application rules"
+msgstr ""
+
+#: src/prefs/wzp-main.c:1101
 msgid ""
 "Windows are matched by their class (WM_CLASS on X11, app_id on Wayland), not "
 "by the title, which changes. What you do by hand wins over a rule until the "
 "window is closed."
 msgstr ""
 
-#: src/prefs/wzp-main.c:978
+#: src/prefs/wzp-main.c:1117
 msgid "Configuration file"
 msgstr ""
 
-#: src/prefs/wzp-main.c:982
+#: src/prefs/wzp-main.c:1122
+msgid "Windows and tiling"
+msgstr ""
+
+#: src/prefs/wzp-main.c:1124
 msgid "Recent log"
 msgstr ""
 
-#: src/prefs/wzp-main.c:984
+#: src/prefs/wzp-main.c:1126
 msgid "The service is not running (Zones and Auto Tiling are off)."
 msgstr ""
 
-#: src/prefs/wzp-main.c:993
+#: src/prefs/wzp-main.c:1135
 msgid "Export settings"
 msgstr ""
 
-#: src/prefs/wzp-main.c:994 src/prefs/wzp-editor.c:659
+#: src/prefs/wzp-main.c:1136 src/prefs/wzp-editor.c:659
 msgid "_Export"
 msgstr ""
 
-#: src/prefs/wzp-main.c:1012
+#: src/prefs/wzp-main.c:1154
 msgid "Import settings"
 msgstr ""
 
-#: src/prefs/wzp-main.c:1013 src/prefs/wzp-editor.c:713
+#: src/prefs/wzp-main.c:1155 src/prefs/wzp-editor.c:713
 msgid "_Import"
 msgstr ""
 
-#: src/prefs/wzp-main.c:1029
+#: src/prefs/wzp-main.c:1171
 msgid ""
 "Imported. The previous settings were kept as .bak; reopen this window to see "
 "them."
 msgstr ""
 
-#: src/prefs/wzp-main.c:1043
+#: src/prefs/wzp-main.c:1185
 msgid ""
 "Turn everything off and restore the default settings? The current file is "
 "kept as wmake-zones.conf.bak."
 msgstr ""
 
-#: src/prefs/wzp-main.c:1050
+#: src/prefs/wzp-main.c:1192
 msgid "Defaults restored; reopen this window."
 msgstr ""
 
-#: src/prefs/wzp-main.c:1069
-msgid "_Refresh"
-msgstr ""
-
-#: src/prefs/wzp-main.c:1072
+#: src/prefs/wzp-main.c:1214
 msgid "_Export settings..."
 msgstr ""
 
-#: src/prefs/wzp-main.c:1075
+#: src/prefs/wzp-main.c:1217
 msgid "_Import settings..."
 msgstr ""
 
-#: src/prefs/wzp-main.c:1078
+#: src/prefs/wzp-main.c:1220
 msgid "Restore _defaults..."
 msgstr ""
 
-#: src/prefs/wzp-main.c:1082
+#: src/prefs/wzp-main.c:1224
 msgid "Diagnostics"
 msgstr ""
 
-#: src/prefs/wzp-main.c:1096
+#: src/prefs/wzp-main.c:1238
 msgid "General"
 msgstr ""
 
-#: src/prefs/wzp-main.c:1097
+#: src/prefs/wzp-main.c:1239
 msgid "Monitors"
 msgstr ""
 
-#: src/prefs/wzp-main.c:1098
+#: src/prefs/wzp-main.c:1240
 msgid "Appearance"
 msgstr ""
 
-#: src/prefs/wzp-main.c:1098
+#: src/prefs/wzp-main.c:1240
 msgid "Shortcuts"
 msgstr ""
 
-#: src/prefs/wzp-main.c:1099
+#: src/prefs/wzp-main.c:1241
 msgid "Rules"
 msgstr ""
 
-#: src/prefs/wzp-main.c:1099
+#: src/prefs/wzp-main.c:1241
 msgid "Advanced"
 msgstr ""
 
-#: src/prefs/wzp-main.c:1123
+#: src/prefs/wzp-main.c:1273
 msgid ""
 "Window zones and tiling for Window Maker and wlmaker.\n"
 "Floating first, tiling when you want."
 msgstr ""
 
-#: src/prefs/wzp-main.c:1144
+#: src/prefs/wzp-main.c:1279
+msgid "Maintainers of Big WindowMaker"
+msgstr ""
+
+#: src/prefs/wzp-main.c:1280
+msgid "Special thanks"
+msgstr ""
+
+#: src/prefs/wzp-main.c:1297
 msgid "wmake-zones Preferences"
 msgstr ""
 
-#: src/prefs/wzp-main.c:1195
+#: src/prefs/wzp-main.c:1356
 msgid "Changes are applied at once."
 msgstr ""
 
-#: src/prefs/wzp-main.c:1199
+#: src/prefs/wzp-main.c:1360
 msgid "_About"
 msgstr ""
 
-#: src/prefs/wzp-main.c:1202 src/prefs/wzp-editor.c:970
+#: src/prefs/wzp-main.c:1363 src/prefs/wzp-editor.c:970
 msgid "_Close"
 msgstr ""
 

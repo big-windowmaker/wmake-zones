@@ -11,6 +11,7 @@
   <developer id="io.github.big_windowmaker">
     <name>Big WindowMaker</name>
   </developer>
+  <update_contact>rruscher@gmail.com</update_contact>
   <description>
     <p>
       Window Zones (wmake-zones) adds snap zones and automatic tiling to the Big WindowMaker desktop,
@@ -85,6 +86,28 @@
   </supports>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="0.4.0" date="2026-11-11">
+      <description>
+        <p>Tiling that copes with GTK4 windows, a draggable LCD-style dock app, and the Wayland dock app the size of its tile.</p>
+        <ul>
+          <li>GTK4 windows that do not fit a cell swap places or float, with the reason shown</li>
+          <li>The X11 dock app can be dragged to the Dock and the Clip and opens Window Maker's menu</li>
+          <li>Dock app in an LCD style, with a transparent icon and clearer controls</li>
+          <li>The Wayland dock app draws the whole tile at the configured size</li>
+          <li>Brazilian Portuguese translation reviewed; About lists the maintainers and credits</li>
+        </ul>
+      </description>
+    </release>
+    <release version="0.3.1" date="2026-11-06">
+      <description>
+        <p>Reliable tiling on several monitors and a dock app that shows the mode.</p>
+      </description>
+    </release>
+    <release version="0.3.0" date="2026-11-05">
+      <description>
+        <p>Zones on by default, layout first and then the zone, Wayland on par with X11, and a dock app that switches Zones and Tiling in one click.</p>
+      </description>
+    </release>
     <release version="0.2.0" date="2026-11-05">
       <description>
         <p>Equal zones with gaps, sturdier service and editor, left-handed mice, and a manual page.</p>

@@ -1,5 +1,24 @@
 # Mudanças
 
+## 0.4.0 — 2026-11-11
+
+Mosaico que lida com janelas GTK4, dockapp no estilo LCD e arrastável, e o
+dockapp do Wayland do tamanho do ladrilho.
+
+- Mosaico: janelas GTK4 que não cabem na célula trocam de lugar ou flutuam,
+  com o motivo nas Preferências (#5, #6).
+- Dockapp do X11: arrastar para o Dock e o Clip e o menu do Window Maker
+  (#5, #6); estilo LCD, ícone transparente e controles mais claros (#9).
+- Dockapp do Wayland: o ladrilho inteiro, no tamanho configurado, nunca
+  menos de 64 px (#7, #8).
+- Tradução pt_BR revisada (vocabulário do Window Maker: Ocultar,
+  Miniaturizar, Enrolar), teste dos catálogos.
+- Sobre: mantenedores do Big WindowMaker (Rafael Ruscher, Barnabé Di
+  Kartola) e agradecimentos (Window Maker, wlmaker, BigLinux,
+  BigCommunity). Metainfo: as versões 0.3.0 a 0.4.0 e o contato.
+- Testes: o dockapp espera o ladrilho e pula sem o xwininfo (#3, #4); CI com
+  os testes do dockapp e de vários monitores (#9).
+
 ## 0.3.1 — 2026-11-06
 
 Mosaico confiável em vários monitores e um dockapp que mostra o modo.
