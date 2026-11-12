@@ -1258,6 +1258,14 @@ on_section(GtkToggleButton *b, gpointer idx)
 static void
 about(GtkWindow *parent)
 {
+    /* the maintainers of Big WindowMaker, and the projects it builds on
+     * ("Name URL": GTK shows the name as a link) */
+    static const char *maintainers[] = { "Rafael Ruscher <rruscher@gmail.com>",
+                                         "Barnabé Di Kartola <barnabedikartola@gmail.com>", NULL };
+    static const char *thanks[] = { "Alfredo Kojima — Window Maker https://www.windowmaker.org/",
+                                    "Philipp Kaeser — wlmaker https://github.com/phkaeser/wlmaker",
+                                    "Bruno Gonçalves — BigLinux https://www.biglinux.com.br/",
+                                    "Tales A. Mendonça — BigCommunity", NULL };
     GtkWidget *d = gtk_about_dialog_new();
     gtk_about_dialog_set_program_name(GTK_ABOUT_DIALOG(d), "wmake-zones");
     gtk_about_dialog_set_version(GTK_ABOUT_DIALOG(d), WZ_VERSION);
@@ -1267,6 +1275,9 @@ about(GtkWindow *parent)
     gtk_about_dialog_set_website(GTK_ABOUT_DIALOG(d), "https://github.com/big-windowmaker/wmake-zones");
     gtk_about_dialog_set_license_type(GTK_ABOUT_DIALOG(d), GTK_LICENSE_GPL_2_0);
     gtk_about_dialog_set_logo_icon_name(GTK_ABOUT_DIALOG(d), "wmake-zones");
+    gtk_about_dialog_set_copyright(GTK_ABOUT_DIALOG(d), "© 2026 Big WindowMaker");
+    gtk_about_dialog_add_credit_section(GTK_ABOUT_DIALOG(d), _("Maintainers of Big WindowMaker"), maintainers);
+    gtk_about_dialog_add_credit_section(GTK_ABOUT_DIALOG(d), _("Special thanks"), thanks);
     if (parent)
         gtk_window_set_transient_for(GTK_WINDOW(d), parent);
     gtk_dialog_run(GTK_DIALOG(d));

@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: wmake-zones\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-09 06:08-0300\n"
+"POT-Creation-Date: 2026-11-11 22:05-0300\n"
 "PO-Revision-Date: 2026-11-09 12:00-0300\n"
 "Last-Translator: Big WindowMaker\n"
 "Language-Team: Portuguese (Brazil)\n"
@@ -135,154 +135,154 @@ msgstr ""
 msgid "already running on this display"
 msgstr "já está em execução neste display"
 
-#: src/x11/wzx-overlay.c:274
+#: src/x11/wzx-overlay.c:288
 msgid ""
 "1–9 or arrows to choose · Enter snaps · Tab changes the layout · Esc cancels"
 msgstr ""
 "1–9 ou setas para escolher · Enter encaixa · Tab troca o layout · Esc cancela"
 
-#: src/x11/wzx-overlay.c:475
+#: src/x11/wzx-overlay.c:489
 msgid "Window layout: choose a layout, then a zone"
 msgstr "Organização de janelas: escolha o layout, depois a zona"
 
-#: src/x11/wzx-dockapp.c:130 src/x11/wzx-dockapp.c:595
+#: src/x11/wzx-dockapp.c:135 src/x11/wzx-dockapp.c:626
 #: src/prefs/wzp-main.c:1028 src/prefs/wzp-main.c:1239
 msgid "Tiling"
 msgstr "Mosaico"
 
-#: src/x11/wzx-dockapp.c:130 src/x11/wzx-dockapp.c:594 src/prefs/wzp-main.c:441
+#: src/x11/wzx-dockapp.c:135 src/x11/wzx-dockapp.c:625 src/prefs/wzp-main.c:441
 #: src/prefs/wzp-main.c:1238
 msgid "Zones"
 msgstr "Zonas"
 
-#: src/x11/wzx-dockapp.c:130 src/x11/wzx-dockapp.c:596 src/prefs/wzp-main.c:504
+#: src/x11/wzx-dockapp.c:135 src/x11/wzx-dockapp.c:627 src/prefs/wzp-main.c:504
 msgid "Off"
 msgstr "Desligado"
 
 #. ---- Mosaico --------------------------------------------------------------
-#: src/x11/wzx-dockapp.c:142 src/prefs/wzp-main.c:447 src/engine/wz-config.c:70
+#: src/x11/wzx-dockapp.c:147 src/prefs/wzp-main.c:447 src/engine/wz-config.c:70
 msgid "Main + stack"
 msgstr "Principal + pilha"
 
-#: src/x11/wzx-dockapp.c:142 src/prefs/wzp-main.c:447
+#: src/x11/wzx-dockapp.c:147 src/prefs/wzp-main.c:447
 msgid "Columns"
 msgstr "Colunas"
 
-#: src/x11/wzx-dockapp.c:142 src/prefs/wzp-main.c:448
+#: src/x11/wzx-dockapp.c:147 src/prefs/wzp-main.c:448
 msgid "Rows"
 msgstr "Linhas"
 
-#: src/x11/wzx-dockapp.c:143 src/prefs/wzp-main.c:447
+#: src/x11/wzx-dockapp.c:148 src/prefs/wzp-main.c:447
 msgid "Grid"
 msgstr "Grade"
 
-#: src/x11/wzx-dockapp.c:143
+#: src/x11/wzx-dockapp.c:148
 msgid "BSP (binary tree)"
 msgstr "BSP (árvore binária)"
 
-#: src/x11/wzx-dockapp.c:143
+#: src/x11/wzx-dockapp.c:148
 msgid "Monocle"
 msgstr "Monóculo"
 
-#: src/x11/wzx-dockapp.c:144 src/prefs/wzp-main.c:449
+#: src/x11/wzx-dockapp.c:149 src/prefs/wzp-main.c:449
 msgid "Spiral"
 msgstr "Espiral"
 
-#: src/x11/wzx-dockapp.c:144 src/prefs/wzp-main.c:449
+#: src/x11/wzx-dockapp.c:149 src/prefs/wzp-main.c:449
 msgid "Dwindle"
 msgstr "Subdivisão"
 
-#: src/x11/wzx-dockapp.c:415
+#: src/x11/wzx-dockapp.c:446
 #, c-format
 msgid "Algorithm: %s"
 msgstr "Algoritmo: %s"
 
-#: src/x11/wzx-dockapp.c:419
+#: src/x11/wzx-dockapp.c:450
 #, c-format
 msgid "Layout: %s"
 msgstr "Layout: %s"
 
-#: src/x11/wzx-dockapp.c:500 src/x11/wzx-dockapp.c:576
+#: src/x11/wzx-dockapp.c:531 src/x11/wzx-dockapp.c:607
 msgid "Mode"
 msgstr "Modo"
 
-#: src/x11/wzx-dockapp.c:501 src/x11/wzx-dockapp.c:577 src/prefs/wzp-main.c:478
+#: src/x11/wzx-dockapp.c:532 src/x11/wzx-dockapp.c:608 src/prefs/wzp-main.c:478
 msgid "Layout"
 msgstr "Layout"
 
-#: src/x11/wzx-dockapp.c:502 src/x11/wzx-dockapp.c:578
+#: src/x11/wzx-dockapp.c:533 src/x11/wzx-dockapp.c:609
 msgid "Tiling algorithm"
 msgstr "Algoritmo do mosaico"
 
-#: src/x11/wzx-dockapp.c:503 src/x11/wzx-dockapp.c:585
+#: src/x11/wzx-dockapp.c:534 src/x11/wzx-dockapp.c:616
 msgid "Settings"
 msgstr "Configurações"
 
-#: src/x11/wzx-dockapp.c:504 src/x11/wzx-dockapp.c:586
+#: src/x11/wzx-dockapp.c:535 src/x11/wzx-dockapp.c:617
 msgid "Help"
 msgstr "Ajuda"
 
-#: src/x11/wzx-dockapp.c:579
+#: src/x11/wzx-dockapp.c:610
 msgid "Undo"
 msgstr "Desfazer"
 
-#: src/x11/wzx-dockapp.c:580
+#: src/x11/wzx-dockapp.c:611
 msgid "Redo"
 msgstr "Refazer"
 
-#: src/x11/wzx-dockapp.c:581
+#: src/x11/wzx-dockapp.c:612
 msgid "Restore window"
 msgstr "Restaurar a janela"
 
-#: src/x11/wzx-dockapp.c:582
+#: src/x11/wzx-dockapp.c:613
 msgid "Restore all arranged windows"
 msgstr "Restaurar todas as janelas organizadas"
 
-#: src/x11/wzx-dockapp.c:583
+#: src/x11/wzx-dockapp.c:614
 msgid "Arrange the desktop"
 msgstr "Organizar a área de trabalho"
 
-#: src/x11/wzx-dockapp.c:584
+#: src/x11/wzx-dockapp.c:615
 msgid "Active window: floating/tiled"
 msgstr "Janela ativa: flutuante/no mosaico"
 
-#: src/x11/wzx-dockapp.c:591
+#: src/x11/wzx-dockapp.c:622
 msgid "Window Maker options..."
 msgstr "Opções do Window Maker..."
 
-#: src/x11/wzx-dockapp.c:597
+#: src/x11/wzx-dockapp.c:628
 msgid "Float everything now"
 msgstr "Tudo flutuante agora"
 
-#: src/x11/wzx-dockapp.c:603 src/x11/wzx-dockapp.c:614
+#: src/x11/wzx-dockapp.c:634 src/x11/wzx-dockapp.c:645
 msgid "Edit zones..."
 msgstr "Editar zonas..."
 
-#: src/x11/wzx-dockapp.c:615
+#: src/x11/wzx-dockapp.c:646
 msgid "Preferences..."
 msgstr "Preferências..."
 
-#: src/x11/wzx-dockapp.c:616
+#: src/x11/wzx-dockapp.c:647
 msgid "Shortcuts..."
 msgstr "Atalhos..."
 
-#: src/x11/wzx-dockapp.c:617
+#: src/x11/wzx-dockapp.c:648
 msgid "Application rules..."
 msgstr "Regras por aplicativo..."
 
-#: src/x11/wzx-dockapp.c:618
+#: src/x11/wzx-dockapp.c:649
 msgid "Monitors..."
 msgstr "Monitores..."
 
-#: src/x11/wzx-dockapp.c:621
+#: src/x11/wzx-dockapp.c:652
 msgid "Available shortcuts..."
 msgstr "Atalhos disponíveis..."
 
-#: src/x11/wzx-dockapp.c:622
+#: src/x11/wzx-dockapp.c:653
 msgid "About wmake-zones"
 msgstr "Sobre o wmake-zones"
 
-#: src/x11/wzx-dockapp.c:777
+#: src/x11/wzx-dockapp.c:808
 msgid "Layouts"
 msgstr "Layouts"
 
@@ -1059,7 +1059,7 @@ msgstr "Regras"
 msgid "Advanced"
 msgstr "Avançado"
 
-#: src/prefs/wzp-main.c:1265
+#: src/prefs/wzp-main.c:1273
 msgid ""
 "Window zones and tiling for Window Maker and wlmaker.\n"
 "Floating first, tiling when you want."
@@ -1067,19 +1067,27 @@ msgstr ""
 "Zonas e mosaico de janelas para o Window Maker e o wlmaker.\n"
 "Flutuante primeiro, mosaico quando você quiser."
 
-#: src/prefs/wzp-main.c:1286
+#: src/prefs/wzp-main.c:1279
+msgid "Maintainers of Big WindowMaker"
+msgstr "Mantenedores do Big WindowMaker"
+
+#: src/prefs/wzp-main.c:1280
+msgid "Special thanks"
+msgstr "Agradecimentos especiais"
+
+#: src/prefs/wzp-main.c:1297
 msgid "wmake-zones Preferences"
 msgstr "Preferências do wmake-zones"
 
-#: src/prefs/wzp-main.c:1345
+#: src/prefs/wzp-main.c:1356
 msgid "Changes are applied at once."
 msgstr "As mudanças valem na hora."
 
-#: src/prefs/wzp-main.c:1349
+#: src/prefs/wzp-main.c:1360
 msgid "_About"
 msgstr "_Sobre"
 
-#: src/prefs/wzp-main.c:1352 src/prefs/wzp-editor.c:970
+#: src/prefs/wzp-main.c:1363 src/prefs/wzp-editor.c:970
 msgid "_Close"
 msgstr "_Fechar"
 
