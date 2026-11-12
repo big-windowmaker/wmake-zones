@@ -368,6 +368,20 @@ icon_configure(void *data, struct zwlmaker_toplevel_icon_v1 *icon, int32_t w, in
      * menos de 64: um wlmaker sem essa regra sugere o ContentSize (48). */
     a->width = w + 6 > 64 ? w + 6 : 64;
     a->height = h + 6 > 64 ? h + 6 : 64;
+    /* A borda que o wlmaker deixou (3 px) fica fora da região de entrada:
+     * ali o ponteiro é do ladrilho, e o wlmaker arrasta o dockapp para o
+     * Dock e o Clip, como o Window Maker pela borda do ladrilho no X11.
+     * O desenho continua no ladrilho inteiro. */
+    int bx = w > 0 && w < a->width ? (a->width - w) / 2 : 3;
+    int by = h > 0 && h < a->height ? (a->height - h) / 2 : 3;
+    if (bx > a->width / 4)
+        bx = a->width / 4;
+    if (by > a->height / 4)
+        by = a->height / 4;
+    struct wl_region *input = wl_compositor_create_region(a->compositor);
+    wl_region_add(input, bx, by, a->width - 2 * bx, a->height - 2 * by);
+    wl_surface_set_input_region(a->surface, input);
+    wl_region_destroy(input);
     zwlmaker_toplevel_icon_v1_ack_configure(icon, serial);
     a->configured = 1;
     redraw(a);
