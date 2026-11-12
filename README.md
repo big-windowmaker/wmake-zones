@@ -10,7 +10,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/big-windowmaker/wmake-zones/releases"><img alt="Versão" src="https://img.shields.io/badge/vers%C3%A3o-0.3.0-4a5a8a"></a>
+  <a href="https://github.com/big-windowmaker/wmake-zones/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/big-windowmaker/wmake-zones/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/big-windowmaker/wmake-zones/tags"><img alt="Versão" src="https://img.shields.io/badge/vers%C3%A3o-0.4.0-4a5a8a"></a>
   <img alt="Licença" src="https://img.shields.io/badge/licen%C3%A7a-GPL--2.0--or--later-4a5a8a">
   <img alt="X11 e Wayland" src="https://img.shields.io/badge/sess%C3%B5es-X11%20%C2%B7%20Wayland-4a5a8a">
 </p>
@@ -70,6 +71,37 @@ meio desliga tudo (e, desligado, nenhum processo fica rodando).
 - **Leve:** no X11, um processo de 0,8 a 2,9 MiB que não acorda em repouso;
   no Wayland, um módulo do compositor.
 
+<p align="center">
+  <a href="#novidades-da-040">Novidades</a> ·
+  <a href="#capturas">Capturas</a> ·
+  <a href="#instalar">Instalar</a> ·
+  <a href="#usar">Usar</a> ·
+  <a href="#x11-e-wayland">X11 e Wayland</a> ·
+  <a href="#compilar-e-testar">Compilar e testar</a> ·
+  <a href="#contribuir">Contribuir</a> ·
+  <a href="#créditos">Créditos</a> ·
+  <a href="#in-english">English</a>
+</p>
+
+## Novidades da 0.4.0
+
+Capturas de 12/11/2026, Window Maker real (X11) com a configuração do
+Big WindowMaker.
+
+| | |
+|---|---|
+| ![Mosaico automático no X11: o terminal com o "wmake-zones status" na metade esquerda e o Thunar com os papéis de parede na direita, o Dock e o Dock com Abas em volta](docs/screenshots/0.4-x11-mosaico.png) | ![Seletor de zonas (wmake-zones picker): as duas zonas do layout Metades numeradas sobre a área de trabalho, com o terminal por baixo](docs/screenshots/0.4-x11-seletor.png) |
+| Mosaico automático: as janelas se arrumam na área útil, sem cobrir o Dock | Seletor de zonas pelo teclado (Super+Z ou `wmake-zones picker`) |
+
+![Preferências do wmake-zones 0.4.0 em português, com as seções Geral, Zonas, Mosaico, Monitores, Aparência, Atalhos, Regras e Avançado, e o desenho do layout Metades](docs/screenshots/0.4-preferencias.png)
+
+- **Mosaico com GTK4**: janelas que não cabem na célula (tamanho mínimo
+  grande) trocam de lugar ou flutuam, e as Preferências mostram o motivo.
+- **Dockapp no estilo LCD**, arrastável para o Dock e o Clip, com o menu
+  do Window Maker; no Wayland, o ladrilho inteiro no tamanho configurado.
+- **Tradução pt_BR revisada** com o vocabulário do Window Maker e o **Sobre**
+  com os mantenedores e os agradecimentos.
+
 ## Capturas
 
 O dockapp no modo Mosaico, um ladrilho por algoritmo (principal + pilha,
@@ -79,7 +111,7 @@ grade, colunas, linhas, monóculo, BSP, subdivisão, espiral), calculado na
 <img src="docs/screenshots/dockapp-algoritmos.png" alt="Oito ladrilhos do wmake-zones no modo Mosaico, cada um com a miniatura de um algoritmo">
 
 
-Sessão real do Big WindowMaker numa VM (live ISO), com o tema padrão.
+Sessão real do Big WindowMaker numa VM (live ISO da Alpha, 0.3), com o tema padrão.
 
 | | |
 |---|---|
@@ -106,6 +138,19 @@ outra instalação Arch/Manjaro, pelo PKGBUILD de
 git clone https://github.com/big-windowmaker/packages
 cd packages/wmake-zones && makepkg -si
 ```
+
+Direto deste repositório (Meson):
+
+```sh
+meson setup build --prefix=/usr
+meson compile -C build
+sudo meson install -C build
+```
+
+Dependências de execução: `gtk3`, `cairo`, `libx11`, `libxext`, `libxft`,
+`libxi`, `libxinerama`, `libxrandr`, `libxrender`, `wayland`; de compilação:
+`meson`, `wayland-protocols`, `librsvg`. Para remover: `sudo pacman -R
+wmake-zones` (a configuração do usuário fica em `~/.config/wmake-zones/`).
 
 Para as zonas no Wayland é preciso o `wlmaker` do mesmo repositório (patches
 0104 a 0116), que liga no núcleo do wmake-zones.
@@ -263,19 +308,55 @@ no Wayland ([o que cada um cobre](docs/testing.md)).
 [Desenvolvimento](docs/development.md) ·
 [Mudanças](CHANGELOG.md)
 
+## Contribuir
+
+- Problemas e ideias: [issues](https://github.com/big-windowmaker/wmake-zones/issues),
+  com a sessão (X11 ou Wayland), o `wmake-zones status` e, se puder, uma captura.
+- Código: um *pull request* por assunto, com `meson test -C build` passando
+  e o teste de regressão do que foi corrigido; leia o
+  [guia de contribuição](https://github.com/big-windowmaker/.github/blob/main/CONTRIBUTING.md).
+- Tradução: `po/pt_BR.po` (o teste `po` confere o catálogo).
+
 ## Créditos
 
-Desenvolvimento do Big WindowMaker:
+### Mantenedores do Big WindowMaker
 
 - **Rafael Ruscher** — <rruscher@gmail.com>
 - **Barnabé Di Kartola** — <barnabedikartola@gmail.com>
 
-Sobre os ombros do [Window Maker](https://www.windowmaker.org/), do
-[wlmaker](https://github.com/phkaeser/wlmaker) (Philipp Kaeser), do
-[BigLinux](https://www.biglinux.com.br) e da [BigCommunity](https://communitybig.org).
+### Colaboradores
+
+- **Rui Santana** ([@deleterium](https://github.com/deleterium)) — estilo LCD
+  do dockapp, transparência do ícone e controles (#9).
+
+### Agradecimentos especiais
+
+- **Alfredo Kojima** — pelo desenvolvimento original do
+  [Window Maker](https://www.windowmaker.org/) e pelo legado que inspirou
+  este projeto.
+- **Philipp Kaeser** — pelo [wlmaker](https://github.com/phkaeser/wlmaker) e
+  pelo trabalho de levar a inspiração do Window Maker ao Wayland.
+- **Bruno Gonçalves** — pelo [BigLinux](https://www.biglinux.com.br/) e por
+  suas contribuições ao ecossistema Linux.
+- **Tales A. Mendonça** — pelas contribuições ao desenvolvimento e
+  fortalecimento da [BigCommunity](https://communitybig.org).
 
 ## Licença
 
 GPL-2.0-or-later. O protocolo de ícones do wlmaker
 (`src/wayland/protocols/`) é Apache-2.0, do projeto wlmaker. Os metadados
 AppStream são CC0-1.0.
+
+## In English
+
+**wmake-zones** adds snap zones and automatic tiling to
+[Big WindowMaker](https://github.com/big-windowmaker/big-wm), on X11 with
+Window Maker and on Wayland with wlmaker, without replacing the window
+manager: windows keep floating until you drop them on a zone, and tiling is
+one click away on the Dock tile. Install from
+[big-windowmaker/packages](https://github.com/big-windowmaker/packages)
+(`makepkg -si` in `wmake-zones/`) or build with Meson; `wmake-zones help`
+lists every command. Maintainers: Rafael Ruscher and Barnabé Di Kartola.
+Special thanks to Alfredo Kojima (Window Maker), Philipp Kaeser (wlmaker),
+Bruno Gonçalves (BigLinux) and Tales A. Mendonça (BigCommunity).
+License: GPL-2.0-or-later.
