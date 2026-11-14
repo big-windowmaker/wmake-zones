@@ -285,6 +285,10 @@ meson test -C build                              # tudo; o Wayland pula sem o wl
 WLMAKER=/caminho/wlmaker meson test -C build --suite wayland
 ```
 
+A suíte `wayland` usa o cliente `wmake-zones`, que só existe com o X11:
+num build com `-Dx11=disabled` ela não tem nenhum teste, mesmo com o
+`WLMAKER` certo.
+
 | Opção do Meson | Padrão | |
 |---|---|---|
 | `x11` | auto | serviço X11 e dockapp do Window Maker |
@@ -307,7 +311,8 @@ próprio, nunca na sua tela, e pulam (SKIP) sem as ferramentas:
 
 Para os testes: `xorg-server-xvfb`, `xorg-server-xephyr`, `windowmaker`,
 `xdotool`, `xorg-xprop`, `xorg-xwininfo`, `xterm`, `imagemagick`,
-`python-gobject`, `python-xlib`, `python-pillow` e `appstream`. Detalhes em
+`python-gobject`, `python-xlib`, `python-pillow`, `appstream` e `gettext`
+(sem o `xgettext`, o `msgcmp` e o `msgfmt`, o teste `po` pula). Detalhes em
 [Testes](docs/testing.md).
 
 ## Documentação
