@@ -17,8 +17,9 @@
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/x11-zonas.png" width="100%" alt="Sessão real do Big WindowMaker no X11: o terminal ocupa a zona principal e o Thunar é arrastado sobre o layout Principal + pilha; as três zonas aparecem como painéis translúcidos numerados e a zona 3, de destino, fica destacada">
+  <img src="docs/screenshots/x11-painel-layouts.png" width="100%" alt="Big WindowMaker no X11: o Thunar é arrastado e o painel Organização de janelas mostra as miniaturas dos layouts; parado sobre Principal + pilha, as três zonas desse layout aparecem numeradas na tela, com o gedit e o terminal por baixo">
 </p>
+<p align="center"><sub>Arrastar uma janela no X11: primeiro o layout (o painel no alto), depois a zona (os números na tela).</sub></p>
 
 O wmake-zones é o organizador de janelas do
 [Big WindowMaker](https://github.com/big-windowmaker/big-wm). Ele não troca o
@@ -29,109 +30,101 @@ wmake-zones só decide **onde** as janelas ficam, e só quando você pede.
 **As zonas vêm ligadas; o mosaico, não.** As janelas continuam flutuando
 como no Window Maker tradicional e só mudam de lugar quando você as solta
 numa zona. Um clique no ladrilho do Dock troca para o mosaico; o clique do
-meio desliga tudo (e, desligado, nenhum processo fica rodando).
+meio desliga tudo (e, desligado, nenhum processo fica rodando no X11).
 
-## O que ele faz
+## Sumário
 
-- **Primeiro o layout, depois a zona.** Ao arrastar uma janela, um painel
-  no estilo dos menus do Window Maker mostra as miniaturas dos layouts.
-  Pare o ponteiro sobre uma e as zonas dela aparecem no monitor; ou solte
-  direto numa zona da miniatura. Tudo no mesmo arrasto.
-- **Zonas ao arrastar.** As zonas aparecem como painéis chanfrados do
-  OpenStep, translúcidos com o picom e em contorno sem ele. Perto da
-  fronteira entre duas, o alvo é a união delas. **Esc** cancela e devolve a
-  janela; uma janela encaixada arrastada para fora volta ao tamanho de
-  antes.
-- **Mosaico automático.** Principal + pilha, colunas, linhas, grade, BSP
-  (árvore persistente), monóculo, espiral e subdivisão. Arrastar uma
-  janela sobre outra troca as duas; puxar a borda da principal muda a
-  proporção; desligar devolve cada janela ao lugar de antes. Janelas que
-  não cabem e diálogos ficam flutuando.
-- **Desfazer e refazer** qualquer organização: encaixes, trocas de layout
-  e de modo, o mosaico, trocas de lugar, a proporção da principal.
-- **Teclado:** Super+Z escolhe a zona, Super+Alt+setas foca a janela ao
-  lado, Super+Ctrl+setas move entre zonas e monitores; todos se trocam.
-- **Regras por aplicativo** pelo `app_id` (Wayland) ou pelo WM_CLASS
-  (X11 e XWayland): sempre flutuante, sempre no mosaico, numa zona fixa,
-  num monitor ou numa área de trabalho, ou fora de tudo.
-- **Quinze layouts prontos**, de metades e terços a grades, ultrawide e
-  retrato (o padrão vem do formato do monitor), e um **editor visual** no
-  feitio do WPrefs para criar os seus.
-- **Por monitor e por área de trabalho:** layout, mosaico e algoritmo
-  próprios; cada monitor tem a sua área útil, sem cobrir Dock, Clip e o
-  Dock com abas. Monitores conectados e desconectados são acompanhados.
-- **Dockapp** no Dock: a tela mostra o modo de verdade (Zonas: as regiões
-  do layout; Mosaico: as janelas na disposição do algoritmo; desligado: a
-  pausa); embaixo, as setas ◀ ▶ trocam o layout ou o algoritmo e as teclas
-  Z e M escolhem o modo (a acesa desliga). Clique esquerdo na tela alterna
-  Zonas e Mosaico, o do meio desliga e religa, a roda troca o layout (ou o
-  algoritmo, no Mosaico), o direito abre o menu.
-- **O mesmo no X11 e no Wayland**: no Wayland, um módulo do próprio
-  wlmaker, sem XWayland.
-- **Leve:** no X11, um processo de 0,8 a 2,9 MiB que não acorda em repouso;
-  no Wayland, um módulo do compositor.
+- [Recursos](#recursos)
+- [Capturas](#capturas)
+- [X11 e Wayland](#x11-e-wayland)
+- [Instalar](#instalar)
+- [Usar](#usar) · [Comandos](#comandos) · [Atalhos](#atalhos) · [Dockapp](#dockapp) · [Configuração](#configuração)
+- [Desempenho](#desempenho)
+- [Compilar e testar](#compilar-e-testar)
+- [Documentação](#documentação)
+- [Contribuir](#contribuir) · [Créditos](#créditos) · [Licença](#licença) · [English](#in-english)
 
-<p align="center">
-  <a href="#novidades-da-040">Novidades</a> ·
-  <a href="#capturas">Capturas</a> ·
-  <a href="#instalar">Instalar</a> ·
-  <a href="#usar">Usar</a> ·
-  <a href="#x11-e-wayland">X11 e Wayland</a> ·
-  <a href="#compilar-e-testar">Compilar e testar</a> ·
-  <a href="#contribuir">Contribuir</a> ·
-  <a href="#créditos">Créditos</a> ·
-  <a href="#in-english">English</a>
-</p>
-
-## Novidades da 0.4.0
-
-Capturas de 12/11/2026, Window Maker real (X11) com a configuração do
-Big WindowMaker.
+## Recursos
 
 | | |
 |---|---|
-| ![Mosaico automático no X11: o terminal com o "wmake-zones status" na metade esquerda e o Thunar com os papéis de parede na direita, o Dock e o Dock com Abas em volta](docs/screenshots/0.4-x11-mosaico.png) | ![Seletor de zonas (wmake-zones picker): as duas zonas do layout Metades numeradas sobre a área de trabalho, com o terminal por baixo](docs/screenshots/0.4-x11-seletor.png) |
-| Mosaico automático: as janelas se arrumam na área útil, sem cobrir o Dock | Seletor de zonas pelo teclado (Super+Z ou `wmake-zones picker`) |
-
-![Preferências do wmake-zones 0.4.0 em português, com as seções Geral, Zonas, Mosaico, Monitores, Aparência, Atalhos, Regras e Avançado, e o desenho do layout Metades](docs/screenshots/0.4-preferencias.png)
-
-- **Mosaico com GTK4**: janelas que não cabem na célula (tamanho mínimo
-  grande) trocam de lugar ou flutuam, e as Preferências mostram o motivo.
-- **Dockapp no estilo LCD**, arrastável para o Dock e o Clip, com o menu
-  do Window Maker; no Wayland, o ladrilho inteiro no tamanho configurado.
-- **Tradução pt_BR revisada** com o vocabulário do Window Maker e o **Sobre**
-  com os mantenedores e os agradecimentos.
+| **Primeiro o layout, depois a zona** | Ao arrastar uma janela, um painel no estilo dos menus do Window Maker mostra as miniaturas dos layouts. Pare o ponteiro sobre uma e as zonas dela aparecem no monitor; ou solte direto numa zona da miniatura. Tudo no mesmo arrasto. |
+| **Zonas ao arrastar** | Painéis chanfrados do OpenStep, translúcidos com um compositor e em contorno (o destino em listras) sem ele. Perto da fronteira entre duas zonas, o alvo é a união delas. **Esc** cancela e devolve a janela; uma janela encaixada arrastada para fora volta ao tamanho de antes. |
+| **Mosaico automático** | Oito algoritmos: principal + pilha, colunas, linhas, grade, BSP (árvore persistente), monóculo, espiral e subdivisão. Arrastar uma janela sobre outra troca as duas; puxar a borda da principal muda a proporção; desligar devolve cada janela ao lugar de antes. Janelas que não cabem na célula (tamanho mínimo grande, como em GTK4) e diálogos ficam flutuando, e as Preferências mostram o motivo. |
+| **Desfazer e refazer** | Encaixes, trocas de layout e de modo, o mosaico, trocas de lugar e a proporção da principal (20 passos por padrão). |
+| **Teclado** | Super+Z escolhe a zona, Super+Alt+setas foca a janela ao lado, Super+Ctrl+setas move entre zonas e monitores; [todos os atalhos](#atalhos) se trocam. |
+| **Regras por aplicativo** | Pelo `app_id` (Wayland) ou pelo WM_CLASS (X11 e XWayland): sempre flutuante, sempre no mosaico, numa zona fixa, num monitor ou numa área de trabalho, ou fora de tudo. |
+| **Quinze layouts prontos** | Metades, quadrantes, terços, principal + pilha, grades, 70/30, ultrawide, desenvolvimento, tela pequena e retrato. O padrão vem do formato do monitor (ultrawide a partir de 21:9, retrato em pé, metades no resto). Um **editor visual** no feitio do WPrefs cria os seus. |
+| **Por monitor e por área de trabalho** | Layout, mosaico e algoritmo próprios. Cada monitor tem a sua área útil, sem cobrir o Dock, o Clip e o Dock com Abas; monitores conectados e desconectados são acompanhados. |
+| **Dockapp** | O ladrilho do Dock mostra o modo de verdade e troca layout, algoritmo e modo ([detalhes](#dockapp)). |
+| **Leve** | No X11, um processo de 0,8 a 2,9 MiB que não acorda em repouso; no Wayland, um módulo do próprio wlmaker, sem XWayland. |
 
 ## Capturas
 
-O dockapp no modo Mosaico, um ladrilho por algoritmo (principal + pilha,
-grade, colunas, linhas, monóculo, BSP, subdivisão, espiral), calculado na
-área útil do monitor e reduzido:
+Capturas de 14/11/2026, wmake-zones 0.4.1 com a sessão do Big WindowMaker
+(tema padrão, 1366×768), num servidor X próprio (Xvfb) com o Window Maker
+ou com o wlmaker aninhado.
 
-<img src="docs/screenshots/dockapp-algoritmos.png" alt="Oito ladrilhos do wmake-zones no modo Mosaico, cada um com a miniatura de um algoritmo">
-
-
-Sessão real do Big WindowMaker numa VM (live ISO da Alpha, 0.3), com o tema padrão.
+### X11 (Window Maker)
 
 | | |
 |---|---|
-| ![Mosaico no X11: terminal na principal, Thunar e gedit na pilha](docs/screenshots/x11-mosaico.png) | ![Zonas no Wayland: o mesmo overlay, desenhado pelo wlmaker](docs/screenshots/wayland-zonas.png) |
-| Mosaico automático (X11) | Zonas no Wayland, desenhadas pelo wlmaker |
-| ![Mosaico no Wayland](docs/screenshots/wayland-mosaico.png) | ![Zonas sem compositor: contornos e o destino em listras](docs/screenshots/x11-zonas-sem-compositor.png) |
-| Mosaico no Wayland: a mesma geometria do X11 | Sem compositor: contornos e o destino em listras |
-| ![Preferências do wmake-zones](docs/screenshots/preferencias.png) | ![Editor de zonas](docs/screenshots/editor.png) |
-| Preferências, com as seções do WPrefs | Editor de zonas |
-| ![Painel de layouts no arrasto, no X11: parado sobre Principal + pilha, as zonas desse layout aparecem](docs/screenshots/x11-painel-layouts.png) | ![O mesmo painel no Wayland, desenhado pelo wlmaker: parado sobre Três colunas](docs/screenshots/wayland-painel-layouts.png) |
-| Arrastar: primeiro o layout, depois a zona (X11) | O mesmo arrasto no Wayland |
-| ![Seletor Super+Z no Wayland: zonas numeradas e a dica embaixo](docs/screenshots/wayland-seletor.png) | ![Menu do dockapp com o submenu do algoritmo do mosaico](docs/screenshots/dockapp-menu.png) |
-| Super+Z: escolher a zona pelo teclado (Wayland) | Clique direito no ladrilho: o menu, como os do Window Maker |
-| <img src="docs/screenshots/dockapp.png" width="384" alt="Ladrilho do wmake-zones no X11 nos três modos: Zonas com o layout de quatro zonas e o LED Z aceso; Mosaico com quatro janelas e o LED M aceso; desligado com o sinal de pausa"> | <img src="docs/screenshots/wayland-dockapp.png" width="384" alt="O mesmo ladrilho no Dock do wlmaker nos três modos"> |
-| O ladrilho no X11: Zonas, Mosaico e desligado; setas e teclas Z e M embaixo | O ladrilho nativo do wlmaker, igual |
+| ![Mosaico automático no X11: o terminal com o wmake-zones status na principal, à esquerda; o gedit e o Thunar empilhados à direita; Dock, Clip e Dock com Abas livres](docs/screenshots/x11-mosaico.png) | ![Sem compositor: o Thunar é arrastado para a zona 1, que fica em listras; as zonas 2 e 3 aparecem em contorno, e o painel de layouts continua no alto](docs/screenshots/x11-zonas-sem-compositor.png) |
+| Mosaico automático: principal + pilha na área útil, sem cobrir o Dock | Sem compositor: contornos, e o destino em listras |
+| ![Seletor de zonas no X11: as três zonas do layout Principal + pilha numeradas sobre as janelas, a zona atual em listras](docs/screenshots/x11-seletor.png) | ![Menu do dockapp no X11, no estilo dos menus do Window Maker, com o submenu Algoritmo do mosaico aberto](docs/screenshots/dockapp-menu.png) |
+| Super+Z (ou `wmake-zones picker`): escolher a zona pelo teclado | Clique direito no ladrilho: modos, layout, algoritmo, desfazer e configurações |
+
+### Wayland (wlmaker)
+
+| | |
+|---|---|
+| ![Painel de layouts no Wayland, desenhado pelo wlmaker: parado sobre Principal + pilha, as três zonas aparecem numeradas](docs/screenshots/wayland-painel-layouts.png) | ![Zonas no Wayland: o gedit é arrastado e a zona 3 fica destacada em translúcido](docs/screenshots/wayland-zonas.png) |
+| O mesmo painel, desenhado pelo próprio compositor | Zonas translúcidas: o wlmaker não precisa de compositor à parte |
+| ![Mosaico no Wayland: a mesma geometria do X11, com o wmake-zones status mostrando backend=wlmaker](docs/screenshots/wayland-mosaico.png) | ![Seletor Super+Z no Wayland: zonas numeradas e a dica 1–9 ou setas, Enter encaixa, Tab troca o layout, Esc cancela](docs/screenshots/wayland-seletor.png) |
+| Mosaico: as mesmas células do X11 | Seletor com a dica de teclado embaixo |
+
+### Preferências e editor
+
+| | |
+|---|---|
+| ![Preferências do wmake-zones na página Geral: encaixar ao arrastar, mosaico automático, o layout Principal + pilha desenhado e o botão Editar zonas](docs/screenshots/preferencias.png) | ![Preferências na página Mosaico: algoritmo, posição e tamanho da área principal, janelas na principal e espaçamento](docs/screenshots/preferencias-mosaico.png) |
+| `wmake-zones-prefs`: as seções do WPrefs (Geral, Zonas, Mosaico, Monitores, Aparência, Atalhos, Regras, Avançado) | Mosaico: algoritmo, área principal e espaçamento |
+
+<p align="center">
+  <img src="docs/screenshots/editor.png" width="70%" alt="Editor de zonas com o layout Principal + pilha: a zona 1 selecionada, botões para dividir, renomear, excluir, importar e exportar, e o espaçamento">
+</p>
+<p align="center"><sub>Editor de zonas (<code>wmake-zones-prefs --editor</code> ou Super+Alt+Z): dividir, mover a divisória, dar nome, importar e exportar.</sub></p>
+
+## X11 e Wayland
+
+O núcleo (`libwmake-zones-engine.a`: layouts, mosaico, histórico,
+configuração) é o mesmo nos dois. Muda quem aplica a geometria: no X11, o
+serviço `wmake-zones` pede ao Window Maker; no Wayland, o wlmaker do Big
+WindowMaker liga no núcleo e faz tudo dentro do compositor.
+
+| | X11 (Window Maker) | Wayland (wlmaker) |
+|---|---|---|
+| Quem organiza | serviço `wmake-zones` (sobe com as zonas ou o mosaico; desligado, sai) | o próprio wlmaker (patches do pacote `wlmaker`, a partir do 0104) |
+| Primeiro o layout, depois a zona; Esc; união de zonas | ✅ | ✅ |
+| Zonas translúcidas | com um compositor (picom); sem ele, contornos e listras | ✅ sempre (desenhadas pelo compositor) |
+| Mosaico (8 algoritmos, BSP persistente), troca por arrasto, proporção pelo mouse | ✅ | ✅ |
+| Seletor Super+Z, focar ao lado, desfazer e refazer | ✅ | ✅ (o seletor cede o teclado à tela de bloqueio) |
+| Mover entre zonas e monitores pelo teclado | ✅ | ✅ |
+| Regras por aplicativo | WM_CLASS | `app_id`; WM_CLASS no XWayland |
+| Layouts por monitor e por área de trabalho | ✅ (monitores pelo RandR ou pelo Xinerama) | ✅ (com a escala de cada saída) |
+| Atalhos | do serviço; trocam em *Preferências > Atalhos* | ação `Zones` no `Config.plist` do wlmaker |
+| Dockapp | `wmake-zones --dockapp`, estilo LCD ciano | `wmake-zones-wl`, nativo, nas cores do tema |
+| Encaixe nas bordas do próprio WM | o `WindowSnapping` do Window Maker fica desligado enquanto as zonas estão ativas (`--reset` devolve) | — |
+
+Os comandos do terminal são os mesmos nas duas sessões: o cliente fala com
+quem organiza por um socket em `$XDG_RUNTIME_DIR/wmake-zones/`. Cada item
+da tabela tem teste funcional com o Window Maker e o wlmaker de verdade
+([o que cada teste cobre](docs/testing.md)).
 
 ## Instalar
 
-No Big WindowMaker o pacote já vem na ISO e é dependência da sessão. Em
-outra instalação Arch/Manjaro, pelo PKGBUILD de
+No Big WindowMaker o pacote já vem na ISO e é dependência da sessão
+(`big-wm-session`). Em outra instalação Arch/Manjaro, pelo PKGBUILD de
 [big-windowmaker/packages](https://github.com/big-windowmaker/packages/tree/main/wmake-zones):
 
 ```sh
@@ -139,54 +132,60 @@ git clone https://github.com/big-windowmaker/packages
 cd packages/wmake-zones && makepkg -si
 ```
 
-Direto deste repositório (Meson):
+| Pacote | Para quê |
+|---|---|
+| `libx11`, `libxi` (XInput 2.1), `libxrandr`, `libxinerama`, `libxext` (Shape), `libxrender`, `libxft`, `fontconfig` | serviço X11, overlay e dockapp |
+| `gtk3`, `glib2` | preferências e editor (só enquanto abertos) |
+| `wayland`, `cairo` | dockapp nativo do wlmaker |
+| `hicolor-icon-theme` | ícones |
+| `windowmaker` (opcional) | sessão X11; o `wdread`/`wdwrite` dele ligam e desligam o `WindowSnapping` |
+| `wlmaker` do Big WindowMaker (opcional) | zonas e mosaico na sessão Wayland |
+| `picom` (opcional) | zonas translúcidas no X11 |
 
-```sh
-meson setup build --prefix=/usr
-meson compile -C build
-sudo meson install -C build
-```
-
-Dependências de execução: `gtk3`, `cairo`, `libx11`, `libxext`, `libxft`,
-`libxi`, `libxinerama`, `libxrandr`, `libxrender`, `wayland`; de compilação:
-`meson`, `wayland-protocols`, `librsvg`. Para remover: `sudo pacman -R
-wmake-zones` (a configuração do usuário fica em `~/.config/wmake-zones/`).
-
-Para as zonas no Wayland é preciso o `wlmaker` do mesmo repositório (patches
-0104 a 0116), que liga no núcleo do wmake-zones.
+Para compilar: `meson`, `wayland-protocols` e `librsvg` (ícones PNG do
+Dock). Para remover: `sudo pacman -R wmake-zones`; a configuração do
+usuário fica em `~/.config/wmake-zones/`.
 
 ## Usar
 
 No Big WindowMaker tudo já vem pronto: as zonas ligadas e o ladrilho no
 Dock. O resto se ajusta pelo ladrilho, por *Aparência > Organização de
-janelas*, pelas preferências (`wmake-zones-prefs`) ou pelo terminal:
+janelas*, pelas preferências (`wmake-zones-prefs`) ou pelo terminal.
+
+### Comandos
 
 ```sh
 wmake-zones mode toggle         # Zonas <-> Mosaico (o clique esquerdo do ladrilho)
-wmake-zones mode enable         # desliga / religa (o clique do meio)
+wmake-zones mode enable         # desliga / religa o último modo (o clique do meio)
 wmake-zones zones on            # zonas ao arrastar (sobe o serviço no X11)
 wmake-zones layout thirds       # halves, quarters, thirds, main-stack, grid-3x3...
+wmake-zones layouts             # os layouts disponíveis, com a árvore de cada um
 wmake-zones autotile on         # mosaico automático
 wmake-zones algorithm bsp       # master, columns, rows, grid, bsp, monocle, spiral, dwindle
+wmake-zones snap 2              # a janela ativa na zona 2
+wmake-zones picker              # escolher a zona pelo teclado (Super+Z)
 wmake-zones status              # estado, monitores, áreas úteis e layouts
 wmake-zones windows -l          # janelas: monitor, zona, mosaico, geometria e aplicativo
+wmake-zones windows -d          # por que cada janela está (ou não) no mosaico
 wmake-zones undo                # desfaz a última organização (redo refaz)
+wmake-zones prefs               # preferências (editor abre o editor de zonas)
+wmake-zones --reset             # desliga tudo e devolve o WindowSnapping ao Window Maker
 wmake-zones help                # todos os comandos
 ```
 
-Os mesmos comandos valem no X11 e no Wayland: o cliente fala com o serviço
-da sessão por um socket em `$XDG_RUNTIME_DIR/wmake-zones/`. A página de
-manual (`man wmake-zones`) descreve todos.
+A página de manual (`man wmake-zones`) descreve todos, inclusive `move`,
+`swap`, `focus`, `restore`, `float`, `promote`, `grow`, `shrink`,
+`arrange`, `preview` e `reload`.
 
 ### Atalhos
 
 | Atalho | Ação |
 |---|---|
-| Super+Z | Escolher a zona da janela ativa (1–9, setas, Enter, Tab troca o layout) |
+| Super+Z | Escolher a zona da janela ativa (1–9, setas, Enter; Tab troca o layout) |
 | Super+Shift+Z | Ligar/desligar o mosaico automático |
 | Super+Alt+Z | Editor de zonas |
 | Super+Ctrl+Z | Próximo layout |
-| Super+Ctrl+setas | Mover a janela para a zona ao lado (ou o monitor ao lado) |
+| Super+Ctrl+setas | Mover a janela para a zona ao lado (ou para o monitor ao lado) |
 | Super+Alt+setas | Focar a janela ao lado |
 | Super+Shift+setas | Trocar de lugar no mosaico |
 | Super+Ctrl+0 | Restaurar tamanho e posição |
@@ -196,9 +195,33 @@ manual (`man wmake-zones`) descreve todos.
 | Super+Ctrl+Backspace | Desfazer a última organização |
 | Super+Ctrl+Shift+Backspace | Refazer |
 
-Os atalhos se trocam em *Preferências > Atalhos* (X11) ou no `Config.plist`
-do wlmaker (ação `Zones`). Um atalho que outro programa já usa não é tomado e
-aparece como conflito no `status`.
+No X11 os atalhos se trocam em *Preferências > Atalhos* (seção `[Keys]`
+do arquivo; vazio desliga); no Wayland, no `Config.plist` do wlmaker (ação
+`Zones`). Um atalho que outro programa já usa não é tomado e aparece como
+conflito no `status`.
+
+### Dockapp
+
+<p align="center">
+  <img src="docs/screenshots/dockapp.png" width="384" alt="Ladrilho do wmake-zones no X11 nos três modos: Zonas com o layout Principal + pilha e a tecla Z acesa; Mosaico com as janelas e a tecla M acesa; desligado com o sinal de pausa">
+  &nbsp;
+  <img src="docs/screenshots/wayland-dockapp.png" width="384" alt="O ladrilho nativo do wlmaker nos mesmos três modos, nas cores do tema">
+</p>
+<p align="center"><sub>À esquerda, o ladrilho do X11 (estilo LCD); à direita, o do wlmaker. Em cada um: Zonas, Mosaico e desligado.</sub></p>
+
+| Ação | Efeito |
+|---|---|
+| Clique esquerdo na tela | alterna Zonas e Mosaico (`[Dockapp] LeftClick` muda) |
+| Clique do meio | desliga e religa o último modo |
+| Roda | troca o layout (nas Zonas) ou o algoritmo (no Mosaico) |
+| Setas ◀ ▶ | layout ou algoritmo anterior / próximo |
+| Teclas Z e M | escolhem o modo; a acesa desliga |
+| Clique direito | o menu: modos, layout, algoritmo, desfazer, refazer, restaurar, organizar, configurações |
+
+No modo Mosaico a tela mostra as janelas na disposição do algoritmo do
+monitor, calculada na área útil de verdade; um ladrilho por algoritmo:
+
+<img src="docs/screenshots/dockapp-algoritmos.png" alt="Oito ladrilhos do X11 no modo Mosaico: principal + pilha, grade, colunas, linhas, monóculo, BSP, subdivisão e espiral">
 
 ### Configuração
 
@@ -236,31 +259,9 @@ LeftClick=layouts
 
 As mudanças feitas pelo serviço ou pelas preferências preservam comentários
 e chaves desconhecidas, seguem links simbólicos (dotfiles) e são gravadas
-atomicamente. O exemplo completo fica em
+atomicamente. Todas as chaves e os padrões estão em
+[Configuração](docs/configuration.md); o exemplo comentado fica em
 `/usr/share/doc/wmake-zones/wmake-zones.conf.example`.
-
-### Voltar ao normal
-
-`wmake-zones --reset` desliga tudo e devolve ao Window Maker o encaixe nas
-bordas dele (`WindowSnapping`), que fica desligado enquanto as zonas estão
-ativas.
-
-## X11 e Wayland
-
-| | X11 (Window Maker) | Wayland (wlmaker) |
-|---|---|---|
-| Primeiro o layout, depois a zona; zonas ao arrastar, Esc, união de zonas | ✅ | ✅ |
-| Mosaico automático (8 algoritmos, BSP persistente), troca por arrasto | ✅ | ✅ |
-| Proporção da principal pelo mouse | ✅ | ✅ |
-| Seletor Super+Z, focar a janela ao lado, desfazer e refazer | ✅ | ✅ |
-| Mover entre zonas e monitores pelo teclado | ✅ | ✅ |
-| Regras por aplicativo | ✅ WM_CLASS | ✅ `app_id`; WM_CLASS no XWayland |
-| Ativação só com modificador ou pela borda | ✅ | ✅ |
-| Layouts por monitor e por área de trabalho | ✅ | ✅ |
-| Dockapp: Zonas ↔ Mosaico, desligar, roda, menu | ✅ (`wmake-zones --dockapp`) | ✅ (`wmake-zones-wl`) |
-
-Cada item foi conferido nos testes funcionais dos dois ambientes, com o
-Window Maker e o wlmaker de verdade ([o que cada teste cobre](docs/testing.md)).
 
 ## Desempenho
 
@@ -280,18 +281,39 @@ Medido na 0.3.0 ([detalhes](docs/performance.md)), num Xvfb 1920×1080:
 ```sh
 meson setup build
 meson compile -C build
-meson test -C build                              # núcleo, metadados e X11 funcional
-WLMAKER=/caminho/wlmaker tests/wayland-functional.sh build
+meson test -C build                              # tudo; o Wayland pula sem o wlmaker das zonas
+WLMAKER=/caminho/wlmaker meson test -C build --suite wayland
 ```
 
-Dependências: libX11, libXi (XInput 2.1), libXrandr, libXext, libXft,
-libXrender e fontconfig (serviço X11); GTK 3 (preferências e editor);
-wayland-client e cairo (dockapp do wlmaker). O núcleo
-(`libwmake-zones-engine.a`) não depende de nada.
+A suíte `wayland` usa o cliente `wmake-zones`, que só existe com o X11:
+num build com `-Dx11=disabled` ela não tem nenhum teste, mesmo com o
+`WLMAKER` certo.
 
-Os testes funcionais rodam o Window Maker e o wlmaker de verdade num Xvfb
-próprio, nunca na sua tela: 931 mil verificações no núcleo, 52 no X11 e 45
-no Wayland ([o que cada um cobre](docs/testing.md)).
+| Opção do Meson | Padrão | |
+|---|---|---|
+| `x11` | auto | serviço X11 e dockapp do Window Maker |
+| `prefs` | auto | preferências e editor (GTK 3) |
+| `wayland_dockapp` | auto | dockapp nativo do wlmaker |
+| `engine_lib` | true | instala o núcleo estático e o `.pc` para o wlmaker |
+| `nls`, `tests` | true | traduções e testes |
+
+Os testes funcionais sobem o Window Maker e o wlmaker de verdade num Xvfb
+próprio, nunca na sua tela, e pulam (SKIP) sem as ferramentas:
+
+| Teste | Verificações | O que cobre |
+|---|---|---|
+| `engine` | 931 mil | layouts, mosaico, foco espacial, histórico e INI; também com sanitizers no CI |
+| `x11-functional` | 52 | arrasto, Esc, painel de layouts, seletor, mosaico, regras, repouso e PSS |
+| `x11-multimonitor` | 13 | dois heads no Xephyr (`+xinerama`): mosaico por monitor, Dock que aparece e some |
+| `x11-dockapp` (e `-noshape`) | 26 | modos pelos pixels, teclas Z e M, setas, menu e arrasto para o Dock |
+| `wayland-functional` | 51 | o mesmo no wlmaker aninhado, com janelas GTK nativas |
+| `metainfo`, `po` | — | AppStream (`appstreamcli`) e catálogos de tradução |
+
+Para os testes: `xorg-server-xvfb`, `xorg-server-xephyr`, `windowmaker`,
+`xdotool`, `xorg-xprop`, `xorg-xwininfo`, `xterm`, `imagemagick`,
+`python-gobject`, `python-xlib`, `python-pillow`, `appstream` e `gettext`
+(sem o `xgettext`, o `msgcmp` e o `msgfmt`, o teste `po` pula). Detalhes em
+[Testes](docs/testing.md).
 
 ## Documentação
 
@@ -315,7 +337,8 @@ no Wayland ([o que cada um cobre](docs/testing.md)).
 - Código: um *pull request* por assunto, com `meson test -C build` passando
   e o teste de regressão do que foi corrigido; leia o
   [guia de contribuição](https://github.com/big-windowmaker/.github/blob/main/CONTRIBUTING.md).
-- Tradução: `po/pt_BR.po` (o teste `po` confere o catálogo).
+- Tradução: `po/pt_BR.po`, com o glossário em `po/glossary/pt_BR.tsv` (o
+  teste `po` confere o catálogo).
 
 ## Créditos
 

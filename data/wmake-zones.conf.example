@@ -3,9 +3,10 @@
 # (compatível com GKeyFile). Chaves ausentes valem o padrão mostrado.
 
 [General]
-# Zonas ao arrastar janelas e mosaico automático. Os dois começam desligados:
-# o Window Maker continua flutuante até o usuário escolher.
-Zones=false
+# Zonas ao arrastar janelas e mosaico automático. As zonas vêm ligadas (desde
+# a 0.3) e o mosaico, não: as janelas flutuam como no Window Maker e só mudam
+# de lugar quando o usuário as solta numa zona.
+Zones=true
 Autotile=false
 # Quando mostrar as zonas: drag (ao arrastar), modifier (só segurando o
 # modificador), edge (perto das bordas da tela, ou com o modificador).
