@@ -129,7 +129,9 @@ dockapp no wlmaker (cliques e roda).
 
 ## Sessão real numa VM (live ISO do Big WindowMaker, QEMU/KVM)
 
-As capturas do README saíram dessas sessões (0.2.0, 2026-11-05).
+Registro da 0.2.0 (2026-11-05). As capturas atuais do README (0.4.1,
+2026-11-14) saíram de um Xvfb próprio com a sessão do Big WindowMaker
+(Window Maker e wlmaker aninhado), nunca da tela do usuário.
 
 * X11 (Window Maker + picom): arrasto do Thunar com o overlay translúcido,
   encaixe na zona; área útil respeitando Dock, Clip e Dock com abas;
