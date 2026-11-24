@@ -200,6 +200,14 @@ wzp_draw_icon(cairo_t *cr, int kind, double size)
             line(cr, 14, 12 + i * 7, 34, 12 + i * 7);
         wzp_tile(cr, 22, 26, 20, 16, 0x505a5e, 0x202a2e);
         break;
+    case 8: /* Rolagem: colunas na tela e mais colunas dos lados */
+        monitor(cr, 8, 6, 32, 30);
+        wzp_draw_layout(cr, "H(2,3)", 11, 10, 26, 21, 1, 0x58a8f0, 0);
+        wzp_rgb(cr, 0x8a888d, 1);
+        cairo_rectangle(cr, 1, 12, 5, 17);
+        cairo_rectangle(cr, 42, 12, 5, 17);
+        cairo_fill(cr);
+        break;
     case 7: { /* Avançado: engrenagem */
         wzp_rgb(cr, 0x8a888d, 1);
         for (int i = 0; i < 8; i++) {
