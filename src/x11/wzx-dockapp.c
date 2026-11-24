@@ -729,6 +729,7 @@ wm_forward(wzx *z, unsigned button, int x, int y, int xr, int yr, unsigned state
 static struct {
     int pending, x, y, xr, yr;
     unsigned state;
+    int edge; /* na borda: só arrastar (vai para o Window Maker), sem clique */
 } press;
 static struct {
     int x, y, xr, yr;
@@ -1379,14 +1380,17 @@ wzx_dockapp_event(wzx *z, XEvent *e)
          * arrasta, como nos outros dockapps. */
         int in_screen = b->x >= 3 && b->x < 57 && b->y >= SCR_Y + 1 && b->y < SCR_Y + SCR_H - 1;
         int edge = !in_screen && row_hit(b->x, b->y) == HIT_NONE;
-        /* A borda é do Window Maker, como nos outros dockapps. */
-        if (edge && (b->button == 1 || b->button == 3) &&
-            wm_forward(z, b->button, b->x, b->y, b->x_root, b->y_root, b->state)) {
+        /* A borda é do Window Maker, como nos outros dockapps: o direito
+         * abre o menu dele na hora; o esquerdo só vai para ele quando vira
+         * arrasto (um clique encaminhado cuja soltura chega antes da
+         * captura dele deixa o Window Maker 0.96 arrastando o ícone no
+         * próximo movimento), e um clique simples ali não faz nada. */
+        if (edge && b->button == 3 && wm_forward(z, b->button, b->x, b->y, b->x_root, b->y_root, b->state)) {
             press.pending = 0;
             break;
         }
         if (b->button == 1) {
-            press = (typeof(press)){ 1, b->x, b->y, b->x_root, b->y_root, b->state };
+            press = (typeof(press)){ 1, b->x, b->y, b->x_root, b->y_root, b->state, edge };
             break;
         }
         if (b->button == 3)
@@ -1411,6 +1415,8 @@ wzx_dockapp_event(wzx *z, XEvent *e)
     case ButtonRelease:
         if (e->xbutton.button == 1 && press.pending) {
             press.pending = 0;
+            if (press.edge)
+                break;
             if (row_hit(press.x, press.y) != HIT_NONE)
                 row_click(z, row_hit(press.x, press.y));
             else

@@ -540,8 +540,7 @@ row_click(app *a)
     } else if (hit == HIT_R) {
         command(a, m == WZ_MODE_SCROLL ? "mode off" : "mode scroll");
     }
-    /* Na fileira das teclas, o vão entre elas não troca o modo. */
-    return a->py >= ROW_Y && a->py < ROW_Y + ROW_H;
+    return hit != HIT_NONE;
 }
 
 static void
