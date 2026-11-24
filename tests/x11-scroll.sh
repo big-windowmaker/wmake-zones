@@ -139,14 +139,21 @@ check "solta fora das zonas: sai da zona" '[ -z "$(prop "$W1" _WMAKE_ZONES_ZONE)
 "$WZ" restore >/dev/null 2>&1; sleep 0.5
 
 # --- Ctrl+Alt: mover e redimensionar de qualquer ponto da janela ------------
-eval "$(geom "$W3")"; X0=$X Y0=$Y W0=$WIDTH H0=$HEIGHT
-xdotool mousemove $((X + WIDTH / 2)) $((Y + HEIGHT / 2)); sleep 0.2
-xdotool keydown ctrl+alt; sleep 0.1; xdotool mousedown 1; sleep 0.2
-for _ in $(seq 1 10); do xdotool mousemove_relative -- 12 8; sleep 0.05; done
-xdotool mouseup 1; sleep 0.1; xdotool keyup ctrl+alt; sleep 0.6
-eval "$(geom "$W3")"
-check "Ctrl+Alt+arrastar move pelo meio da janela ($X0,$Y0 -> $X,$Y)" '[ $((X - X0)) -ge 80 ] && [ $((Y - Y0)) -ge 50 ]'
-check "Ctrl+Alt+arrastar mantém o tamanho" '[ "$WIDTH" = "$W0" ] && [ "$HEIGHT" = "$H0" ]'
+# O movimento é do Window Maker (_NET_WM_MOVERESIZE, no git dele desde
+# 2026-02; a 0.96.0 não tem). Com ele, Ctrl+Alt move e o clique não chega
+# ao aplicativo; sem ele, o serviço não pega o clique e ele chega.
+MR=0; xprop -root _NET_SUPPORTED | grep -q _NET_WM_MOVERESIZE && MR=1
+echo "# _NET_WM_MOVERESIZE no Window Maker: $MR"
+if [ "$MR" = 1 ]; then
+	eval "$(geom "$W3")"; X0=$X Y0=$Y W0=$WIDTH H0=$HEIGHT
+	xdotool mousemove $((X + WIDTH / 2)) $((Y + HEIGHT / 2)); sleep 0.2
+	xdotool keydown ctrl+alt; sleep 0.1; xdotool mousedown 1; sleep 0.2
+	for _ in $(seq 1 10); do xdotool mousemove_relative -- 12 8; sleep 0.05; done
+	xdotool mouseup 1; sleep 0.1; xdotool keyup ctrl+alt; sleep 0.6
+	eval "$(geom "$W3")"
+	check "Ctrl+Alt+arrastar move pelo meio da janela ($X0,$Y0 -> $X,$Y)" '[ $((X - X0)) -ge 80 ] && [ $((Y - Y0)) -ge 50 ]'
+	check "Ctrl+Alt+arrastar mantém o tamanho" '[ "$WIDTH" = "$W0" ] && [ "$HEIGHT" = "$H0" ]'
+fi
 # O clique com o modificador não chega ao aplicativo (o xev registra cada
 # ButtonPress que recebe); um clique comum chega.
 BLOG=$(dirname "$0")/tools/button-log.py
@@ -162,7 +169,13 @@ if python3 -c 'import Xlib' 2>/dev/null; then
 	xdotool keydown ctrl+alt; sleep 0.1; xdotool mousedown 1; sleep 0.2
 	for _ in $(seq 1 5); do xdotool mousemove_relative -- -10 -6; sleep 0.05; done
 	xdotool mouseup 1; sleep 0.1; xdotool keyup ctrl+alt; sleep 0.5
-	check "Ctrl+Alt+arrastar: nenhum ButtonPress chegou ao aplicativo" '! grep -q ButtonPress "$TMP/xev.log"'
+	if [ "$MR" = 1 ]; then
+		check "Ctrl+Alt+arrastar: nenhum ButtonPress chegou ao aplicativo" '! grep -q ButtonPress "$TMP/xev.log"'
+	else
+		check "sem _NET_WM_MOVERESIZE: o serviço não pega o clique, ele chega ao aplicativo" 'grep -q ButtonPress "$TMP/xev.log"'
+		check "sem _NET_WM_MOVERESIZE: o motivo fica no log" '"$WZ" log | grep -q "não anuncia _NET_WM_MOVERESIZE"'
+		: >"$TMP/xev.log"
+	fi
 	eval "$(geom "$XV")"
 	xdotool mousemove $((X + 150)) $((Y + 100)) click 1; sleep 0.5
 	check "clique comum chega ao aplicativo (controle)" 'grep -q ButtonPress "$TMP/xev.log"'
@@ -170,13 +183,15 @@ if python3 -c 'import Xlib' 2>/dev/null; then
 else
 	n=$((n + 1)); echo "ok $n # SKIP sem python-xlib: clique com o modificador não chega ao aplicativo"
 fi
-eval "$(geom "$W3")"; W0=$WIDTH H0=$HEIGHT
-xdotool mousemove $((X + WIDTH - 10)) $((Y + HEIGHT - 10)); sleep 0.2
-xdotool keydown ctrl+alt; sleep 0.1; xdotool mousedown 3; sleep 0.2
-for _ in $(seq 1 8); do xdotool mousemove_relative -- 10 6; sleep 0.05; done
-xdotool mouseup 3; sleep 0.1; xdotool keyup ctrl+alt; sleep 0.6
-eval "$(geom "$W3")"
-check "Ctrl+Alt+botão direito redimensiona pelo canto (${W0}x$H0 -> ${WIDTH}x$HEIGHT)" '[ "$WIDTH" -gt "$W0" ] && [ "$HEIGHT" -gt "$H0" ]'
+if [ "$MR" = 1 ]; then
+	eval "$(geom "$W3")"; W0=$WIDTH H0=$HEIGHT
+	xdotool mousemove $((X + WIDTH - 10)) $((Y + HEIGHT - 10)); sleep 0.2
+	xdotool keydown ctrl+alt; sleep 0.1; xdotool mousedown 3; sleep 0.2
+	for _ in $(seq 1 8); do xdotool mousemove_relative -- 10 6; sleep 0.05; done
+	xdotool mouseup 3; sleep 0.1; xdotool keyup ctrl+alt; sleep 0.6
+	eval "$(geom "$W3")"
+	check "Ctrl+Alt+botão direito redimensiona pelo canto (${W0}x$H0 -> ${WIDTH}x$HEIGHT)" '[ "$WIDTH" -gt "$W0" ] && [ "$HEIGHT" -gt "$H0" ]'
+fi
 G1=$(G "$W1") G2=$(G "$W2") G3=$(G "$W3")
 
 # --- Mosaico e volta: cada janela no lugar de antes -----------------------
@@ -233,12 +248,12 @@ if [ $# -ge 2 ]; then
 	A=$1 B=$2
 	[ "$(xpos "$A")" -gt "$(xpos "$B")" ] && { A=$2; B=$1; }
 	eval "$(geom "$B")"; BX=$X
-	xdotool mousemove $((X + WIDTH / 2)) $((Y + HEIGHT / 2)); sleep 0.2
-	xdotool keydown ctrl+alt; sleep 0.1; xdotool mousedown 1; sleep 0.2
+	xdotool mousemove $((X + 40)) $((Y - 10)); sleep 0.2   # barra de título
+	xdotool mousedown 1; sleep 0.2
 	eval "$(geom "$A")"
 	for _ in $(seq 1 12); do xdotool mousemove_relative -- -60 0; sleep 0.05; done
 	xdotool mousemove $((X + 20)) $((Y + 100)); sleep 0.3
-	xdotool mouseup 1; sleep 0.1; xdotool keyup ctrl+alt; sleep 1
+	xdotool mouseup 1; sleep 1
 	check "arrastar a coluna para antes da outra troca a ordem" '[ "$(xpos "$B")" -lt "$(xpos "$A")" ]'
 	check "depois do arrasto, as duas na tela e alinhadas à faixa" 'onscreen "$A" && onscreen "$B" && [ "$(xpos "$B")" -le 2 ]'
 fi

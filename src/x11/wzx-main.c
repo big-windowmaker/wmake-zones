@@ -168,6 +168,8 @@ handle_property(wzx *z, XPropertyEvent *e)
                 wzx_tile_mark(z);
                 wzx_dockapp_redraw(z);
             }
+        } else if (e->atom == z->atom[A_NET_SUPPORTED]) {
+            wzx_moddrag_grab(z);
         } else if (e->atom == z->atom[A_NET_ACTIVE_WINDOW]) {
             Atom rt;
             int fmt;

@@ -207,6 +207,17 @@ wzx_moddrag_grab(wzx *z)
     unsigned m = parse_mods(z->cfg.drag_modifier);
     if (!m)
         return;
+    /* O movimento é do Window Maker (_NET_WM_MOVERESIZE, no git dele desde
+     * 2026-02; a 0.96.0 não tem). Sem isso, pegar o clique só o engoliria:
+     * fica sem a grab e o clique vai para o aplicativo. Conferido de novo
+     * quando o _NET_SUPPORTED muda (o Window Maker pode subir depois). */
+    static int warned;
+    if (!wzx_wm_supports(z, z->atom[A_NET_WM_MOVERESIZE])) {
+        if (!warned++)
+            wzx_log("o gerenciador de janelas não anuncia _NET_WM_MOVERESIZE: %s+arrastar fica desligado",
+                    z->cfg.drag_modifier);
+        return;
+    }
     /* Na raiz: a grab passiva mais externa vence, então o clique nunca chega
      * ao aplicativo (não seleciona texto, não aperta botões). Sem o
      * modificador, nada muda. */

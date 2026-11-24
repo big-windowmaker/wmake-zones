@@ -280,6 +280,8 @@ void wzx_activate(wzx *z, wzx_win *w);
 void wzx_send_to_desktop(wzx *z, wzx_win *w, long d);
 const char *wzx_title(wzx *z, wzx_win *w, char *buf, size_t len);
 int wzx_compositing(wzx *z);
+/* O gerenciador anuncia o átomo em _NET_SUPPORTED? */
+int wzx_wm_supports(wzx *z, Atom a);
 void wzx_or_event(wzx *z, Window w, int x, int y, int wd, int ht, int mapped, int destroyed);
 void wzx_wm_snapping(wzx *z, int disable);
 int wzx_snapping_marked(const char *cfg_path);

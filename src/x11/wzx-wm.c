@@ -1024,3 +1024,20 @@ wzx_free_restore(wzx *z, wzx_win *w)
                    st & WS_MAXH ? z->atom[A_NET_WM_STATE_MAXIMIZED_HORZ] : None);
     return 1;
 }
+
+int
+wzx_wm_supports(wzx *z, Atom a)
+{
+    Atom rt;
+    int fmt;
+    unsigned long n = 0, after;
+    unsigned char *d = NULL;
+    int found = 0;
+    if (XGetWindowProperty(z->dpy, z->root, z->atom[A_NET_SUPPORTED], 0, 4096, False, XA_ATOM, &rt, &fmt, &n, &after,
+                           &d) == Success && d && fmt == 32)
+        for (unsigned long i = 0; i < n && !found; i++)
+            found = ((Atom *)d)[i] == a;
+    if (d)
+        XFree(d);
+    return found;
+}
