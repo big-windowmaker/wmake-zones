@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: wmake-zones\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-24 06:37-0300\n"
+"POT-Creation-Date: 2026-11-24 07:05-0300\n"
 "PO-Revision-Date: 2026-11-09 12:00-0300\n"
 "Last-Translator: Big WindowMaker\n"
 "Language-Team: Portuguese (Brazil)\n"
@@ -32,8 +32,9 @@ msgid ""
 "\n"
 "Commands (sent to the running service, X11 or wlmaker):\n"
 "  status                     state, monitors, work areas and layouts\n"
-"  mode zones|tiling|off      organization mode; toggle switches Zones and\n"
-"                             Tiling, enable turns off or back on\n"
+"  mode zones|tiling|scroll|off\n"
+"                             organization mode; toggle goes Zones, Tiling,\n"
+"                             Scrolling; enable turns off or back on\n"
 "  zones on|off|toggle        snap zones while dragging\n"
 "  autotile on|off|toggle     automatic tiling\n"
 "  layout ID|next|prev        zone layout of the monitor under the pointer\n"
@@ -45,6 +46,10 @@ msgid ""
 "  restore | restore-all      back to the size and place before snapping\n"
 "  float | promote | grow | shrink | arrange\n"
 "  undo | redo                undo or redo the last change\n"
+"  scroll left|right|up|down|first|last|center|view-left|view-right\n"
+"                             Scrolling: focus a column or window, scroll\n"
+"  column next|previous|move-left|move-right|merge|split|width N%%|+|-\n"
+"                             Scrolling: the active column\n"
 "  picker                     choose a zone with the keyboard\n"
 "  preview TREE               show a layout for a moment, e.g. \"H(2,1)\"\n"
 "  windows [-l|-d]            open windows (-l: monitor, zone and geometry;\n"
@@ -71,8 +76,9 @@ msgstr ""
 "\n"
 "Comandos (enviados ao serviço em execução, X11 ou wlmaker):\n"
 "  status                     estado, monitores, áreas úteis e layouts\n"
-"  mode zones|tiling|off      modo de organização; toggle alterna Zonas e\n"
-"                             Mosaico, enable desliga ou religa\n"
+"  mode zones|tiling|scroll|off\n"
+"                             modo de organização; toggle passa por Zonas,\n"
+"                             Mosaico e Rolagem; enable desliga ou religa\n"
 "  zones on|off|toggle        zonas de encaixe ao arrastar\n"
 "  autotile on|off|toggle     mosaico automático\n"
 "  layout ID|next|prev        layout de zonas do monitor sob o ponteiro\n"
@@ -85,6 +91,10 @@ msgstr ""
 "encaixe\n"
 "  float | promote | grow | shrink | arrange\n"
 "  undo | redo                desfaz ou refaz a última mudança\n"
+"  scroll left|right|up|down|first|last|center|view-left|view-right\n"
+"                             Rolagem: foca uma coluna ou janela, rola a faixa\n"
+"  column next|previous|move-left|move-right|merge|split|width N%%|+|-\n"
+"                             Rolagem: a coluna ativa\n"
 "  picker                     escolhe uma zona pelo teclado\n"
 "  preview ÁRVORE             mostra um layout por um instante, ex.: "
 "\"H(2,1)\"\n"
@@ -97,33 +107,33 @@ msgstr ""
 "\n"
 "Configuração: ~/.config/wmake-zones/wmake-zones.conf\n"
 
-#: src/x11/wzx-main.c:423
+#: src/x11/wzx-main.c:431 src/x11/wzx-main.c:450
 msgid "could not start the service"
 msgstr "não foi possível iniciar o serviço"
 
-#: src/x11/wzx-main.c:432
+#: src/x11/wzx-main.c:459
 msgid "the service is not running"
 msgstr "o serviço não está em execução"
 
-#: src/x11/wzx-main.c:432
+#: src/x11/wzx-main.c:459
 msgid "no display"
 msgstr "sem display"
 
-#: src/x11/wzx-main.c:455
+#: src/x11/wzx-main.c:482
 msgid "Zones and Auto Tiling are off; Window Maker is back to normal."
 msgstr ""
 "Zonas e Mosaico automático desligados; o Window Maker voltou ao normal."
 
 #. no Wayland quem faz o trabalho é o wlmaker
-#: src/x11/wzx-main.c:504
+#: src/x11/wzx-main.c:531
 msgid "in a Wayland session the zones belong to wlmaker; use the commands."
 msgstr "na sessão Wayland as zonas são do wlmaker; use os comandos."
 
-#: src/x11/wzx-main.c:523
+#: src/x11/wzx-main.c:550
 msgid "no X server (DISPLAY)"
 msgstr "sem servidor X (DISPLAY)"
 
-#: src/x11/wzx-main.c:537
+#: src/x11/wzx-main.c:564
 msgid ""
 "could not create the control socket in $XDG_RUNTIME_DIR/wmake-zones (path "
 "too long or no permission)"
@@ -131,7 +141,7 @@ msgstr ""
 "não foi possível criar o socket de controle em $XDG_RUNTIME_DIR/wmake-zones "
 "(caminho longo demais ou sem permissão)"
 
-#: src/x11/wzx-main.c:551
+#: src/x11/wzx-main.c:578
 msgid "already running on this display"
 msgstr "já está em execução neste display"
 
@@ -269,18 +279,18 @@ msgstr "Editar zonas..."
 msgid "Turn on scrolling"
 msgstr "Ligar a Rolagem"
 
-#: src/x11/wzx-dockapp.c:695
 #
+#: src/x11/wzx-dockapp.c:695
 msgid "Previous column"
 msgstr "Coluna anterior"
 
-#: src/x11/wzx-dockapp.c:696
 #
+#: src/x11/wzx-dockapp.c:696
 msgid "Next column"
 msgstr "Próxima coluna"
 
-#: src/x11/wzx-dockapp.c:697
 #
+#: src/x11/wzx-dockapp.c:697
 msgid "First column"
 msgstr "Primeira coluna"
 
@@ -288,28 +298,28 @@ msgstr "Primeira coluna"
 msgid "Last column"
 msgstr "Última coluna"
 
-#: src/x11/wzx-dockapp.c:699
 #
+#: src/x11/wzx-dockapp.c:699
 msgid "Center column"
 msgstr "Centralizar a coluna"
 
-#: src/x11/wzx-dockapp.c:700
 #
+#: src/x11/wzx-dockapp.c:700
 msgid "Wider column"
 msgstr "Coluna mais larga"
 
-#: src/x11/wzx-dockapp.c:701
 #
+#: src/x11/wzx-dockapp.c:701
 msgid "Narrower column"
 msgstr "Coluna mais estreita"
 
-#: src/x11/wzx-dockapp.c:702
 #
+#: src/x11/wzx-dockapp.c:702
 msgid "Join the column on the left"
 msgstr "Juntar à coluna da esquerda"
 
-#: src/x11/wzx-dockapp.c:703
 #
+#: src/x11/wzx-dockapp.c:703
 msgid "Take the window out of the column"
 msgstr "Tirar a janela da coluna"
 
@@ -401,18 +411,18 @@ msgstr "Nada"
 msgid "Previous / next layout"
 msgstr "Layout anterior / seguinte"
 
-#: src/prefs/wzp-main.c:301
 #
+#: src/prefs/wzp-main.c:301
 msgid "Mode:"
 msgstr "Modo:"
 
-#: src/prefs/wzp-main.c:303
 #
+#: src/prefs/wzp-main.c:303
 msgid "Zones: snap windows while dragging them"
 msgstr "Zonas: encaixar as janelas ao arrastá-las"
 
-#: src/prefs/wzp-main.c:304
 #
+#: src/prefs/wzp-main.c:304
 msgid "Tiling: arrange windows automatically"
 msgstr "Mosaico: organizar as janelas automaticamente"
 
@@ -425,8 +435,8 @@ msgid ""
 "Each mode remembers its own arrangement: switching back puts every window "
 "where it was."
 msgstr ""
-"Cada modo lembra a própria organização: ao voltar a ele, cada janela "
-"volta para onde estava."
+"Cada modo lembra a própria organização: ao voltar a ele, cada janela volta "
+"para onde estava."
 
 #: src/prefs/wzp-main.c:314 src/prefs/wzp-editor.c:872
 msgid "Layout:"
@@ -476,8 +486,8 @@ msgid ""
 "The click does not reach the application. Without the modifier the mouse "
 "works as usual."
 msgstr ""
-"O clique não chega ao aplicativo. Sem o modificador, o mouse funciona "
-"como sempre."
+"O clique não chega ao aplicativo. Sem o modificador, o mouse funciona como "
+"sempre."
 
 #: src/prefs/wzp-main.c:347
 msgid ""
@@ -711,8 +721,8 @@ msgstr "Numa coluna nova, ao lado da ativa"
 msgid "Below the active window, in its column"
 msgstr "Embaixo da janela ativa, na coluna dela"
 
-#: src/prefs/wzp-main.c:543
 #
+#: src/prefs/wzp-main.c:543
 msgid "A new window opens:"
 msgstr "Uma janela nova abre:"
 
@@ -737,13 +747,12 @@ msgid ""
 "the column, Super+Ctrl+= and Super+Ctrl+- change its width, Super+Ctrl+Home/"
 "End go to the first or last column."
 msgstr ""
-"As janelas viram colunas de uma faixa mais larga que a tela; abrir "
-"uma janela acrescenta uma coluna ao lado da ativa sem redimensionar "
-"as outras. Só aparecem colunas inteiras; as outras esperam ao lado da "
-"tela, e focar uma delas rola a faixa até ela. Super+Alt+setas mudam o "
-"foco, Super+Shift+setas movem a coluna, Super+Ctrl+= e Super+Ctrl+- "
-"mudam a largura, Super+Ctrl+Home/End vão para a primeira ou a última "
-"coluna."
+"As janelas viram colunas de uma faixa mais larga que a tela; abrir uma "
+"janela acrescenta uma coluna ao lado da ativa sem redimensionar as outras. "
+"Só aparecem colunas inteiras; as outras esperam ao lado da tela, e focar uma "
+"delas rola a faixa até ela. Super+Alt+setas mudam o foco, Super+Shift+setas "
+"movem a coluna, Super+Ctrl+= e Super+Ctrl+- mudam a largura, Super+Ctrl+Home/"
+"End vão para a primeira ou a última coluna."
 
 #: src/prefs/wzp-main.c:577 src/prefs/wzp-main.c:616
 msgid "(same as general)"
@@ -910,18 +919,18 @@ msgstr "Diminuir a área principal"
 msgid "Undo the last arrangement"
 msgstr "Desfazer a última organização"
 
-#: src/prefs/wzp-main.c:748
 #
+#: src/prefs/wzp-main.c:748
 msgid "Redo the arrangement"
 msgstr "Refazer a organização"
 
-#: src/prefs/wzp-main.c:749
 #
+#: src/prefs/wzp-main.c:749
 msgid "Switch to Zones"
 msgstr "Mudar para Zonas"
 
-#: src/prefs/wzp-main.c:750
 #
+#: src/prefs/wzp-main.c:750
 msgid "Switch to Tiling"
 msgstr "Mudar para Mosaico"
 
@@ -941,8 +950,8 @@ msgstr "Rolagem: última coluna"
 msgid "Scrolling: center the column"
 msgstr "Rolagem: centralizar a coluna"
 
-#: src/prefs/wzp-main.c:755
 #
+#: src/prefs/wzp-main.c:755
 msgid "Scrolling: join the column on the left"
 msgstr "Rolagem: juntar à coluna da esquerda"
 

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: wmake-zones\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-24 06:37-0300\n"
+"POT-Creation-Date: 2026-11-24 07:05-0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -36,8 +36,9 @@ msgid ""
 "\n"
 "Commands (sent to the running service, X11 or wlmaker):\n"
 "  status                     state, monitors, work areas and layouts\n"
-"  mode zones|tiling|off      organization mode; toggle switches Zones and\n"
-"                             Tiling, enable turns off or back on\n"
+"  mode zones|tiling|scroll|off\n"
+"                             organization mode; toggle goes Zones, Tiling,\n"
+"                             Scrolling; enable turns off or back on\n"
 "  zones on|off|toggle        snap zones while dragging\n"
 "  autotile on|off|toggle     automatic tiling\n"
 "  layout ID|next|prev        zone layout of the monitor under the pointer\n"
@@ -49,6 +50,10 @@ msgid ""
 "  restore | restore-all      back to the size and place before snapping\n"
 "  float | promote | grow | shrink | arrange\n"
 "  undo | redo                undo or redo the last change\n"
+"  scroll left|right|up|down|first|last|center|view-left|view-right\n"
+"                             Scrolling: focus a column or window, scroll\n"
+"  column next|previous|move-left|move-right|merge|split|width N%%|+|-\n"
+"                             Scrolling: the active column\n"
 "  picker                     choose a zone with the keyboard\n"
 "  preview TREE               show a layout for a moment, e.g. \"H(2,1)\"\n"
 "  windows [-l|-d]            open windows (-l: monitor, zone and geometry;\n"
@@ -60,38 +65,38 @@ msgid ""
 "Configuration: ~/.config/wmake-zones/wmake-zones.conf\n"
 msgstr ""
 
-#: src/x11/wzx-main.c:423
+#: src/x11/wzx-main.c:431 src/x11/wzx-main.c:450
 msgid "could not start the service"
 msgstr ""
 
-#: src/x11/wzx-main.c:432
+#: src/x11/wzx-main.c:459
 msgid "the service is not running"
 msgstr ""
 
-#: src/x11/wzx-main.c:432
+#: src/x11/wzx-main.c:459
 msgid "no display"
 msgstr ""
 
-#: src/x11/wzx-main.c:455
+#: src/x11/wzx-main.c:482
 msgid "Zones and Auto Tiling are off; Window Maker is back to normal."
 msgstr ""
 
 #. no Wayland quem faz o trabalho é o wlmaker
-#: src/x11/wzx-main.c:504
+#: src/x11/wzx-main.c:531
 msgid "in a Wayland session the zones belong to wlmaker; use the commands."
 msgstr ""
 
-#: src/x11/wzx-main.c:523
+#: src/x11/wzx-main.c:550
 msgid "no X server (DISPLAY)"
 msgstr ""
 
-#: src/x11/wzx-main.c:537
+#: src/x11/wzx-main.c:564
 msgid ""
 "could not create the control socket in $XDG_RUNTIME_DIR/wmake-zones (path "
 "too long or no permission)"
 msgstr ""
 
-#: src/x11/wzx-main.c:551
+#: src/x11/wzx-main.c:578
 msgid "already running on this display"
 msgstr ""
 

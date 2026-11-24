@@ -263,9 +263,10 @@ check "R -> desligado: W1 volta igual" '[ "$(G "$W1")" = "$G1" ]'
 check "R -> desligado: nenhuma fora da tela" 'for w in $W1 $W2 $W3 $W4 $W5 $W6; do onscreen $w || exit 1; done'
 
 # --- O serviço encerrado na Rolagem não deixa janelas escondidas --------------
-"$WZ" mode scroll >/dev/null 2>&1; sleep 1.5
-for _ in $(seq 1 30); do "$WZ" ping >/dev/null 2>&1 && break; sleep 0.1; done
-"$WZ" mode scroll >/dev/null; sleep 1
+check "mode scroll com o serviço parado: grava e sobe o serviço" '"$WZ" mode scroll | grep -q "mode=scroll"'
+for _ in $(seq 1 50); do "$WZ" ping >/dev/null 2>&1 && break; sleep 0.1; done
+sleep 1.5
+check "o serviço novo pôs as seis na faixa" 'status | grep -q "scrolled=6" && ! status | grep -q "parked=0"'
 "$WZ" quit >/dev/null 2>&1; sleep 1.5
 check "quit na Rolagem: nenhuma fora da tela" 'for w in $W1 $W2 $W3 $W4 $W5 $W6; do onscreen $w || exit 1; done'
 

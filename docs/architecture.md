@@ -22,7 +22,7 @@
 
 | Peça | Papel | Quando roda |
 |---|---|---|
-| `src/engine` | Geometria (árvore de layout, cálculo exato), mosaico, foco espacial, histórico (desfazer/refazer), configuração e modos, tema do Window Maker, IPC | Ligado a todos os programas |
+| `src/engine` | Geometria (árvore de layout, cálculo exato), mosaico, Rolagem, foco espacial, histórico (desfazer/refazer), configuração e modos, tema do Window Maker, IPC | Ligado a todos os programas |
 | `wmake-zones` | Serviço X11: arrasto, painel de layouts, overlay, seletor, mosaico, atalhos, dockapp, socket | Com Zones (padrão) ou Auto Tiling ligados, ou `KeepRunning` |
 | `wmake-zones-prefs` | Preferências e editor (GTK 3) | Só quando aberto |
 | `wmake-zones-wl` | Dockapp nativo do wlmaker | Quando posto no Clip/Dock |
@@ -54,8 +54,14 @@ processo só); as preferências, que carregam o GTK, nunca ficam residentes.
   configuração; o backend aplica o passo e monta o inverso (refazer). Uma
   janela fechada some de todos os passos; um passo vazio nunca expulsa um
   antigo.
-* **Modos**: Zonas, Mosaico (as zonas continuam para as janelas fora do
-  mosaico) e desligado, com o último modo lembrado (`LastMode`).
+* **Modos**: Zonas, Mosaico, Rolagem (nos dois, as zonas continuam para as
+  janelas flutuantes) e desligado, com o último modo lembrado (`LastMode`).
+  Cada modo tem memória própria: a do modo livre (Zonas/desligado) é
+  guardada na janela ao entrar no Mosaico ou na Rolagem; a do Mosaico é a
+  ordem e a árvore BSP; a da Rolagem, a faixa (`wz-scroll`).
+* **Rolagem** (`wz-scroll`): colunas com largura própria e janelas
+  empilhadas com alturas relativas; a visualização mostra a maior
+  sequência de colunas inteiras com a ativa, mexendo o mínimo.
 * **Restrições**: `wz_fit` centraliza quando o máximo do aplicativo é menor
   que a célula; quando o mínimo não cabe, é conflito (no mosaico a janela
   flutua; nas zonas, o mínimo do aplicativo vence).

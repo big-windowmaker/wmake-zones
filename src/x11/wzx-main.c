@@ -314,8 +314,9 @@ usage(void)
              "\n"
              "Commands (sent to the running service, X11 or wlmaker):\n"
              "  status                     state, monitors, work areas and layouts\n"
-             "  mode zones|tiling|off      organization mode; toggle switches Zones and\n"
-             "                             Tiling, enable turns off or back on\n"
+             "  mode zones|tiling|scroll|off\n"
+             "                             organization mode; toggle goes Zones, Tiling,\n"
+             "                             Scrolling; enable turns off or back on\n"
              "  zones on|off|toggle        snap zones while dragging\n"
              "  autotile on|off|toggle     automatic tiling\n"
              "  layout ID|next|prev        zone layout of the monitor under the pointer\n"
@@ -327,6 +328,10 @@ usage(void)
              "  restore | restore-all      back to the size and place before snapping\n"
              "  float | promote | grow | shrink | arrange\n"
              "  undo | redo                undo or redo the last change\n"
+             "  scroll left|right|up|down|first|last|center|view-left|view-right\n"
+             "                             Scrolling: focus a column or window, scroll\n"
+             "  column next|previous|move-left|move-right|merge|split|width N%%|+|-\n"
+             "                             Scrolling: the active column\n"
              "  picker                     choose a zone with the keyboard\n"
              "  preview TREE               show a layout for a moment, e.g. \"H(2,1)\"\n"
              "  windows [-l|-d]            open windows (-l: monitor, zone and geometry;\n"
@@ -406,6 +411,28 @@ client(int argc, char **argv)
                     (!strcmp(argv[2], "on") || !strcmp(argv[2], "toggle"));
         int is_layout = argc >= 3 && !strcmp(argv[1], "layout") && strcmp(argv[2], "next") && strcmp(argv[2], "prev");
         char *cfgp = wz_config_path();
+        /* Um modo que liga algo (zones, tiling, scroll, toggle, enable)
+         * também grava e sobe o serviço. */
+        if (argc >= 3 && !strcmp(argv[1], "mode") && getenv("DISPLAY") &&
+            (!getenv("XDG_SESSION_TYPE") || strcmp(getenv("XDG_SESSION_TYPE"), "wayland"))) {
+            wz_config c;
+            wz_config_defaults(&c);
+            wz_config_load(&c, cfgp);
+            int m = wz_config_set_mode(&c, NULL, argv[2]);
+            if (m > WZ_MODE_OFF) {
+                wz_config_set_mode(&c, cfgp, argv[2]);
+                wz_config_free(&c);
+                free(cfgp);
+                free(path);
+                if (start_daemon(argv) == 0) {
+                    printf("mode=%s\n", wz_mode_name((wz_mode)m));
+                    return 0;
+                }
+                fprintf(stderr, "wmake-zones: %s\n", _("could not start the service"));
+                return 1;
+            }
+            wz_config_free(&c);
+        }
         if (is_layout) {
             wz_ini_set(cfgp, "General", "Layout", argv[2]);
             free(cfgp);

@@ -5,13 +5,13 @@
 <h1 align="center">wmake-zones</h1>
 
 <p align="center">
-  <b>Zonas de encaixe e mosaico de janelas para o Window Maker e o wlmaker.</b><br>
+  <b>Zonas, mosaico e rolagem de janelas para o Window Maker e o wlmaker.</b><br>
   Flutuante primeiro, organizado quando você quiser.
 </p>
 
 <p align="center">
   <a href="https://github.com/big-windowmaker/wmake-zones/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/big-windowmaker/wmake-zones/actions/workflows/ci.yml/badge.svg"></a>
-  <a href="https://github.com/big-windowmaker/wmake-zones/tags"><img alt="Versão" src="https://img.shields.io/badge/vers%C3%A3o-0.4.1-4a5a8a"></a>
+  <a href="https://github.com/big-windowmaker/wmake-zones/tags"><img alt="Versão" src="https://img.shields.io/badge/vers%C3%A3o-0.5.0-4a5a8a"></a>
   <img alt="Licença" src="https://img.shields.io/badge/licen%C3%A7a-GPL--2.0--or--later-4a5a8a">
   <img alt="X11 e Wayland" src="https://img.shields.io/badge/sess%C3%B5es-X11%20%C2%B7%20Wayland-4a5a8a">
 </p>
@@ -27,10 +27,14 @@ gerenciador de janelas: no X11 o Window Maker continua decorando, focando e
 empilhando, e no Wayland o wlmaker continua sendo o compositor. O
 wmake-zones só decide **onde** as janelas ficam, e só quando você pede.
 
-**As zonas vêm ligadas; o mosaico, não.** As janelas continuam flutuando
-como no Window Maker tradicional e só mudam de lugar quando você as solta
-numa zona. Um clique no ladrilho do Dock troca para o mosaico; o clique do
-meio desliga tudo (e, desligado, nenhum processo fica rodando no X11).
+**Três modos, uma tecla para cada no ladrilho do Dock:** **Z**onas
+(organizar à mão, soltando a janela numa região), **M**osaico (organização
+automática) e **R**olagem (uma faixa de colunas mais larga que a tela, como
+no niri). As zonas vêm ligadas: as janelas continuam flutuando como no
+Window Maker tradicional e só mudam de lugar quando você as solta numa
+zona. **Cada modo lembra a própria organização**: trocar de modo e voltar
+põe cada janela onde estava. O clique do meio desliga tudo (e, desligado,
+nenhum processo fica rodando no X11).
 
 ## Sumário
 
@@ -49,14 +53,17 @@ meio desliga tudo (e, desligado, nenhum processo fica rodando no X11).
 | | |
 |---|---|
 | **Primeiro o layout, depois a zona** | Ao arrastar uma janela, um painel no estilo dos menus do Window Maker mostra as miniaturas dos layouts. Pare o ponteiro sobre uma e as zonas dela aparecem no monitor; ou solte direto numa zona da miniatura. Tudo no mesmo arrasto. |
-| **Zonas ao arrastar** | Painéis chanfrados do OpenStep, translúcidos com um compositor e em contorno (o destino em listras) sem ele. Perto da fronteira entre duas zonas, o alvo é a união delas. **Esc** cancela e devolve a janela; uma janela encaixada arrastada para fora volta ao tamanho de antes. |
+| **Zonas ao arrastar** | Painéis chanfrados do OpenStep, translúcidos com um compositor e em contorno (o destino em listras) sem ele. Perto da fronteira entre duas zonas, o alvo é a união delas. **Esc** cancela e devolve a janela; uma janela encaixada arrastada para fora mantém o tamanho que você deu a ela (`RestoreSizeOnUnsnap` traz o comportamento antigo). |
+| **Rolagem** | As janelas viram colunas de uma faixa mais larga que a tela; abrir uma janela acrescenta uma coluna ao lado da ativa **sem redimensionar as outras**. Colunas com várias janelas, larguras de 25% a 100%, centralizar, rolar sem mudar o foco, arrastar para reordenar. Só colunas inteiras aparecem: as outras esperam fora de todos os monitores, sem vazar para o vizinho, com ou sem compositor; focar uma delas (Alt+Tab, lista de janelas) rola até ela. |
+| **Memória por modo** | Zonas, Mosaico, Rolagem e desligado guardam cada um a sua organização: posição, tamanho, zona, maximização, as colunas e a ordem da faixa. Z → M → R → Z devolve cada janela exatamente onde estava; janelas abertas no meio do caminho ganham um lugar sem desarrumar as outras. |
+| **Ctrl+Alt + mouse** | Botão esquerdo move, direito redimensiona pelo canto mais perto, de **qualquer ponto** da janela, sem procurar a barra de título; o clique não chega ao aplicativo (não seleciona texto nem aperta botões). Com as zonas, o encaixe funciona como num arrasto pela barra; na Rolagem, reordena as colunas. |
 | **Mosaico automático** | Oito algoritmos: principal + pilha, colunas, linhas, grade, BSP (árvore persistente), monóculo, espiral e subdivisão. Arrastar uma janela sobre outra troca as duas; puxar a borda da principal muda a proporção; desligar devolve cada janela ao lugar de antes. Janelas que não cabem na célula (tamanho mínimo grande, como em GTK4) e diálogos ficam flutuando, e as Preferências mostram o motivo. |
 | **Desfazer e refazer** | Encaixes, trocas de layout e de modo, o mosaico, trocas de lugar e a proporção da principal (20 passos por padrão). |
 | **Teclado** | Super+Z escolhe a zona, Super+Alt+setas foca a janela ao lado, Super+Ctrl+setas move entre zonas e monitores; [todos os atalhos](#atalhos) se trocam. |
 | **Regras por aplicativo** | Pelo `app_id` (Wayland) ou pelo WM_CLASS (X11 e XWayland): sempre flutuante, sempre no mosaico, numa zona fixa, num monitor ou numa área de trabalho, ou fora de tudo. |
 | **Quinze layouts prontos** | Metades, quadrantes, terços, principal + pilha, grades, 70/30, ultrawide, desenvolvimento, tela pequena e retrato. O padrão vem do formato do monitor (ultrawide a partir de 21:9, retrato em pé, metades no resto). Um **editor visual** no feitio do WPrefs cria os seus. |
 | **Por monitor e por área de trabalho** | Layout, mosaico e algoritmo próprios. Cada monitor tem a sua área útil, sem cobrir o Dock, o Clip e o Dock com Abas; monitores conectados e desconectados são acompanhados. |
-| **Dockapp** | O ladrilho do Dock mostra o modo de verdade e troca layout, algoritmo e modo ([detalhes](#dockapp)). |
+| **Dockapp** | O ladrilho do Dock mostra o modo de verdade (as zonas, as janelas do mosaico ou as colunas da faixa) e troca layout, algoritmo, coluna e modo com as teclas Z, M e R ([detalhes](#dockapp)). |
 | **Leve** | No X11, um processo de 0,8 a 2,9 MiB que não acorda em repouso; no Wayland, um módulo do próprio wlmaker, sem XWayland. |
 
 ## Capturas
@@ -155,7 +162,8 @@ janelas*, pelas preferências (`wmake-zones-prefs`) ou pelo terminal.
 ### Comandos
 
 ```sh
-wmake-zones mode toggle         # Zonas <-> Mosaico (o clique esquerdo do ladrilho)
+wmake-zones mode toggle         # Zonas -> Mosaico -> Rolagem (o clique esquerdo do ladrilho)
+wmake-zones mode scroll         # Rolagem (zones, tiling, off; sobe o serviço no X11)
 wmake-zones mode enable         # desliga / religa o último modo (o clique do meio)
 wmake-zones zones on            # zonas ao arrastar (sobe o serviço no X11)
 wmake-zones layout thirds       # halves, quarters, thirds, main-stack, grid-3x3...
@@ -168,6 +176,9 @@ wmake-zones status              # estado, monitores, áreas úteis e layouts
 wmake-zones windows -l          # janelas: monitor, zona, mosaico, geometria e aplicativo
 wmake-zones windows -d          # por que cada janela está (ou não) no mosaico
 wmake-zones undo                # desfaz a última organização (redo refaz)
+wmake-zones scroll first        # Rolagem: primeira coluna (last, left, right, center)
+wmake-zones column width 33%    # Rolagem: largura da coluna ativa (+ e - andam no ciclo)
+wmake-zones column merge        # Rolagem: junta à coluna da esquerda (split separa)
 wmake-zones prefs               # preferências (editor abre o editor de zonas)
 wmake-zones --reset             # desliga tudo e devolve o WindowSnapping ao Window Maker
 wmake-zones help                # todos os comandos
@@ -183,15 +194,20 @@ A página de manual (`man wmake-zones`) descreve todos, inclusive `move`,
 |---|---|
 | Super+Z | Escolher a zona da janela ativa (1–9, setas, Enter; Tab troca o layout) |
 | Super+Shift+Z | Ligar/desligar o mosaico automático |
+| Super+Shift+R | Rolagem |
 | Super+Alt+Z | Editor de zonas |
 | Super+Ctrl+Z | Próximo layout |
 | Super+Ctrl+setas | Mover a janela para a zona ao lado (ou para o monitor ao lado) |
-| Super+Alt+setas | Focar a janela ao lado |
-| Super+Shift+setas | Trocar de lugar no mosaico |
+| Super+Alt+setas | Focar a janela ao lado (na Rolagem, a coluna ou a janela da coluna) |
+| Super+Shift+setas | Trocar de lugar no mosaico (na Rolagem, mover a coluna) |
 | Super+Ctrl+0 | Restaurar tamanho e posição |
 | Super+Ctrl+F | Tirar do mosaico / devolver |
 | Super+Ctrl+Enter | Tornar a janela principal |
-| Super+Ctrl+= / − | Aumentar / diminuir a área principal |
+| Super+Ctrl+= / − | Aumentar / diminuir a área principal (na Rolagem, a largura da coluna) |
+| Super+Ctrl+Home / End | Rolagem: primeira / última coluna |
+| Super+Ctrl+C | Rolagem: centralizar a coluna ativa |
+| Super+Ctrl+[ / ] | Rolagem: juntar à coluna da esquerda / tirar a janela da coluna |
+| Ctrl+Alt + arrastar | Mover (botão esquerdo) ou redimensionar (direito) de qualquer ponto da janela |
 | Super+Ctrl+Backspace | Desfazer a última organização |
 | Super+Ctrl+Shift+Backspace | Refazer |
 
@@ -211,11 +227,11 @@ conflito no `status`.
 
 | Ação | Efeito |
 |---|---|
-| Clique esquerdo na tela | alterna Zonas e Mosaico (`[Dockapp] LeftClick` muda) |
+| Clique esquerdo na tela | Zonas → Mosaico → Rolagem (`[Dockapp] LeftClick` muda) |
 | Clique do meio | desliga e religa o último modo |
-| Roda | troca o layout (nas Zonas) ou o algoritmo (no Mosaico) |
-| Setas ◀ ▶ | layout ou algoritmo anterior / próximo |
-| Teclas Z e M | escolhem o modo; a acesa desliga |
+| Roda | troca o layout (Zonas), o algoritmo (Mosaico) ou a coluna em foco (Rolagem) |
+| Setas ◀ ▶ | layout, algoritmo ou coluna anterior / próxima |
+| Teclas Z, M e R | escolhem o modo; a acesa desliga |
 | Clique direito | o menu: modos, layout, algoritmo, desfazer, refazer, restaurar, organizar, configurações |
 
 No modo Mosaico a tela mostra as janelas na disposição do algoritmo do
@@ -265,16 +281,22 @@ atomicamente. Todas as chaves e os padrões estão em
 
 ## Desempenho
 
-Medido na 0.3.0 ([detalhes](docs/performance.md)), num Xvfb 1920×1080:
+Medido na 0.5.0 (`tests/perf-x11.sh`, Xvfb e o Window Maker de verdade, a
+mesma máquina e a 0.4.1 para comparar; [detalhes](docs/performance.md)):
 
-| | |
-|---|---|
-| Memória do serviço X11 (PSS) | 0,77 MiB em repouso; 2,93 MiB depois do primeiro overlay, estável |
-| Repouso (10 s) | zero acordadas, zero tiques de CPU |
-| Mosaico de 10 / 30 / 50 janelas | 2,5 / 5,2 / 6,6 ms |
-| Painel de layouts / overlay das zonas | 2,9 / 11,4 ms |
-| Encaixe (pedido ao Window Maker) | 25 µs |
-| Valgrind (Memcheck), teste funcional inteiro | 0 erros, 0 bytes perdidos |
+| | 0.4.1 | 0.5.0 |
+|---|---|---|
+| Memória do serviço X11 (PSS) em repouso | 0,79 MiB | 0,83 MiB |
+| Depois do primeiro overlay e de 60 ciclos | 2,95 MiB, estável | 2,99 MiB, estável |
+| Repouso (10 s) | zero acordadas, zero tiques | zero acordadas, zero tiques |
+| Ligar o mosaico com 10 / 30 / 50 janelas | 1,4–3,1 / 5,1–5,8 / 7,5 ms | 5,0–6,4 / 6,7–8,3 / 10,3–12,8 ms |
+| Overlay das zonas / painel de layouts | 12,9–13,5 / 2,8–3,2 ms | 12,1–12,4 / 2,9–3,4 ms |
+| Encaixe (pedido ao Window Maker) | 23–27 µs | 20–22 µs |
+
+Ligar o mosaico custa alguns milissegundos a mais porque cada janela guarda
+a memória do modo livre (posição, zona e maximização) na hora: uma vez por
+troca de modo, sempre abaixo de um quadro de 16 ms. ASan e UBSan limpos nos
+testes do X11 e do Wayland.
 
 ## Compilar e testar
 
@@ -326,6 +348,7 @@ Para os testes: `xorg-server-xvfb`, `xorg-server-xephyr`, `windowmaker`,
 [Monitores](docs/multi-monitor.md) ·
 [Configuração](docs/configuration.md) ·
 [Desempenho](docs/performance.md) ·
+[Rolagem (desenvolvimento)](docs/scrollable-tiling/README.md) ·
 [Testes](docs/testing.md) ·
 [Desenvolvimento](docs/development.md) ·
 [Mudanças](CHANGELOG.md)
@@ -363,6 +386,10 @@ Para os testes: `xorg-server-xvfb`, `xorg-server-xephyr`, `windowmaker`,
   suas contribuições ao ecossistema Linux.
 - **Tales A. Mendonça** — pelas contribuições ao desenvolvimento e
   fortalecimento da [BigCommunity](https://communitybig.org).
+- **[niri](https://github.com/niri-wm/niri)** (Ivan Molodetskikh e
+  colaboradores) — a referência de comportamento da Rolagem (scrollable
+  tiling). Nenhum código do niri é usado: a Rolagem do wmake-zones foi
+  escrita do zero em C, sobre o núcleo comum do X11 e do wlmaker.
 
 ## Licença
 
@@ -372,11 +399,15 @@ AppStream são CC0-1.0.
 
 ## In English
 
-**wmake-zones** adds snap zones and automatic tiling to
+**wmake-zones** adds snap zones, automatic tiling and scrollable tiling (a
+strip of columns wider than the screen, as in niri, written from scratch in
+C) to
 [Big WindowMaker](https://github.com/big-windowmaker/big-wm), on X11 with
 Window Maker and on Wayland with wlmaker, without replacing the window
 manager: windows keep floating until you drop them on a zone, and tiling is
-one click away on the Dock tile. Install from
+one click away on the Dock tile. Each mode remembers its own arrangement,
+and Ctrl+Alt + left or right button moves or resizes a window from anywhere
+in it. Install from
 [big-windowmaker/packages](https://github.com/big-windowmaker/packages)
 (`makepkg -si` in `wmake-zones/`) or build with Meson; `wmake-zones help`
 lists every command. Maintainers: Rafael Ruscher and Barnabé Di Kartola.

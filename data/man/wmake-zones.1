@@ -108,13 +108,24 @@ setting and starts the service.
 State, monitors with their work areas and effective layouts, windows and
 shortcut conflicts.
 .TP
-.BR mode " " zones | tiling | off | toggle | enable
+.BR mode " " zones | tiling | scroll | off | toggle | enable
 Organization mode.
 .B toggle
-switches between Zones and Tiling (off turns the last mode on),
+goes from Zones to Tiling to Scrolling and back (off turns the last mode on),
 .B enable
 turns everything off or the last mode back on.
 Without an argument, show the mode.
+.TP
+.BR scroll " " left | right | up | down | first | last | center | view-left | view-right
+Scrolling: focus the column on a side, the window above or below in the
+column, the first or last column; center the active column; scroll the
+strip without moving the focus.
+.TP
+.BR column " " next | previous | move-left | move-right | merge | split | "width \fIN\fR%" | + | \-
+Scrolling: the active column. It changes places with its neighbour, joins
+the column on the left (merge), lets the active window out into a column of
+its own (split) or gets a width (a percentage of the screen, the next or
+previous width of the cycle).
 .TP
 .BR zones " " on | off | toggle
 Snap zones while dragging.

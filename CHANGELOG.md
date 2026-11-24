@@ -1,5 +1,41 @@
 # Mudanças
 
+## 0.5.0 — 2026-11-24
+
+Um terceiro modo, Rolagem, memória própria em cada modo e mover janelas de
+qualquer ponto com Ctrl+Alt, no X11 e no Wayland.
+
+- **Rolagem** (scrollable tiling, como no niri, implementado do zero no
+  núcleo em C): as janelas de cada monitor e área de trabalho viram
+  colunas de uma faixa mais larga que a tela. Abrir uma janela acrescenta
+  uma coluna ao lado da ativa sem mudar a largura das outras; colunas com
+  várias janelas, larguras do ciclo, centralizar, rolar sem mudar o foco,
+  arrastar para reordenar. Só aparecem colunas inteiras: as outras ficam
+  fora de todos os monitores, então nada vaza para o monitor vizinho, com
+  ou sem compositor. Comandos `scroll` e `column`, atalhos novos
+  (Super+Shift+R liga), seção `[Scroll]`.
+- **Memória por modo**: Zonas, Mosaico, Rolagem e desligado guardam cada um
+  a sua organização; voltar a um modo põe cada janela onde estava. Antes,
+  Zonas -> Mosaico -> Zonas devolvia a janela encaixada ao tamanho de antes
+  do encaixe, fora da zona.
+- **Arrastar mantém o tamanho**: `RestoreSizeOnUnsnap` passa a `false`; a
+  janela solta fora das zonas fica com o último tamanho dado pelo usuário
+  (e sai da zona). O comportamento antigo continua na opção.
+- **Ctrl+Alt** (`DragModifier`): botão esquerdo move, direito redimensiona
+  pelo canto mais perto, de qualquer ponto da janela; o clique não chega ao
+  aplicativo. No X11 pelo próprio Window Maker (`_NET_WM_MOVERESIZE`), no
+  Wayland pelo wlmaker.
+- Dockapp com as teclas Z, M e R e a prévia das colunas; menu com a Rolagem.
+- Preferências: seletor de modo, página Rolagem, o modificador; rótulo do
+  atalho Refazer (faltava).
+- `wmake-zones mode scroll|tiling|zones` com o serviço parado grava o modo e
+  sobe o serviço (antes só `zones on` e `autotile on`).
+- Sair da Rolagem ou encerrar o serviço nunca deixa janela fora da tela.
+- Testes: `x11-scroll` e `wayland-scroll` (Rolagem, memória, Ctrl+Alt, o
+  clique que não chega ao aplicativo), Rolagem em dois monitores, 3000
+  operações aleatórias na faixa; ASan e UBSan limpos.
+- Requer o wlmaker com os patches da Rolagem (pacote `wlmaker` -10).
+
 ## 0.4.1 — 2026-11-12
 
 - Dockapp do Wayland (`wmake-zones-wl`) volta a ser arrastável para o Dock e

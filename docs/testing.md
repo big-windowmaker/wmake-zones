@@ -101,6 +101,28 @@ layouts (soltar na miniatura, layout junto no desfazer, parar sobre a
 miniatura); com o seletor aberto, o `swaylock` bloqueia e a tecla vai para
 ele, não para o seletor (sem o swaylock, pulado).
 
+## Rolagem e memória por modo (0.5)
+
+* `tests/x11-scroll.sh` (43 verificações, wmaker de verdade): arrastar
+  mantém o tamanho e tira a janela da zona; Ctrl+Alt move e redimensiona,
+  e o clique com o modificador não chega ao aplicativo (janela de teste em
+  python-xlib que registra os ButtonPress; um clique comum chega, como
+  controle); Z → M → Z, R → Z, Z → R, R → M, M → R e R → desligado devolvem
+  cada janela igual; abrir uma janela não muda a largura das outras;
+  colunas estacionadas fora da tela; focar uma estacionada rola até ela;
+  juntar, separar, largura 33%, reordenar arrastando; `mode scroll` com o
+  serviço parado sobe o serviço; `quit` na Rolagem não deixa janela fora
+  da tela.
+* `tests/wayland-scroll.sh` (32 verificações, wlmaker de verdade): o
+  mesmo no Wayland, inclusive Ctrl+Alt (mover, redimensionar pelo canto,
+  reordenar a faixa).
+* `tests/x11-multimonitor.sh` (+4): uma faixa por monitor, nenhuma janela
+  atravessa a divisa entre os monitores, colunas demais estacionadas fora
+  dos dois, tudo de volta nas Zonas.
+* Núcleo: `test_scroll` com 3000 operações aleatórias (inserir, tirar,
+  focar, mover, juntar, separar, rolar) e as invariantes da faixa
+  verificadas a cada sete.
+
 ## Valgrind (Memcheck)
 
 O Valgrind não precisa de root: o pacote oficial extraído numa pasta

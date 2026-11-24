@@ -8,7 +8,8 @@ completo fica em `/usr/share/doc/wmake-zones/wmake-zones.conf.example`.
 |---|---|---|---|
 | General | `Zones` | true | zonas ao arrastar (desde a 0.3; `false` gravado vale) |
 | | `Autotile` | false | mosaico automático |
-| | `LastMode` | zones | modo religado pelo dockapp (`zones`, `tiling`) |
+| | `Scroll` | false | Rolagem (desde a 0.5; vence o `Autotile` e vale em todos os monitores) |
+| | `LastMode` | zones | modo religado pelo dockapp (`zones`, `tiling`, `scroll`) |
 | | `DragFlow` | layouts | `layouts` (painel primeiro), `zones`, `layouts-modifier`, `layouts-edge` |
 | | `LayoutDwell` | 250 | ms parado sobre uma miniatura até mostrar as zonas dela |
 | | `DragLayouts` | halves,quarters,thirds,main-stack,two-top,grid-2x3,ultrawide | miniaturas do painel; os layouts do usuário entram depois |
@@ -21,7 +22,8 @@ completo fica em `/usr/share/doc/wmake-zones/wmake-zones.conf.example`.
 | | `Edge` | 48 | px da borda (ativação `edge`) |
 | | `Span` | 24 | px perto da fronteira para unir duas zonas |
 | | `ShowNumbers` | true | |
-| | `RestoreSizeOnUnsnap` | true | tamanho de antes ao arrastar para fora |
+| | `RestoreSizeOnUnsnap` | false | `true`: ao arrastar para fora das zonas, volta o tamanho de antes do encaixe (padrão até a 0.4) |
+| | `DragModifier` | Ctrl+Alt | botão esquerdo move, direito redimensiona de qualquer ponto da janela (`Ctrl`, `Alt`, `Super`, `Shift` com `+`; vazio desliga) |
 | | `AvoidDock` | true | não cobrir a coluna do Dock/Clip |
 | | `Rules` | true | aplicar as regras |
 | | `KeepRunning` | false | serviço ativo com tudo desligado (atalhos) |
@@ -33,9 +35,14 @@ completo fica em `/usr/share/doc/wmake-zones/wmake-zones.conf.example`.
 | | `MasterPosition` | left | `left`, `right`, `top`, `bottom` |
 | | `Gap`, `OuterGap` | 6, 6 | |
 | | `SmartGaps` | true | |
-| Dockapp | `LeftClick` | mode | `mode` (Zonas ↔ Mosaico), `enable`, `layouts`, `zones`, `autotile`, `none` |
+| Scroll | `Width` | 50 | largura de uma coluna nova, % da área útil |
+| | `Widths` | 25, 33, 50, 66, 75, 100 | larguras do ciclo (Grow/Shrink, `column width +/-`), crescentes, até oito |
+| | `Insert` | column | janela nova: `column` (coluna nova à direita da ativa) ou `stack` (embaixo, na coluna ativa) |
+| | `Align` | left | colunas que não enchem a tela: `left` ou `center` |
+| | `Gap`, `OuterGap` | 6, 6 | |
+| Dockapp | `LeftClick` | mode | `mode` (Zonas → Mosaico → Rolagem), `enable`, `layouts`, `zones`, `autotile`, `none` |
 | | `MiddleClick` | enable | desliga / religa o último modo |
-| | `Wheel` | layout | `layout` (anterior/próximo) ou `none` |
+| | `Wheel` | layout | `layout` (anterior/próximo; no Mosaico o algoritmo, na Rolagem a coluna) ou `none` |
 | Appearance | `Highlight` | auto | `#rrggbb` ou a cor da barra de título do tema |
 | | `Opacity` | 35 | 0–100 |
 | Keys | `Picker`, `MoveLeft`, `Undo`, `Redo`... | ver README | vazio desliga |

@@ -86,6 +86,13 @@
   </supports>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="0.5.0" date="2026-11-24">
+      <description>
+        <p>Scrolling: windows become columns of a strip wider than the screen, without resizing the others when one opens.</p>
+        <p>Each mode (Zones, Tiling, Scrolling, off) remembers its own arrangement.</p>
+        <p>Ctrl+Alt moves or resizes a window from anywhere in it; dragging a window keeps its size.</p>
+      </description>
+    </release>
     <release version="0.4.1" date="2026-11-12">
       <description>
         <p>The Wayland dock app can be dragged to the Dock and the Clip again, by its tile border.</p>
