@@ -3,7 +3,7 @@
  * wmake-zones-wl: o ladrilho do wmake-zones no Clip/Dock do wlmaker, como
  * cliente Wayland do protocolo de ícones do wlmaker (sem XWayland).
  *
- *   clique esquerdo   Zonas <-> Mosaico           ([Dockapp] LeftClick)
+ *   clique esquerdo   próxima opção do modo       ([Dockapp] LeftClick)
  *   clique do meio    desliga / religa o último   ([Dockapp] MiddleClick)
  *   roda              layout anterior / seguinte, com uma prévia breve das
  *                     zonas no monitor                ([Dockapp] Wheel)
@@ -458,6 +458,17 @@ click(app *a, wz_click action, int step)
     case WZ_CLICK_ZONES: command(a, "zones toggle"); break;
     case WZ_CLICK_AUTOTILE: command(a, "autotile toggle"); break;
     case WZ_CLICK_CYCLE: cycle(a, step); break;
+    case WZ_CLICK_NEXT:
+        /* A próxima opção do modo: layout das Zonas (com a prévia),
+         * algoritmo do Mosaico, largura da coluna ativa na Rolagem;
+         * desligado, religa. */
+        switch (wz_config_mode(&a->cfg)) {
+        case WZ_MODE_ZONES:
+        case WZ_MODE_TILING: cycle(a, 1); break;
+        case WZ_MODE_SCROLL: command(a, "column width +"); break;
+        default: command(a, "mode enable"); break;
+        }
+        break;
     case WZ_CLICK_LAYOUTS: command(a, "picker"); break;
     default: break; /* o menu é do wlmaker (clique direito) */
     }

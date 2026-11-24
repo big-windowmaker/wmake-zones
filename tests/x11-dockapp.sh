@@ -94,6 +94,7 @@ fi
 
 mode() { "$WZ" status | sed -n 's/^mode=//p' | head -1; }
 algo() { "$WZ" status | sed -n 's/^algorithm=//p' | head -1; }
+layout() { "$WZ" status | sed -n 's/^layout=//p' | head -1; }
 press() { xdotool mousemove $((tx + $1)) $((ty + $2)) click 1; sleep 0.6; }
 # Pixels do ladrilho: tecla Z acesa (verde), M (amarela), R (azul-claro);
 # na tela, o LED ciano aceso (contornos, pausa), o apagado (zonas, janelas,
@@ -122,15 +123,48 @@ check "M aceso: desliga ($(mode))" '[ "$(mode)" = off ]'
 check "desligado: nenhuma tecla acesa, só a pausa na tela ($(look))" '[ "$(look)" = "aceso" ]'
 press 13 53
 check "tecla Z: modo Zonas ($(mode))" '[ "$(mode)" = zones ]'
+# Clique na tela (o padrão): a próxima opção do modo, sem trocar de modo.
+l0=$(layout)
 press 32 20
-check "clique na tela: Zonas -> Mosaico (clique esquerdo padrão) ($(mode))" '[ "$(mode)" = tiling ]'
+check "clique na tela, Zonas: o próximo layout ($l0 -> $(layout))" '[ "$(mode)" = zones ] && [ "$(layout)" != "$l0" ]'
+press 31 53
+a0=$(algo)
 press 32 20
-check "clique na tela: Mosaico -> Rolagem ($(mode))" '[ "$(mode)" = scroll ]'
+check "clique na tela, Mosaico: o próximo algoritmo ($a0 -> $(algo))" '[ "$(mode)" = tiling ] && [ "$(algo)" != "$a0" ]'
+press 50 53
+check "tecla R no Mosaico: Rolagem ($(mode))" '[ "$(mode)" = scroll ]'
 check "Rolagem: tecla R acesa e as colunas na tela ($(look))" '[ "$(look)" = "R aceso apagado medio" ]'
 press 50 53
 check "R aceso: desliga ($(mode))" '[ "$(mode)" = off ]'
 press 50 53
 check "tecla R: modo Rolagem ($(mode))" '[ "$(mode)" = scroll ]'
+# Na Rolagem, o clique na tela passa a coluna ativa à próxima largura.
+if command -v xterm >/dev/null; then
+	xterm -name wzcoluna -geometry 40x10 -e sleep 120 >"$TMP/xterm.log" 2>&1 &
+	PIDS="$PIDS $!"
+	cw=
+	for _ in $(seq 1 30); do
+		cw=$(xdotool search --onlyvisible --classname '^wzcoluna$' 2>/dev/null | head -1)
+		[ -n "$cw" ] && break
+		sleep 0.2
+	done
+	[ -n "$cw" ] || sed 's/^/# xterm: /' "$TMP/xterm.log"
+	sleep 1
+	width() { [ -n "$cw" ] && xwininfo -id "$cw" | sed -n 's/^ *Width: //p'; }
+	w0=$(width)
+	# Solto, o ladrilho fica embaixo da coluna (no Dock, a área útil o
+	# deixa de fora): o quadro dele por cima antes do clique.
+	read -r tx ty < <(find_tile)
+	fr=$(xwininfo -root -children | awk -v p="64x64\\\\+$tx\\\\+$ty" '$0 ~ p {print $1; exit}')
+	[ -n "$fr" ] && xdotool windowraise "$fr"
+	sleep 0.3
+	press 32 20
+	sleep 0.5
+	w1=$(width)
+	check "clique na tela, Rolagem: a próxima largura da coluna ($w0 -> $w1 px)" '[ "$(mode)" = scroll ] && [ -n "$w0" ] && [ "${w1:-0}" -gt "$w0" ]'
+	kill "${PIDS##* }" 2>/dev/null
+	sleep 0.5
+fi
 "$WZ" mode tiling >/dev/null; sleep 0.4
 check "o serviço continua no ar" '"$WZ" status >/dev/null 2>&1'
 
@@ -162,7 +196,7 @@ done
 press 31 44
 check "última linha da tela (31,44)? não: é a moldura ($(mode))" '[ "$(mode)" = off ]'
 press 31 42
-check "dentro da tela (31,42): troca o modo ($(mode))" '[ "$(mode)" != off ]'
+check "dentro da tela (31,42), desligado: religa ($(mode))" '[ "$(mode)" != off ]'
 check "nenhum amarelo no ladrilho ($(look))" '! look | grep -qw amarelo'
 "$WZ" mode tiling >/dev/null
 sleep 0.4
@@ -221,8 +255,8 @@ PY
 )
 check "arrastar o ladrilho pela borda até a coluna do Dock: ele entra no Dock (${docked:-não entrou})" '[ -n "$docked" ]'
 [ -n "$docked" ] && read -r tx ty <<<"$docked"
-mode_before=$(mode)
+a0=$(algo)
 press 32 20
-check "um clique (sem arrastar) continua trocando o modo ($mode_before -> $(mode))" '[ "$(mode)" != "$mode_before" ]'
+check "no Dock, um clique (sem arrastar) na tela continua trocando o algoritmo ($a0 -> $(algo))" '[ "$(algo)" != "$a0" ]'
 echo "1..$n"
 [ "$fails" = 0 ]

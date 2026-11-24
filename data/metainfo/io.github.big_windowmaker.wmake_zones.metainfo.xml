@@ -86,6 +86,11 @@
   </supports>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="0.5.3" date="2026-11-24">
+      <description>
+        <p>A click on the dock app screen goes to the next layout of the mode; the Z, M and R keys choose the mode.</p>
+      </description>
+    </release>
     <release version="0.5.2" date="2026-11-24">
       <description>
         <p>The dock app looks like the other dock apps again, with a border to drag it by.</p>
