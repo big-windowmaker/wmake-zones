@@ -247,6 +247,11 @@ wzx_scroll_run(wzx *z)
                     ids[j] = ids[j - 1];
                     ids[j - 1] = ti;
                 }
+            /* Janela que entra na faixa fica com o foco: a visualização
+             * volta a acompanhá-lo, mesmo depois de rolar sem foco. */
+            for (int i = 0; i < n; i++)
+                if (!wz_scroll_has(&s->s, ids[i]))
+                    s->keep_view = 0;
             wz_scroll_sync(&s->s, ids, n, width, p->insert);
         }
         if (s->s.ncol == 0) {
