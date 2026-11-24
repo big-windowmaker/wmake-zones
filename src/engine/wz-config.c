@@ -45,6 +45,14 @@ static const struct {
     [WZ_KEY_SHRINK] = { "Shrink", "Super+Ctrl+minus" },
     [WZ_KEY_UNDO] = { "Undo", "Super+Ctrl+BackSpace" },
     [WZ_KEY_REDO] = { "Redo", "Super+Ctrl+Shift+BackSpace" },
+    [WZ_KEY_MODE_ZONES] = { "ModeZones", "" },
+    [WZ_KEY_MODE_TILING] = { "ModeTiling", "" },
+    [WZ_KEY_MODE_SCROLL] = { "ModeScroll", "Super+Shift+r" },
+    [WZ_KEY_SCROLL_FIRST] = { "ScrollFirst", "Super+Ctrl+Home" },
+    [WZ_KEY_SCROLL_LAST] = { "ScrollLast", "Super+Ctrl+End" },
+    [WZ_KEY_SCROLL_CENTER] = { "ScrollCenter", "Super+Ctrl+c" },
+    [WZ_KEY_SCROLL_CONSUME] = { "ScrollConsume", "Super+Ctrl+bracketleft" },
+    [WZ_KEY_SCROLL_EXPEL] = { "ScrollExpel", "Super+Ctrl+bracketright" },
 };
 
 const char *
@@ -492,7 +500,8 @@ wz_config_defaults(wz_config *c)
     c->span_px = 24;
     c->edge_px = 48;
     c->show_numbers = 1;
-    c->restore_size_on_unsnap = 1;
+    c->restore_size_on_unsnap = 0;
+    c->drag_modifier = wz_xstrdup("Ctrl+Alt");
     c->avoid_dock = 1;
     c->rules_enabled = 1;
     c->layout = wz_xstrdup("halves");
@@ -510,6 +519,9 @@ wz_config_defaults(wz_config *c)
     c->click[3] = WZ_CLICK_CYCLE;
     c->tile = (wz_tile_params){ .algo = WZ_TILE_MASTER, .master_ratio = 0.6, .nmaster = 1,
                                 .master_pos = WZ_POS_LEFT, .gap_in = 6, .gap_out = 6, .smart_gaps = 1 };
+    c->scroll_p = (wz_scroll_params){ .width_pct = 50, .widths = { 25, 33, 50, 66, 75, 100 }, .nwidths = 6,
+                                      .gap_in = 6, .gap_out = 6, .insert = WZ_SCROLL_INSERT_COLUMN,
+                                      .align = WZ_SCROLL_ALIGN_LEFT };
     c->theme = wz_xstrdup("auto");
     c->highlight = WZ_COLOR_AUTO;
     c->opacity = 35;
@@ -606,6 +618,10 @@ load_cb(const char *sec, const char *k, const char *v, void *ud)
             c->zones = parse_bool(v, c->zones);
         else if (!strcmp(k, "Autotile"))
             c->autotile = parse_bool(v, c->autotile);
+        else if (!strcmp(k, "Scroll"))
+            c->scroll = parse_bool(v, c->scroll);
+        else if (!strcmp(k, "DragModifier"))
+            set_str(&c->drag_modifier, v);
         else if (!strcmp(k, "Activation"))
             c->activation = !strcmp(v, "modifier") ? WZ_ACTIVATE_MODIFIER : !strcmp(v, "edge") ? WZ_ACTIVATE_EDGE : WZ_ACTIVATE_DRAG;
         else if (!strcmp(k, "Modifier"))
@@ -645,7 +661,7 @@ load_cb(const char *sec, const char *k, const char *v, void *ud)
         else if (!strcmp(k, "FocusEdge"))
             c->focus_edge = !strcmp(v, "stop") ? WZ_FOCUS_STOP : !strcmp(v, "wrap") ? WZ_FOCUS_WRAP : WZ_FOCUS_CROSS;
         else if (!strcmp(k, "LastMode"))
-            c->last_mode = !strcmp(v, "tiling") ? WZ_MODE_TILING : WZ_MODE_ZONES;
+            c->last_mode = !strcmp(v, "tiling") ? WZ_MODE_TILING : !strcmp(v, "scroll") ? WZ_MODE_SCROLL : WZ_MODE_ZONES;
         else if (!strcmp(k, "Gap"))
             c->gap_in = parse_int(v, c->gap_in, 0, 200);
         else if (!strcmp(k, "OuterGap"))
@@ -667,6 +683,34 @@ load_cb(const char *sec, const char *k, const char *v, void *ud)
             c->tile.gap_out = parse_int(v, c->tile.gap_out, 0, 200);
         else if (!strcmp(k, "SmartGaps"))
             c->tile.smart_gaps = parse_bool(v, c->tile.smart_gaps);
+    } else if (!strcmp(sec, "Scroll")) {
+        wz_scroll_params *p = &c->scroll_p;
+        if (!strcmp(k, "Width"))
+            p->width_pct = parse_int(v, p->width_pct, 10, 100);
+        else if (!strcmp(k, "Widths")) {
+            int n = 0;
+            const char *q = v;
+            while (*q && n < 8) {
+                char *end;
+                long w = strtol(q, &end, 10);
+                if (end == q)
+                    break;
+                if (w >= 10 && w <= 100 && (n == 0 || w > p->widths[n - 1]))
+                    p->widths[n++] = (int)w;
+                q = end;
+                while (*q == ',' || *q == ' ' || *q == '%')
+                    q++;
+            }
+            if (n > 0)
+                p->nwidths = n;
+        } else if (!strcmp(k, "Gap"))
+            p->gap_in = parse_int(v, p->gap_in, 0, 200);
+        else if (!strcmp(k, "OuterGap"))
+            p->gap_out = parse_int(v, p->gap_out, 0, 200);
+        else if (!strcmp(k, "Insert"))
+            p->insert = !strcmp(v, "stack") ? WZ_SCROLL_INSERT_STACK : WZ_SCROLL_INSERT_COLUMN;
+        else if (!strcmp(k, "Align"))
+            p->align = !strcmp(v, "center") ? WZ_SCROLL_ALIGN_CENTER : WZ_SCROLL_ALIGN_LEFT;
     } else if (!strcmp(sec, "Dockapp")) {
         static const char *const keys[4] = { "LeftClick", "MiddleClick", "RightClick", "Wheel" };
         for (int i = 0; i < 4; i++)
@@ -770,6 +814,7 @@ wz_config_free(wz_config *c)
 {
     free(c->layout);
     free(c->drag_layouts);
+    free(c->drag_modifier);
     free(c->theme);
     for (int i = 0; i < WZ_KEY_N; i++)
         free(c->keys[i]);
@@ -907,13 +952,13 @@ wz_config_drag_layouts(const wz_config *c, const wz_layout_def **out, int max)
 wz_mode
 wz_config_mode(const wz_config *c)
 {
-    return c->autotile ? WZ_MODE_TILING : c->zones ? WZ_MODE_ZONES : WZ_MODE_OFF;
+    return c->scroll ? WZ_MODE_SCROLL : c->autotile ? WZ_MODE_TILING : c->zones ? WZ_MODE_ZONES : WZ_MODE_OFF;
 }
 
 const char *
 wz_mode_name(wz_mode m)
 {
-    return m == WZ_MODE_TILING ? "tiling" : m == WZ_MODE_ZONES ? "zones" : "off";
+    return m == WZ_MODE_SCROLL ? "scroll" : m == WZ_MODE_TILING ? "tiling" : m == WZ_MODE_ZONES ? "zones" : "off";
 }
 
 int
@@ -926,10 +971,15 @@ wz_config_set_mode(wz_config *c, const char *path, const char *arg)
         m = WZ_MODE_ZONES;
     else if (!strcmp(arg, "tiling") || !strcmp(arg, "mosaic"))
         m = WZ_MODE_TILING;
+    else if (!strcmp(arg, "scroll") || !strcmp(arg, "scrolling"))
+        m = WZ_MODE_SCROLL;
     else if (!strcmp(arg, "off"))
         m = WZ_MODE_OFF;
-    else if (!strcmp(arg, "toggle"))
-        m = cur == WZ_MODE_ZONES ? WZ_MODE_TILING : cur == WZ_MODE_TILING ? WZ_MODE_ZONES : c->last_mode;
+    else if (!strcmp(arg, "toggle") || !strcmp(arg, "cycle"))
+        m = cur == WZ_MODE_ZONES ? WZ_MODE_TILING
+            : cur == WZ_MODE_TILING ? WZ_MODE_SCROLL
+            : cur == WZ_MODE_SCROLL ? WZ_MODE_ZONES
+                                    : c->last_mode;
     else if (!strcmp(arg, "enable"))
         m = cur == WZ_MODE_OFF ? c->last_mode : WZ_MODE_OFF;
     else
@@ -938,13 +988,15 @@ wz_config_set_mode(wz_config *c, const char *path, const char *arg)
         c->last_mode = cur;
     else if (m != WZ_MODE_OFF)
         c->last_mode = m;
-    /* No mosaico as zonas continuam valendo para as janelas que o usuário
-     * tirou dele. */
+    /* No mosaico e na Rolagem as zonas continuam valendo para as janelas
+     * que o usuário deixou flutuantes. */
     c->zones = m != WZ_MODE_OFF;
     c->autotile = m == WZ_MODE_TILING;
+    c->scroll = m == WZ_MODE_SCROLL;
     if (path) {
         wz_ini_set(path, "General", "Zones", c->zones ? "true" : "false");
         wz_ini_set(path, "General", "Autotile", c->autotile ? "true" : "false");
+        wz_ini_set(path, "General", "Scroll", c->scroll ? "true" : "false");
         wz_ini_set(path, "General", "LastMode", wz_mode_name(c->last_mode));
     }
     return m;
@@ -953,6 +1005,9 @@ wz_config_set_mode(wz_config *c, const char *path, const char *arg)
 int
 wz_config_autotile_for(const wz_config *c, const char *monitor, int workspace)
 {
+    /* A Rolagem vale em todos os monitores e áreas de trabalho. */
+    if (c->scroll)
+        return 0;
     for (int pass = 0; pass < 3; pass++) {
         const wz_scope *s = scope_for(c, monitor, workspace, pass);
         if (s && s->autotile >= 0)

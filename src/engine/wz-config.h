@@ -10,6 +10,7 @@
 #define WZ_CONFIG_H
 
 #include "wz-tile.h"
+#include "wz-scroll.h"
 
 #define WZ_COLOR_AUTO 0xFFFFFFFFu
 
@@ -26,7 +27,8 @@ typedef enum {
 /* Foco espacial ao chegar à borda do monitor. */
 typedef enum { WZ_FOCUS_CROSS = 0, WZ_FOCUS_STOP, WZ_FOCUS_WRAP } wz_focus_edge;
 /* Modo de organização (dockapp, comando mode). */
-typedef enum { WZ_MODE_OFF = 0, WZ_MODE_ZONES, WZ_MODE_TILING } wz_mode;
+/* Rolagem: faixa horizontal de colunas (wz-scroll), como no niri. */
+typedef enum { WZ_MODE_OFF = 0, WZ_MODE_ZONES, WZ_MODE_TILING, WZ_MODE_SCROLL } wz_mode;
 /* Ações dos botões do dockapp. */
 typedef enum {
     WZ_CLICK_NONE = 0,
@@ -54,6 +56,12 @@ typedef enum {
     WZ_KEY_GROW, WZ_KEY_SHRINK,
     WZ_KEY_UNDO,
     WZ_KEY_REDO,
+    /* Modos e Rolagem (desde a 0.5). Na Rolagem, Focus/Swap andam entre
+     * colunas (esquerda/direita) e dentro da coluna (cima/baixo); Grow e
+     * Shrink trocam a largura da coluna. */
+    WZ_KEY_MODE_ZONES, WZ_KEY_MODE_TILING, WZ_KEY_MODE_SCROLL,
+    WZ_KEY_SCROLL_FIRST, WZ_KEY_SCROLL_LAST, WZ_KEY_SCROLL_CENTER,
+    WZ_KEY_SCROLL_CONSUME, WZ_KEY_SCROLL_EXPEL,
     WZ_KEY_N
 } wz_key_action;
 
@@ -86,6 +94,7 @@ typedef struct {
     /* Geral */
     int zones;
     int autotile;
+    int scroll;           /* Rolagem (tem prioridade sobre o mosaico) */
     wz_activation activation;
     wz_modifier modifier;
     int show_delay_ms;
@@ -93,7 +102,10 @@ typedef struct {
     int span_px;
     int edge_px;
     int show_numbers;
-    int restore_size_on_unsnap;
+    int restore_size_on_unsnap; /* desde a 0.5, desligado: arrastar mantém o tamanho */
+    /* Mover (botão esquerdo) e redimensionar (direito) a janela de qualquer
+     * ponto dela: "Ctrl+Alt"; vazio desliga. */
+    char *drag_modifier;
     int avoid_dock;
     int rules_enabled;
     int keep_running;     /* serviço ativo mesmo com tudo desligado (atalhos) */
@@ -109,6 +121,8 @@ typedef struct {
     wz_click click[4];    /* 0 esquerdo, 1 meio, 2 direito, 3 roda */
     /* Mosaico */
     wz_tile_params tile;
+    /* Rolagem */
+    wz_scroll_params scroll_p;
     /* Aparência */
     char *theme;          /* auto, light, dark */
     unsigned highlight;   /* 0xRRGGBB ou WZ_COLOR_AUTO (cor do tema) */
@@ -148,9 +162,10 @@ const wz_layout_def *wz_config_layout_for_size(const wz_config *c, const char *m
 /* Layouts do painel do arrasto, na ordem; max no máximo. */
 int wz_config_drag_layouts(const wz_config *c, const wz_layout_def **out, int max);
 
-/* Modo efetivo (geral) e troca de modo: grava Zones, Autotile e LastMode
+/* Modo efetivo (geral) e troca de modo: grava Zones, Autotile, Scroll e LastMode
  * em path (NULL = não grava). arg: zones, tiling, off, toggle (Zonas <->
- * Mosaico; desligado liga o último), enable (desligado <-> último modo).
+ * Mosaico -> Rolagem -> Zonas; desligado liga o último), enable
+ * (desligado <-> último modo), scroll.
  * Devolve o novo modo, ou -1 se arg é desconhecido. */
 wz_mode wz_config_mode(const wz_config *c);
 int wz_config_set_mode(wz_config *c, const char *path, const char *arg);

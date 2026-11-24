@@ -7,6 +7,7 @@
 #include "wz-config.h"
 #include "wz-history.h"
 #include "wz-layout.h"
+#include "wz-scroll.h"
 #include "wz-tile.h"
 
 #include <locale.h>
@@ -664,11 +665,23 @@ test_modes(void)
     CHECK(!strcmp(wz_config_layout_for_size(&c, "DP-1", 1, 1080, 1920)->id, "portrait"), "em pé -> portrait");
     CHECK(!strcmp(wz_config_layout_for_size(&c, "DP-1", 1, 1920, 1080)->id, "halves"), "16:9 -> metades");
     CHECK(!strcmp(wz_config_layout_for_size(&c, "DP-1", 1, 1280, 1024)->id, "halves"), "5:4 -> metades");
-    /* Clique esquerdo: Zonas <-> Mosaico; meio: desliga e religa o último. */
+    /* Clique esquerdo: Zonas -> Mosaico -> Rolagem -> Zonas; meio: desliga
+     * e religa o último. */
+    CHECK(c.restore_size_on_unsnap == 0, "padrão: arrastar mantém o tamanho");
+    CHECK(c.drag_modifier && !strcmp(c.drag_modifier, "Ctrl+Alt"), "padrão: Ctrl+Alt move");
     CHECK(wz_config_set_mode(&c, path, "toggle") == WZ_MODE_TILING && c.zones && c.autotile, "zonas -> mosaico");
     CHECK(wz_config_set_mode(&c, path, "enable") == WZ_MODE_OFF && !c.zones && !c.autotile, "desliga");
     CHECK(wz_config_set_mode(&c, path, "enable") == WZ_MODE_TILING, "religa no último (mosaico)");
-    CHECK(wz_config_set_mode(&c, path, "toggle") == WZ_MODE_ZONES, "mosaico -> zonas");
+    CHECK(wz_config_set_mode(&c, path, "toggle") == WZ_MODE_SCROLL && c.scroll && !c.autotile && c.zones,
+          "mosaico -> rolagem");
+    CHECK(!wz_config_autotile_for(&c, "DP-1", 1), "na rolagem o mosaico não vale em monitor nenhum");
+    CHECK(wz_config_set_mode(&c, path, "enable") == WZ_MODE_OFF && !c.scroll, "desliga a rolagem");
+    CHECK(wz_config_set_mode(&c, path, "enable") == WZ_MODE_SCROLL, "religa na rolagem");
+    wz_config_free(&c);
+    wz_config_defaults(&c);
+    wz_config_load(&c, path);
+    CHECK(wz_config_mode(&c) == WZ_MODE_SCROLL && c.last_mode == WZ_MODE_SCROLL, "rolagem persiste");
+    CHECK(wz_config_set_mode(&c, path, "toggle") == WZ_MODE_ZONES && !c.scroll, "rolagem -> zonas");
     CHECK(wz_config_set_mode(&c, path, "off") == WZ_MODE_OFF, "off");
     CHECK(wz_config_set_mode(&c, path, "toggle") == WZ_MODE_ZONES, "toggle desligado liga o último (zonas)");
     CHECK(wz_config_set_mode(&c, path, "xyz") == -1, "modo desconhecido");
@@ -703,12 +716,168 @@ test_modes(void)
     rmdir(dir);
 }
 
+static void
+scroll_check(wz_scroll *s, const wz_scroll_params *p, wz_rect area, const char *what)
+{
+    long ids[600];
+    wz_rect r[600];
+    int vis[600], nl, nr;
+    int n = wz_scroll_layout(s, p, area, 0, ids, r, vis, 600, &nl, &nr);
+    CHECK(n == wz_scroll_count(s), "%s: todas as janelas na geometria (%d/%d)", what, n, wz_scroll_count(s));
+    long act = wz_scroll_active_id(s);
+    int seen_active = 0, nvis_cols = 0;
+    for (int i = 0; i < n; i++) {
+        for (int j = i + 1; j < n; j++)
+            CHECK(ids[i] != ids[j], "%s: janela repetida %ld", what, ids[i]);
+        if (ids[i] == act)
+            seen_active = vis[i];
+        if (!vis[i]) {
+            CHECK(r[i].x + r[i].w <= area.x || r[i].x >= area.x + area.w, "%s: escondida fora da área", what);
+            continue;
+        }
+        CHECK(r[i].x >= area.x && r[i].y >= area.y && r[i].x + r[i].w <= area.x + area.w &&
+                  r[i].y + r[i].h <= area.y + area.h && r[i].w > 0 && r[i].h > 0,
+              "%s: visível dentro da área (%d,%d %dx%d)", what, r[i].x, r[i].y, r[i].w, r[i].h);
+        for (int j = 0; j < n; j++)
+            if (j != i && vis[j])
+                CHECK(!wz_rect_intersects(r[i], r[j]), "%s: visíveis sem sobreposição", what);
+    }
+    for (int c = 0; c < s->ncol; c++)
+        nvis_cols += c >= s->first && c < s->ncol - nr;
+    CHECK(n == 0 || seen_active, "%s: a ativa está na tela", what);
+    CHECK(nl == s->first && nl + nr + nvis_cols == s->ncol, "%s: contagem das escondidas", what);
+    CHECK(s->ncol == 0 ? s->active == -1 : s->active >= 0 && s->active < s->ncol, "%s: coluna ativa válida", what);
+    for (int c = 0; c < s->ncol; c++)
+        CHECK(s->col[c].n > 0 && s->col[c].active >= 0 && s->col[c].active < s->col[c].n, "%s: coluna %d válida", what, c);
+}
+
+static void
+test_scroll(void)
+{
+    wz_config c;
+    wz_config_defaults(&c);
+    wz_scroll_params p = c.scroll_p;
+    p.gap_in = 10;
+    p.gap_out = 10;
+    wz_rect area = { 100, 50, 1900, 1000 };
+    int w50 = wz_scroll_default_width(&p, area.w);
+    CHECK(2 * w50 + p.gap_in == area.w - 2 * p.gap_out, "duas colunas de 50%% cabem exatas (%d)", w50);
+    wz_scroll s;
+    wz_scroll_init(&s);
+    /* Abrir não muda a largura de quem já estava. */
+    wz_scroll_insert(&s, 1, w50, WZ_SCROLL_INSERT_COLUMN);
+    s.col[0].width = 700;
+    wz_scroll_insert(&s, 2, w50, WZ_SCROLL_INSERT_COLUMN);
+    wz_scroll_insert(&s, 3, 500, WZ_SCROLL_INSERT_COLUMN);
+    CHECK(s.ncol == 3 && s.col[0].width == 700 && s.col[1].width == w50 && s.col[2].width == 500,
+          "larguras preservadas ao abrir");
+    CHECK(wz_scroll_active_id(&s) == 3 && s.active == 2, "a nova fica ativa, à direita");
+    scroll_check(&s, &p, area, "três colunas");
+    /* 700+940+500+gaps > 1880: a primeira sai da tela. */
+    long ids[16];
+    wz_rect r[16];
+    int vis[16], nl, nr;
+    wz_scroll_layout(&s, &p, area, 0, ids, r, vis, 16, &nl, &nr);
+    CHECK(nl == 1 && nr == 0 && !vis[0] && vis[1] && vis[2], "rolou o mínimo para mostrar a ativa");
+    CHECK(r[1].x == area.x + p.gap_out, "visível começa na margem");
+    /* Inserir no meio: à direita da ativa. */
+    wz_scroll_activate(&s, 1);
+    wz_scroll_insert(&s, 4, 300, WZ_SCROLL_INSERT_COLUMN);
+    CHECK(s.col[1].id[0] == 4 && s.col[2].id[0] == 2, "nova coluna logo à direita da ativa");
+    /* Fechar a ativa: o foco vai para a vizinha da direita. */
+    wz_scroll_remove(&s, 4);
+    CHECK(wz_scroll_active_id(&s) == 2, "fechar a ativa: foco na vizinha da direita");
+    wz_scroll_remove(&s, 3);
+    CHECK(wz_scroll_active_id(&s) == 2 && s.ncol == 2, "fechar a última: foco na da esquerda");
+    /* Empilhar e separar. */
+    wz_scroll_insert(&s, 5, 0, WZ_SCROLL_INSERT_STACK);
+    CHECK(s.ncol == 2 && s.col[1].n == 2 && wz_scroll_active_id(&s) == 5, "empilha na coluna ativa");
+    scroll_check(&s, &p, area, "coluna com duas");
+    wz_scroll_layout(&s, &p, area, 0, ids, r, vis, 16, &nl, &nr);
+    CHECK(r[1].y == area.y + p.gap_out && r[2].y == r[1].y + r[1].h + p.gap_in &&
+              r[2].y + r[2].h == area.y + area.h - p.gap_out,
+          "alturas cobrem a coluna com o gap exato");
+    CHECK(wz_scroll_focus(&s, WZ_UP) && wz_scroll_active_id(&s) == 2, "foco acima na coluna");
+    CHECK(wz_scroll_move(&s, WZ_DOWN, 0) && s.col[1].id[1] == 2, "troca dentro da coluna");
+    CHECK(wz_scroll_expel(&s, 400) && s.ncol == 3 && s.col[2].id[0] == 2 && s.col[2].width == 400,
+          "sai da coluna para uma nova à direita");
+    CHECK(wz_scroll_consume(&s, WZ_LEFT) && s.ncol == 2 && s.col[1].n == 2 && wz_scroll_active_id(&s) == 2,
+          "entra na coluna da esquerda");
+    CHECK(wz_scroll_move(&s, WZ_LEFT, 300) && s.ncol == 3 && s.col[1].id[0] == 2, "move para a esquerda: coluna nova");
+    CHECK(wz_scroll_move(&s, WZ_LEFT, 300) && s.col[0].id[0] == 2 && s.col[1].id[0] == 1, "coluna sozinha troca de lugar");
+    scroll_check(&s, &p, area, "depois dos movimentos");
+    /* Larguras do ciclo. */
+    wz_scroll_cycle_width(&s, &p, area.w, 1);
+    int w1 = s.col[s.active].width;
+    wz_scroll_cycle_width(&s, &p, area.w, 1);
+    CHECK(s.col[s.active].width > w1, "ciclo cresce (%d -> %d)", w1, s.col[s.active].width);
+    /* Forma textual. */
+    char *txt = wz_scroll_serialize(&s);
+    wz_scroll t;
+    wz_scroll_init(&t);
+    CHECK(txt && wz_scroll_parse(&t, txt) == 0, "lê de volta: %s", txt ? txt : "(nulo)");
+    char *txt2 = wz_scroll_serialize(&t);
+    CHECK(txt && txt2 && !strcmp(txt, txt2), "ida e volta iguais: %s / %s", txt, txt2);
+    CHECK(wz_scroll_parse(&t, "a0 f0 | xx") == -1 && t.ncol == 0, "texto quebrado não deixa meia faixa");
+    free(txt);
+    free(txt2);
+    wz_scroll_free(&t);
+    /* Centralizar e rolar sem foco. */
+    wz_scroll_clear(&s);
+    for (long i = 1; i <= 9; i++)
+        wz_scroll_insert(&s, i, 600, WZ_SCROLL_INSERT_COLUMN);
+    wz_scroll_activate(&s, 5);
+    wz_scroll_center(&s, &p, area);
+    wz_scroll_layout(&s, &p, area, 0, ids, r, vis, 16, &nl, &nr);
+    CHECK(nl == 3 && nr == 3, "centralizar: a ativa no meio (%d | %d)", nl, nr);
+    wz_scroll_view(&s, 2);
+    wz_scroll_layout(&s, &p, area, 1, ids, r, vis, 16, &nl, &nr);
+    CHECK(nl == 5 && !vis[4], "rolar sem foco mantém a ativa e esconde-a (%d)", nl);
+    wz_scroll_layout(&s, &p, area, 0, ids, r, vis, 16, &nl, &nr);
+    CHECK(vis[4], "com foco, a ativa volta à tela");
+    /* Fim da faixa: puxa da esquerda em vez de deixar vazio. */
+    wz_scroll_focus_last(&s);
+    wz_scroll_layout(&s, &p, area, 0, ids, r, vis, 16, &nl, &nr);
+    CHECK(nr == 0 && nl == 6, "no fim, a tela cheia de colunas (%d)", nl);
+    /* Coluna mais larga que a área cabe sozinha. */
+    wz_scroll_clear(&s);
+    wz_scroll_insert(&s, 1, 5000, WZ_SCROLL_INSERT_COLUMN);
+    scroll_check(&s, &p, area, "coluna larga demais");
+    /* Sincronização e operações aleatórias. */
+    for (int it = 0; it < 3000; it++) {
+        long id = 1 + rnd(40);
+        switch (rnd(10)) {
+        case 0: case 1: case 2:
+            wz_scroll_insert(&s, id, 200 + (int)rnd(1200), rnd(4) ? WZ_SCROLL_INSERT_COLUMN : WZ_SCROLL_INSERT_STACK);
+            break;
+        case 3: case 4: wz_scroll_remove(&s, id); break;
+        case 5: wz_scroll_focus(&s, (int)rnd(4)); break;
+        case 6: wz_scroll_move(&s, (int)rnd(4), 300); break;
+        case 7: if (rnd(2)) wz_scroll_consume(&s, rnd(2) ? WZ_LEFT : WZ_RIGHT); else wz_scroll_expel(&s, 500); break;
+        case 8: wz_scroll_view(&s, (int)rnd(5) - 2); break;
+        case 9: wz_scroll_activate(&s, id); break;
+        }
+        if (it % 7 == 0) {
+            char what[32];
+            snprintf(what, sizeof what, "aleatório %d", it);
+            scroll_check(&s, &p, (wz_rect){ 0, 0, 800 + (int)rnd(2000), 600 + (int)rnd(800) }, what);
+        }
+    }
+    long keep[3] = { 41, 42, 43 };
+    wz_scroll_sync(&s, keep, 3, 500, WZ_SCROLL_INSERT_COLUMN);
+    CHECK(wz_scroll_count(&s) == 3 && wz_scroll_has(&s, 41) && wz_scroll_has(&s, 43), "sync deixa só as dadas");
+    scroll_check(&s, &p, area, "depois do sync");
+    wz_scroll_free(&s);
+    wz_config_free(&c);
+}
+
 int
 main(void)
 {
     test_focus();
     test_history();
     test_modes();
+    test_scroll();
     test_locale();
     test_parse();
     test_gaps_exact();
