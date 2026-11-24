@@ -52,6 +52,26 @@
 #define COLOR_CYAN_HALF 0x004941
 #define COLOR_CYAN_OFF 0x1f1f1f
 
+/* Visual do ladrilho (0.5.1): corpo grafite, tela escura, regiões em ciano;
+ * a tecla do modo aceso na cor dele (Z verde, M amarelo, R azul-claro). */
+#define FACE_BODY 0x353a40
+#define FACE_BODY_EDGE 0x777f88
+#define FACE_SCREEN 0x111b20
+#define FACE_SCREEN_EDGE 0x87949b
+#define FACE_ZONE 0x1f5059
+#define FACE_CELL 0x28616b
+#define FACE_LINE 0x74e1e8
+#define FACE_LIGHT 0x9eeef0
+#define FACE_DIM 0x204047
+#define FACE_DIM_LINE 0x47858c
+#define FKEY_OFF 0x252b30
+#define FKEY_EDGE 0x68747c
+#define FKEY_TEXT 0xa1b2b9
+#define FKEY_TEXT_LIT 0x14292c
+#define FKEY_Z 0x6fdc6f
+#define FKEY_M 0xf2c84b
+#define FKEY_R 0x8cd2f5
+
 enum { POP_NONE = 0, POP_LAYOUTS, POP_MENU };
 
 static Pixmap face;
@@ -64,6 +84,9 @@ static const struct {
     unsigned char rows[5];
 } glyphs[] = {
     { 'M', { 5, 7, 7, 5, 5 } }, { 'Z', { 7, 1, 2, 4, 7 } }, { 'R', { 6, 5, 6, 5, 5 } },
+    { '0', { 7, 5, 5, 5, 7 } }, { '1', { 2, 6, 2, 2, 7 } }, { '2', { 7, 1, 7, 4, 7 } }, { '3', { 7, 1, 3, 1, 7 } },
+    { '4', { 5, 5, 7, 1, 1 } }, { '5', { 7, 4, 7, 1, 7 } }, { '6', { 7, 4, 7, 5, 7 } }, { '7', { 7, 1, 1, 2, 2 } },
+    { '8', { 7, 5, 7, 5, 7 } }, { '9', { 7, 5, 7, 1, 7 } },
 };
 
 static void
@@ -155,23 +178,19 @@ algo_label(const char *id)
     return id;
 }
 
-/* Fileira de baixo: seta, Z, M, R, seta (60 px). Z, M e R dividem a tela
- * LCD (x 12..47, com o chanfro): Z 12..23, M 24..35, R 36..47; as setas,
- * 2..9 e 50..57. A área clicável é a desenhada. */
-#define ROW_Y 44
-#define ROW_H 14
-enum { HIT_NONE, HIT_PREV, HIT_Z, HIT_M, HIT_R, HIT_NEXT };
+/* Fileira de baixo (60 px): as teclas Z, M e R, 18 px cada (2..19, 21..38,
+ * 40..57, alinhadas com a tela), y 46..57. A área clicável é a desenhada.
+ * Sem setas desde a 0.5.1: layout, algoritmo e coluna ficam no menu. */
+#define ROW_Y 46
+#define ROW_H 12
+enum { HIT_NONE, HIT_Z, HIT_M, HIT_R };
 static const struct {
     int x, w;
-} row_btn[] = { [HIT_PREV] = { 2, 8 },  [HIT_Z] = { 12, 12 }, [HIT_M] = { 24, 12 },
-                [HIT_R] = { 36, 12 },   [HIT_NEXT] = { 50, 8 } };
+} row_btn[] = { [HIT_Z] = { 2, 18 }, [HIT_M] = { 21, 18 }, [HIT_R] = { 40, 18 } };
 
-/* As partes desenhadas do ladrilho: a tela, as setas e a tela LCD dos modos. */
+/* O ladrilho inteiro é desenhado (corpo, tela e teclas). */
 static XRectangle dock_parts[] = {
-    { 2, 2, 56, 38 },
-    { 2, ROW_Y, 8, ROW_H },
-    { 12, ROW_Y, 36, ROW_H },
-    { 50, ROW_Y, 8, ROW_H },
+    { 0, 0, TILE, TILE },
 };
 #define DOCK_NPARTS ((int)(sizeof dock_parts / sizeof dock_parts[0]))
 
@@ -180,26 +199,42 @@ row_hit(int x, int y)
 {
     if (y < ROW_Y || y >= ROW_Y + ROW_H)
         return HIT_NONE;
-    for (int i = HIT_PREV; i <= HIT_NEXT; i++)
+    for (int i = HIT_Z; i <= HIT_R; i++)
         if (x >= row_btn[i].x && x < row_btn[i].x + row_btn[i].w)
             return i;
     return HIT_NONE;
 }
 
-/* Seta do wmsystemtray: botão em relevo com um triângulo; apagada quando não
- * há o que trocar (modo desligado). */
+/* Texto em pixels centralizado na caixa. */
 static void
-arrow_key(wzx *z, int which, int enabled)
+pixtext_center(wzx *z, const char *s, wz_rect b, unsigned rgb, int scale)
 {
-    int x = row_btn[which].x, w = row_btn[which].w, y = ROW_Y, h = ROW_H;
-    XSetForeground(z->dpy, dgc, wzx_pixel(z, 0xb4b6bb));
-    XFillRectangle(z->dpy, face, dgc, x + 1, y + 1, (unsigned)w - 2, (unsigned)h - 2);
-    wzx_draw_bevel(z, face, dgc, x, y, w, h, 1);
-    XSetForeground(z->dpy, dgc, wzx_pixel(z, enabled ? 0x101010 : 0x8a8c90));
-    int cx = x + w / 2, cy = y + h / 2;
-    for (int i = 0; i < 4; i++) {
-        int col = which == HIT_PREV ? cx - 2 + i : cx + 1 - i;
-        XDrawLine(z->dpy, face, dgc, col, cy - i, col, cy + i);
+    int w = (int)strlen(s) * 4 * scale - scale, h = 5 * scale;
+    pixtext(z, face, s, b.x + (b.w - w) / 2, b.y + (b.h - h) / 2, rgb, scale);
+}
+
+static void
+dashed(wzx *z, int on)
+{
+    if (on) {
+        static const char d[] = { 2, 1 };
+        XSetLineAttributes(z->dpy, dgc, 0, LineOnOffDash, CapButt, JoinMiter);
+        XSetDashes(z->dpy, dgc, 0, d, 2);
+    } else {
+        XSetLineAttributes(z->dpy, dgc, 0, LineSolid, CapButt, JoinMiter);
+    }
+}
+
+static void
+box_fill(wzx *z, wz_rect r, unsigned fill, unsigned line, int dash)
+{
+    XSetForeground(z->dpy, dgc, wzx_pixel(z, fill));
+    XFillRectangle(z->dpy, face, dgc, r.x, r.y, (unsigned)r.w, (unsigned)r.h);
+    if (r.w >= 3 && r.h >= 3) {
+        dashed(z, dash);
+        XSetForeground(z->dpy, dgc, wzx_pixel(z, line));
+        XDrawRectangle(z->dpy, face, dgc, r.x, r.y, (unsigned)r.w - 1, (unsigned)r.h - 1);
+        dashed(z, 0);
     }
 }
 
@@ -232,19 +267,15 @@ draw_windows(wzx *z, wz_rect box, int mon)
         int y2 = box.y + (int)((long)(r[i].y + r[i].h - area.y) * box.h / area.h);
         r[i] = (wz_rect){ x1, y1, x2 - x1 > 3 ? x2 - x1 : 3, y2 - y1 > 4 ? y2 - y1 : 4 };
     }
-    for (int i = n - 1; i >= 0; i--) {
-        XSetForeground(z->dpy, dgc, wzx_pixel(z, i == 0 ? COLOR_CYAN_ON : COLOR_CYAN_HALF));
-        XFillRectangle(z->dpy, face, dgc, r[i].x, r[i].y, (unsigned)r[i].w, (unsigned)r[i].h);
-        XSetForeground(z->dpy, dgc, wzx_pixel(z, COLOR_CYAN_ON));
-        XDrawRectangle(z->dpy, face, dgc, r[i].x, r[i].y, (unsigned)r[i].w - 1, (unsigned)r[i].h - 1);
-    }
+    for (int i = n - 1; i >= 0; i--)
+        box_fill(z, r[i], FACE_CELL, FACE_LINE, 0);
 }
 
 /* Desligado: a tela apagada com o sinal de pausa. */
 static void
 draw_pause(wzx *z, wz_rect scr)
 {
-    XSetForeground(z->dpy, dgc, wzx_pixel(z, COLOR_CYAN_ON));
+    XSetForeground(z->dpy, dgc, wzx_pixel(z, FACE_LINE));
     int cx = scr.x + scr.w / 2, cy = scr.y + scr.h / 2;
     XFillRectangle(z->dpy, face, dgc, cx - 6, cy - 7, 4, 14);
     XFillRectangle(z->dpy, face, dgc, cx + 2, cy - 7, 4, 14);
@@ -254,51 +285,99 @@ draw_pause(wzx *z, wz_rect scr)
  * ativa acesa, as outras meio acesas, e um traço em cada lado com colunas
  * escondidas ali. Sem faixa ainda, três colunas de exemplo. */
 static void
+chevron(wzx *z, int x, int cy, int dir)
+{
+    XSetForeground(z->dpy, dgc, wzx_pixel(z, FACE_LIGHT));
+    for (int i = 0; i < 3; i++) {
+        int px = dir < 0 ? x + i : x - i;
+        XDrawPoint(z->dpy, face, dgc, px, cy - i);
+        XDrawPoint(z->dpy, face, dgc, px, cy + i);
+    }
+}
+
+/* Rolagem: as colunas visíveis na proporção das larguras (a ativa clara),
+ * e de cada lado com colunas escondidas um pedaço de coluna apagada com a
+ * seta. */
+static void
 draw_strip(wzx *z, wz_rect box, int mon)
 {
-    int ncol = 3, active = 1, nl = 0, nr = 0, widths[WZ_SCROLL_MAX_COLS] = { 2, 3, 2 };
-    if (!wzx_scroll_info(z, mon, &ncol, &active, &nl, &nr, widths, WZ_SCROLL_MAX_COLS))
-        ncol = 3, active = 1, nl = nr = 0, widths[0] = 2, widths[1] = 3, widths[2] = 2;
+    int ncol, active, nl, nr, widths[WZ_SCROLL_MAX_COLS];
+    if (!wzx_scroll_info(z, mon, &ncol, &active, &nl, &nr, widths, WZ_SCROLL_MAX_COLS)) {
+        /* Sem faixa: uma de exemplo, três colunas e mais uma de cada lado. */
+        static const int ex[] = { 2, 2, 3, 2, 2 };
+        ncol = 5, active = 2, nl = nr = 1;
+        memcpy(widths, ex, sizeof ex);
+    }
     int first = nl, last = ncol - 1 - nr;
-    if (last - first + 1 > 6) { /* no ladrilho cabem poucas */
+    if (last - first + 1 > 5) {
         first = active - 2 < nl ? nl : active - 2;
-        last = first + 5 > ncol - 1 - nr ? ncol - 1 - nr : first + 5;
+        last = first + 4 > ncol - 1 - nr ? ncol - 1 - nr : first + 4;
+    }
+    int stub = 7, gap = 2;
+    int x0 = box.x + (nl > 0 ? stub + gap : 0), x1 = box.x + box.w - (nr > 0 ? stub + gap : 0);
+    if (nl > 0) {
+        box_fill(z, (wz_rect){ box.x, box.y + 3, stub, box.h - 6 }, FACE_DIM, FACE_DIM_LINE, 0);
+        chevron(z, box.x + 2, box.y + box.h / 2, -1);
+    }
+    if (nr > 0) {
+        box_fill(z, (wz_rect){ box.x + box.w - stub, box.y + 3, stub, box.h - 6 }, FACE_DIM, FACE_DIM_LINE, 0);
+        chevron(z, box.x + box.w - 3, box.y + box.h / 2, 1);
     }
     long tot = 0;
     for (int c = first; c <= last; c++)
         tot += widths[c] > 0 ? widths[c] : 1;
-    int margin = 4, gap = 2;
-    int avail = box.w - 2 * margin - gap * (last - first);
-    int x = box.x + margin;
+    int avail = x1 - x0 - gap * (last - first), x = x0;
     for (int c = first; c <= last; c++) {
         int w = tot > 0 ? (int)((long)avail * (widths[c] > 0 ? widths[c] : 1) / tot) : 4;
-        if (w < 3)
-            w = 3;
-        XSetForeground(z->dpy, dgc, wzx_pixel(z, c == active ? COLOR_CYAN_ON : COLOR_CYAN_HALF));
-        XFillRectangle(z->dpy, face, dgc, x, box.y + 2, (unsigned)w, (unsigned)box.h - 4);
-        XSetForeground(z->dpy, dgc, wzx_pixel(z, COLOR_CYAN_ON));
-        XDrawRectangle(z->dpy, face, dgc, x, box.y + 2, (unsigned)w - 1, (unsigned)box.h - 5);
+        if (w < 4)
+            w = 4;
+        if (c == active)
+            box_fill(z, (wz_rect){ x, box.y, w, box.h }, FACE_CELL, FACE_LIGHT, 0);
+        else
+            box_fill(z, (wz_rect){ x, box.y + 3, w, box.h - 6 }, FACE_DIM, FACE_DIM_LINE, 0);
         x += w + gap;
     }
-    /* Escondidas: traços nas bordas, um por coluna (até três). */
-    XSetForeground(z->dpy, dgc, wzx_pixel(z, COLOR_CYAN_ON));
-    for (int i = 0; i < nl && i < 3; i++)
-        XFillRectangle(z->dpy, face, dgc, box.x + i, box.y + box.h / 2 - 3, 1, 6);
-    for (int i = 0; i < nr && i < 3; i++)
-        XFillRectangle(z->dpy, face, dgc, box.x + box.w - 1 - i, box.y + box.h / 2 - 3, 1, 6);
 }
 
-/* Tecla com LED dentro da tela LCD (a área de row_btn[which] sem o chanfro
- * da tela): apagada escura, acesa com a letra escura. */
+/* Zonas: as regiões do layout em ciano com contorno tracejado e o número
+ * de cada uma (quando cabe). */
 static void
-led_key(wzx *z, int which, const char *letter, int lit, unsigned color)
+draw_zones(wzx *z, const char *tree, wz_rect box)
 {
-    int x = row_btn[which].x, w = row_btn[which].w;
-    /* Z começa no chanfro esquerdo da tela, R termina no direito. */
-    int x0 = which == HIT_Z ? x + 1 : x, w0 = which == HIT_Z || which == HIT_R ? w - 1 : w - 1;
-    XSetForeground(z->dpy, dgc, wzx_pixel(z, lit ? color : 0x2a2e33));
-    XFillRectangle(z->dpy, face, dgc, x0, ROW_Y + 1, (unsigned)w0, ROW_H - 2);
-    pixtext(z, face, letter, x0 + (w0 - 6) / 2 + 1, ROW_Y + 2, lit ? 0x101010 : 0x7a7e84, 2);
+    wz_node *t = wz_parse(tree, NULL);
+    if (!t)
+        return;
+    wz_rect zr[64];
+    int n = wz_compute(t, box, 2, 0, zr, 64);
+    wz_free(t);
+    for (int i = 0; i < n && i < 64; i++) {
+        box_fill(z, zr[i], FACE_ZONE, FACE_LINE, 1);
+        char num[4];
+        snprintf(num, sizeof num, "%d", i + 1);
+        if (zr[i].w >= (int)strlen(num) * 4 + 3 && zr[i].h >= 8)
+            pixtext_center(z, num, zr[i], FACE_LIGHT, 1);
+    }
+}
+
+/* Letras das teclas, 5x7 (bit 4 = coluna da esquerda). */
+static const unsigned char key_glyph[][7] = {
+    { 0x1f, 0x01, 0x02, 0x04, 0x08, 0x10, 0x1f }, /* Z */
+    { 0x11, 0x1b, 0x15, 0x15, 0x11, 0x11, 0x11 }, /* M */
+    { 0x1e, 0x11, 0x11, 0x1e, 0x14, 0x12, 0x11 }, /* R */
+};
+
+/* Tecla do modo: escura e apagada, ou acesa na cor do modo. */
+static void
+led_key(wzx *z, int which, int glyph, int lit, unsigned color)
+{
+    wz_rect r = { row_btn[which].x, ROW_Y, row_btn[which].w, ROW_H };
+    box_fill(z, r, lit ? color : FKEY_OFF, FKEY_EDGE, 0);
+    XSetForeground(z->dpy, dgc, wzx_pixel(z, lit ? FKEY_TEXT_LIT : FKEY_TEXT));
+    int x0 = r.x + (r.w - 5) / 2, y0 = r.y + (r.h - 7) / 2;
+    for (int y = 0; y < 7; y++)
+        for (int x = 0; x < 5; x++)
+            if (key_glyph[glyph][y] & (0x10 >> x))
+                XDrawPoint(z->dpy, face, dgc, x0 + x, y0 + y);
 }
 
 void
@@ -311,24 +390,22 @@ wzx_dockapp_redraw(wzx *z)
         face = XCreatePixmap(z->dpy, z->dock_icon, TILE, TILE, (unsigned)DefaultDepth(z->dpy, z->screen));
     if (!dgc)
         dgc = XCreateGC(z->dpy, face, 0, NULL);
-    /* Fundo do pixmap: fica fora das partes desenhadas, que são as únicas
-     * mostradas (sem cor de teste: nada aparece se a máscara falhar). */
-    XSetForeground(z->dpy, dgc, wzx_pixel(z, z->theme.icon1));
+    /* Corpo grafite com borda; a tela escura em cima e as teclas embaixo. */
+    XSetForeground(z->dpy, dgc, wzx_pixel(z, FACE_BODY));
     XFillRectangle(z->dpy, face, dgc, 0, 0, TILE, TILE);
-    /* Tela afundada com a miniatura do layout, borda fina */
-    wz_rect scr = { 3, 3, 55, 37 };
-    XSetForeground(z->dpy, dgc, wzx_pixel(z, COLOR_CYAN_OFF));
-    XFillRectangle(z->dpy, face, dgc, scr.x, scr.y, (unsigned)scr.w, (unsigned)scr.h);
-    wzx_draw_bevel_1px(z, face, dgc, scr.x - 1, scr.y - 1, scr.w + 1, scr.h + 1, 0);
+    XSetForeground(z->dpy, dgc, wzx_pixel(z, FACE_BODY_EDGE));
+    XDrawRectangle(z->dpy, face, dgc, 0, 0, TILE - 1, TILE - 1);
+    wz_rect scr = { 2, 2, 56, 42 };
+    box_fill(z, scr, FACE_SCREEN, FACE_SCREEN_EDGE, 0);
     /* A tela mostra o modo de verdade (o estado do serviço, que é este
-     * processo): Zonas, as regiões de encaixe do layout; Mosaico, as janelas
-     * organizadas pelo algoritmo; desligado, a pausa. */
+     * processo): Zonas, as regiões do layout numeradas; Mosaico, as janelas
+     * organizadas pelo algoritmo; Rolagem, as colunas; desligado, a pausa. */
     wz_mode m = wz_config_mode(&z->cfg);
-    wz_rect inner = { scr.x + 2, scr.y + 2, scr.w - 4, scr.h - 4 };
+    wz_rect inner = { scr.x + 3, scr.y + 3, scr.w - 6, scr.h - 6 };
     if (m == WZ_MODE_ZONES) {
         const wz_layout_def *l = current_layout(z);
         if (l)
-            draw_mini(z, face, dgc, l->tree, inner, 0xc2c0c5, 0, 0x7fb0e0);
+            draw_zones(z, l->tree, inner);
     } else if (m == WZ_MODE_TILING) {
         draw_windows(z, inner, pointer_mon(z));
     } else if (m == WZ_MODE_SCROLL) {
@@ -336,19 +413,9 @@ wzx_dockapp_redraw(wzx *z)
     } else {
         draw_pause(z, scr);
     }
-    /* Setas (layout ou algoritmo anterior/seguinte) e as teclas Z e M: a do
-     * modo ativo acesa. */
-    arrow_key(z, HIT_PREV, m != WZ_MODE_OFF);
-    /* Tela LCD para os modos */
-    wz_rect scr2 = { 13, 45, 35, 13 };
-    XSetForeground(z->dpy, dgc, wzx_pixel(z, COLOR_CYAN_OFF));
-    XFillRectangle(z->dpy, face, dgc, scr2.x, scr2.y, (unsigned)scr2.w, (unsigned)scr2.h);
-    wzx_draw_bevel_1px(z, face, dgc, scr2.x - 1, scr2.y - 1, scr2.w + 1, scr2.h + 1, 0);
-    /* Desenha modos */
-    led_key(z, HIT_Z, "Z", m == WZ_MODE_ZONES, 0x58d858);
-    led_key(z, HIT_M, "M", m == WZ_MODE_TILING, 0xf0b030);
-    led_key(z, HIT_R, "R", m == WZ_MODE_SCROLL, 0x58a8f0);
-    arrow_key(z, HIT_NEXT, m != WZ_MODE_OFF);
+    led_key(z, HIT_Z, 0, m == WZ_MODE_ZONES, FKEY_Z);
+    led_key(z, HIT_M, 1, m == WZ_MODE_TILING, FKEY_M);
+    led_key(z, HIT_R, 2, m == WZ_MODE_SCROLL, FKEY_R);
     /* Só as partes desenhadas aparecem; o resto é o ladrilho do Dock. Com o
      * X Shape, a janela tem a forma delas (os cliques fora caem no
      * Window Maker); sem ele, o fundo do pai (ParentRelative) e a cópia só
@@ -1158,22 +1225,13 @@ click(wzx *z, wz_click action, int step)
     balloon_show(z, 1500);
 }
 
-/* Teclas da fileira de baixo: setas trocam o layout (Zonas), o algoritmo
- * (Mosaico) ou a coluna em foco (Rolagem); Z, M e R escolhem o modo, e a
- * acesa desliga. */
+/* Teclas da fileira de baixo: Z, M e R escolhem o modo, e a acesa desliga. */
 static void
 row_click(wzx *z, int hit)
 {
     wz_mode m = wz_config_mode(&z->cfg);
     const char *cmd = NULL;
-    if (hit == HIT_PREV || hit == HIT_NEXT) {
-        if (m == WZ_MODE_ZONES)
-            cmd = hit == HIT_PREV ? "layout prev" : "layout next";
-        else if (m == WZ_MODE_TILING)
-            cmd = hit == HIT_PREV ? "algorithm prev" : "algorithm next";
-        else if (m == WZ_MODE_SCROLL)
-            cmd = hit == HIT_PREV ? "scroll left" : "scroll right";
-    } else if (hit == HIT_Z) {
+    if (hit == HIT_Z) {
         cmd = m == WZ_MODE_ZONES ? "mode off" : "mode zones";
     } else if (hit == HIT_M) {
         cmd = m == WZ_MODE_TILING ? "mode off" : "mode tiling";
@@ -1326,7 +1384,8 @@ wzx_dockapp_event(wzx *z, XEvent *e)
     case ButtonRelease:
         if (e->xbutton.button == 1 && press.pending) {
             press.pending = 0;
-            if (row_hit(press.x, press.y) != HIT_NONE)
+            /* Na fileira das teclas, o vão entre elas não troca o modo. */
+            if (press.y >= ROW_Y && press.y < ROW_Y + ROW_H)
                 row_click(z, row_hit(press.x, press.y));
             else
                 click(z, z->cfg.click[0], 0);

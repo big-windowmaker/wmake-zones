@@ -20,14 +20,14 @@
 #include "wz-i18n.h"
 #include "wz-ipc.h"
 #include "wz-layout.h"
-#include "wz-theme.h"
 #include "wz-tile.h"
 
 #include <cairo.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <locale.h>
 #include <linux/input-event-codes.h>
+#include <locale.h>
+#include <math.h>
 #include <poll.h>
 #include <signal.h>
 #include <stdio.h>
@@ -58,7 +58,6 @@ typedef struct {
     double px, py;      /* ponteiro no ladrilho, em coordenadas de 64x64 */
     wz_config cfg;
     char *cfg_path;
-    wz_theme theme;
     char layout[128];   /* layout em efeito no primeiro monitor (status) */
     /* Rolagem: faixa do primeiro monitor (status: strip= e widths=). */
     int ncol, active, nleft, nright;
@@ -72,216 +71,204 @@ rgb(cairo_t *cr, unsigned c)
     cairo_set_source_rgb(cr, (c >> 16 & 0xff) / 255.0, (c >> 8 & 0xff) / 255.0, (c & 0xff) / 255.0);
 }
 
-static void
-bevel(cairo_t *cr, double x, double y, double w, double h, int raised)
-{
-    rgb(cr, raised ? 0xffffff : 0x000000);
-    cairo_rectangle(cr, x, y, w, 1);
-    cairo_rectangle(cr, x, y, 1, h);
-    cairo_fill(cr);
-    rgb(cr, raised ? 0x000000 : 0xffffff);
-    cairo_rectangle(cr, x, y + h - 1, w, 1);
-    cairo_rectangle(cr, x + w - 1, y, 1, h);
-    cairo_fill(cr);
-}
+/* Visual do ladrilho (0.5.1), desenhado em 104x104 e reduzido ao tamanho do
+ * ícone: corpo grafite, tela escura, regiões em ciano; a tecla do modo aceso
+ * na cor dele (Z verde, M amarelo, R azul-claro). As mesmas cores do X11. */
+#define U 104.0
+#define FACE_BODY 0x353a40
+#define FACE_BODY_EDGE 0x777f88
+#define FACE_SCREEN 0x111b20
+#define FACE_SCREEN_EDGE 0x87949b
+#define FACE_ZONE 0x1f5059
+#define FACE_CELL 0x28616b
+#define FACE_LINE 0x74e1e8
+#define FACE_LIGHT 0x9eeef0
+#define FACE_DIM 0x204047
+#define FACE_DIM_LINE 0x47858c
+#define FKEY_OFF 0x252b30
+#define FKEY_EDGE 0x68747c
+#define FKEY_TEXT 0xa1b2b9
+#define FKEY_TEXT_LIT 0x14292c
+#define FKEY_Z 0x6fdc6f
+#define FKEY_M 0xf2c84b
+#define FKEY_R 0x8cd2f5
 
-/* Fonte de pixels 3x5 do LED, a mesma do dockapp do X11. */
-static const struct {
-    char c;
-    unsigned char rows[5];
-} glyphs[] = {
-    { 'M', { 5, 7, 7, 5, 5 } }, { 'Z', { 7, 1, 2, 4, 7 } }, { 'R', { 6, 5, 6, 5, 5 } },
-};
-
-static void
-pixtext(cairo_t *cr, const char *s, double x, double y, unsigned c, double sc)
-{
-    rgb(cr, c);
-    for (; *s; s++, x += 4 * sc)
-        for (size_t g = 0; g < sizeof glyphs / sizeof *glyphs; g++)
-            if (glyphs[g].c == *s)
-                for (int r = 0; r < 5; r++)
-                    for (int k = 0; k < 3; k++)
-                        if (glyphs[g].rows[r] & (4 >> k))
-                            cairo_rectangle(cr, x + k * sc, y + r * sc, sc, sc);
-    cairo_fill(cr);
-}
-
-/* Fileira de baixo, como no dockapp do X11: seta, Z, M, R, seta. */
-#define ROW_Y 45
-#define ROW_H 14
-enum { HIT_NONE, HIT_PREV, HIT_Z, HIT_M, HIT_R, HIT_NEXT };
+/* Fileira de baixo: as teclas Z, M e R (unidades de 104). */
+#define ROW_Y 81
+#define ROW_H 18
+enum { HIT_NONE, HIT_Z, HIT_M, HIT_R };
 static const struct {
     int x, w;
-} row_btn[] = { [HIT_PREV] = { 3, 8 },  [HIT_Z] = { 13, 12 }, [HIT_M] = { 26, 12 },
-                [HIT_R] = { 39, 12 },   [HIT_NEXT] = { 53, 8 } };
+} row_btn[] = { [HIT_Z] = { 5, 29 }, [HIT_M] = { 37, 29 }, [HIT_R] = { 69, 29 } };
 
+/* x e y em unidades de 64 (as do ponteiro). */
 static int
 row_hit(double x, double y)
 {
+    x *= U / 64.0, y *= U / 64.0;
     if (y < ROW_Y || y >= ROW_Y + ROW_H)
         return HIT_NONE;
-    for (int i = HIT_PREV; i <= HIT_NEXT; i++)
+    for (int i = HIT_Z; i <= HIT_R; i++)
         if (x >= row_btn[i].x && x < row_btn[i].x + row_btn[i].w)
             return i;
     return HIT_NONE;
 }
 
 static void
-arrow_key(cairo_t *cr, int which, int enabled)
+box(cairo_t *cr, double x, double y, double w, double h, double r, unsigned fill, unsigned line, double lw)
 {
-    double x = row_btn[which].x, w = row_btn[which].w, y = ROW_Y, h = ROW_H;
-    rgb(cr, 0xb4b6bb);
-    cairo_rectangle(cr, x + 1, y + 1, w - 2, h - 2);
-    cairo_fill(cr);
-    bevel(cr, x, y, w, h, 1);
-    rgb(cr, enabled ? 0x101010 : 0x8a8c90);
-    double cx = x + w / 2, cy = y + h / 2, d = which == HIT_PREV ? -1 : 1;
-    cairo_move_to(cr, cx + 2 * d, cy);
-    cairo_line_to(cr, cx - 2 * d, cy - 4);
-    cairo_line_to(cr, cx - 2 * d, cy + 4);
-    cairo_close_path(cr);
-    cairo_fill(cr);
+    cairo_new_sub_path(cr);
+    if (r > 0) {
+        cairo_arc(cr, x + w - r, y + r, r, -M_PI / 2, 0);
+        cairo_arc(cr, x + w - r, y + h - r, r, 0, M_PI / 2);
+        cairo_arc(cr, x + r, y + h - r, r, M_PI / 2, M_PI);
+        cairo_arc(cr, x + r, y + r, r, M_PI, 3 * M_PI / 2);
+        cairo_close_path(cr);
+    } else {
+        cairo_rectangle(cr, x, y, w, h);
+    }
+    rgb(cr, fill);
+    cairo_fill_preserve(cr);
+    rgb(cr, line);
+    cairo_set_line_width(cr, lw);
+    cairo_stroke(cr);
 }
 
-/* Mosaico: quatro janelas com barra de título na disposição do algoritmo,
- * calculada numa área 16:9 (o núcleo não divide abaixo de 64 px) e reduzida
- * ao ladrilho; a principal com a barra âmbar, a cor do LED M. */
 static void
-draw_windows(app *a, cairo_t *cr, wz_rect box)
+label(cairo_t *cr, const char *s, double cx, double cy, double size, unsigned c)
+{
+    cairo_text_extents_t e;
+    cairo_select_font_face(cr, "sans-serif", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+    cairo_set_font_size(cr, size);
+    cairo_text_extents(cr, s, &e);
+    rgb(cr, c);
+    cairo_move_to(cr, cx - e.width / 2 - e.x_bearing, cy - e.height / 2 - e.y_bearing);
+    cairo_show_text(cr, s);
+}
+
+/* Mosaico: as janelas na disposição do algoritmo, calculada numa área 16:9
+ * (o núcleo não divide abaixo de 64 px) e reduzida à tela. */
+static void
+draw_windows(app *a, cairo_t *cr, wz_rect b)
 {
     wz_tile_params p = a->cfg.tile;
     if (p.algo == WZ_TILE_BSP)
         p.algo = WZ_TILE_DWINDLE; /* a árvore é do compositor; ela começa assim */
     wz_rect area = { 0, 0, 1600, 900 };
-    p.gap_in = 2 * area.w / box.w;
+    p.gap_in = 3 * area.w / b.w;
     p.gap_out = 0;
     p.smart_gaps = 0;
     wz_rect r[8];
     int n = wz_tile(&p, area, 4, r, 8);
-    for (int i = n - 1; i >= 0; i--) {
-        double x = box.x + (double)r[i].x * box.w / area.w, y = box.y + (double)r[i].y * box.h / area.h;
-        double w = (double)r[i].w * box.w / area.w, h = (double)r[i].h * box.h / area.h;
-        rgb(cr, 0xc2c0c5);
-        cairo_rectangle(cr, x, y, w, h);
-        cairo_fill(cr);
-        rgb(cr, i == 0 ? 0xe0a030 : 0x30363c);
-        cairo_rectangle(cr, x, y, w, 3);
-        cairo_fill(cr);
-        rgb(cr, 0x303030);
-        cairo_set_line_width(cr, 1);
-        cairo_rectangle(cr, x + 0.5, y + 0.5, w - 1, h - 1);
-        cairo_stroke(cr);
-    }
+    for (int i = n - 1; i >= 0; i--)
+        box(cr, b.x + (double)r[i].x * b.w / area.w, b.y + (double)r[i].y * b.h / area.h,
+            (double)r[i].w * b.w / area.w, (double)r[i].h * b.h / area.h, 1, FACE_CELL, FACE_LINE, 1);
 }
 
-/* Tecla com LED: afundada e escura apagada, acesa com a letra escura. */
 static void
-led_key(cairo_t *cr, double x, double y, double w, const char *letter, int lit, unsigned color)
+chevron(cairo_t *cr, double cx, double cy, int dir)
 {
-    const double h = 14;
-    rgb(cr, lit ? color : 0x2a2e33);
-    cairo_rectangle(cr, x + 1, y + 1, w - 2, h - 2);
-    cairo_fill(cr);
-    bevel(cr, x, y, w, h, 0);
-    if (lit) {
-        rgb(cr, wz_rgb_mix(color, 0xffffff, 110));
-        cairo_rectangle(cr, x + 2, y + 2, w - 4, 1);
-        cairo_fill(cr);
-    }
-    pixtext(cr, letter, x + (w - 6) / 2 + 1, y + 2, lit ? 0x101010 : 0x7a7e84, 2);
+    rgb(cr, FACE_LIGHT);
+    cairo_set_line_width(cr, 1.6);
+    cairo_move_to(cr, cx - 2 * dir, cy - 4);
+    cairo_line_to(cr, cx + 2 * dir, cy);
+    cairo_line_to(cr, cx - 2 * dir, cy + 4);
+    cairo_stroke(cr);
 }
 
-/* Rolagem: as colunas na proporção das larguras, a ativa acesa e traços
- * nas bordas com colunas escondidas ali; sem faixa ainda, três de exemplo. */
+/* Rolagem: as colunas visíveis na proporção das larguras (a ativa clara), e
+ * de cada lado com colunas escondidas um pedaço de coluna apagada com a
+ * seta. */
 static void
-draw_strip(app *a, cairo_t *cr, wz_rect box)
+draw_strip(app *a, cairo_t *cr, wz_rect b)
 {
     int ncol = a->ncol, active = a->active, nl = a->nleft, nr = a->nright;
-    int ex[3] = { 2, 3, 2 };
+    /* Sem faixa: uma de exemplo, três colunas e mais uma de cada lado. */
+    static const int ex[] = { 2, 2, 3, 2, 2 };
     const int *w = a->widths;
     if (ncol <= 0) {
-        ncol = 3, active = 1, nl = nr = 0;
+        ncol = 5, active = 2, nl = nr = 1;
         w = ex;
     }
     int first = nl, last = ncol - 1 - nr;
-    if (last - first + 1 > 6) {
+    if (last - first + 1 > 5) {
         first = active - 2 < nl ? nl : active - 2;
-        last = first + 5 > ncol - 1 - nr ? ncol - 1 - nr : first + 5;
+        last = first + 4 > ncol - 1 - nr ? ncol - 1 - nr : first + 4;
+    }
+    double stub = 12, gap = 4, inset = 5;
+    double x0 = b.x + (nl > 0 ? stub + gap : 0), x1 = b.x + b.w - (nr > 0 ? stub + gap : 0);
+    if (nl > 0) {
+        box(cr, b.x, b.y + inset, stub, b.h - 2 * inset, 1, FACE_DIM, FACE_DIM_LINE, 1);
+        chevron(cr, b.x + stub / 2, b.y + b.h / 2.0, -1);
+    }
+    if (nr > 0) {
+        box(cr, b.x + b.w - stub, b.y + inset, stub, b.h - 2 * inset, 1, FACE_DIM, FACE_DIM_LINE, 1);
+        chevron(cr, b.x + b.w - stub / 2, b.y + b.h / 2.0, 1);
     }
     double tot = 0;
     for (int c = first; c <= last; c++)
         tot += w[c] > 0 ? w[c] : 1;
-    double margin = 4, gap = 2, x = box.x + margin;
-    double avail = box.w - 2 * margin - gap * (last - first);
+    double avail = x1 - x0 - gap * (last - first), x = x0;
     for (int c = first; c <= last; c++) {
         double cw = tot > 0 ? avail * (w[c] > 0 ? w[c] : 1) / tot : 4;
-        rgb(cr, c == active ? 0x7fb0e0 : 0xc2c0c5);
-        cairo_rectangle(cr, x, box.y + 2, cw, box.h - 4);
-        cairo_fill(cr);
-        if (cw >= 4)
-            bevel(cr, x, box.y + 2, cw, box.h - 4, 1);
+        if (c == active)
+            box(cr, x, b.y, cw, b.h, 1, FACE_CELL, FACE_LIGHT, 1.5);
+        else
+            box(cr, x, b.y + inset, cw, b.h - 2 * inset, 1, FACE_DIM, FACE_DIM_LINE, 1);
         x += cw + gap;
     }
-    rgb(cr, 0x7fb0e0);
-    for (int i = 0; i < nl && i < 3; i++)
-        cairo_rectangle(cr, box.x + i, box.y + box.h / 2.0 - 3, 1, 6);
-    for (int i = 0; i < nr && i < 3; i++)
-        cairo_rectangle(cr, box.x + box.w - 1 - i, box.y + box.h / 2.0 - 3, 1, 6);
-    cairo_fill(cr);
+}
+
+/* Tecla do modo: escura e apagada, ou acesa na cor do modo. */
+static void
+led_key(cairo_t *cr, int which, const char *letter, int lit, unsigned color)
+{
+    double x = row_btn[which].x, w = row_btn[which].w;
+    box(cr, x + 0.5, ROW_Y + 0.5, w - 1, ROW_H - 1, 1, lit ? color : FKEY_OFF, lit ? color : FKEY_EDGE, 1);
+    label(cr, letter, x + w / 2, ROW_Y + ROW_H / 2.0, 11, lit ? FKEY_TEXT_LIT : FKEY_TEXT);
 }
 
 static void
 draw_face(app *a, cairo_t *cr, int W, int H)
 {
-    double s = W / 64.0;
     cairo_save(cr);
-    cairo_scale(cr, s, (double)H / 64.0);
-    cairo_pattern_t *p = cairo_pattern_create_linear(0, 0, 64, 64);
-    unsigned c1 = a->theme.icon1, c2 = a->theme.icon2;
-    cairo_pattern_add_color_stop_rgb(p, 0, (c1 >> 16 & 0xff) / 255.0, (c1 >> 8 & 0xff) / 255.0, (c1 & 0xff) / 255.0);
-    cairo_pattern_add_color_stop_rgb(p, 1, (c2 >> 16 & 0xff) / 255.0, (c2 >> 8 & 0xff) / 255.0, (c2 & 0xff) / 255.0);
-    cairo_rectangle(cr, 0, 0, 64, 64);
-    cairo_set_source(cr, p);
-    cairo_fill(cr);
-    cairo_pattern_destroy(p);
-    bevel(cr, 0, 0, 64, 64, 1);
-
-    rgb(cr, 0x1c2024);
-    cairo_rectangle(cr, 5, 5, 54, 36);
-    cairo_fill(cr);
-    bevel(cr, 4, 4, 56, 38, 0);
-    /* Zonas: as regiões do layout; Mosaico: as janelas organizadas pelo
-     * algoritmo; desligado: a pausa. */
+    cairo_scale(cr, W / U, H / U);
+    box(cr, 1, 1, 102, 102, 3, FACE_BODY, FACE_BODY_EDGE, 1);
+    box(cr, 4.5, 4.5, 95, 70, 0, FACE_SCREEN, FACE_SCREEN_EDGE, 1);
+    /* Zonas: as regiões do layout, numeradas; Mosaico: as janelas
+     * organizadas pelo algoritmo; Rolagem: as colunas; desligado: a pausa. */
     wz_mode m = wz_config_mode(&a->cfg);
     const wz_layout_def *l = wz_config_layout(&a->cfg, a->layout[0] ? a->layout : a->cfg.layout);
+    wz_rect in = { 9, 9, 86, 61 };
     if (m == WZ_MODE_ZONES && l) {
         wz_node *t = wz_parse(l->tree, NULL);
         wz_rect zr[64];
-        int n = t ? wz_compute(t, (wz_rect){ 8, 8, 48, 30 }, 2, 0, zr, 64) : 0;
+        int n = t ? wz_compute(t, in, 4, 0, zr, 64) : 0;
         wz_free(t);
+        static const double dash[] = { 3, 2 };
         for (int i = 0; i < n && i < 64; i++) {
-            rgb(cr, i == 0 ? 0x7fb0e0 : 0xc2c0c5);
-            cairo_rectangle(cr, zr[i].x, zr[i].y, zr[i].w, zr[i].h);
-            cairo_fill(cr);
-            if (zr[i].w >= 4 && zr[i].h >= 4)
-                bevel(cr, zr[i].x, zr[i].y, zr[i].w, zr[i].h, 1);
+            cairo_set_dash(cr, dash, 2, 0);
+            box(cr, zr[i].x + 0.5, zr[i].y + 0.5, zr[i].w - 1, zr[i].h - 1, 1, FACE_ZONE, FACE_LINE, 1);
+            cairo_set_dash(cr, NULL, 0, 0);
+            if (zr[i].w >= 12 && zr[i].h >= 12) {
+                char num[4];
+                snprintf(num, sizeof num, "%d", i + 1);
+                label(cr, num, zr[i].x + zr[i].w / 2.0, zr[i].y + zr[i].h / 2.0, 10, FACE_LIGHT);
+            }
         }
     } else if (m == WZ_MODE_TILING) {
-        draw_windows(a, cr, (wz_rect){ 8, 8, 48, 30 });
+        draw_windows(a, cr, in);
     } else if (m == WZ_MODE_SCROLL) {
-        draw_strip(a, cr, (wz_rect){ 8, 8, 48, 30 });
+        draw_strip(a, cr, in);
     } else {
-        rgb(cr, 0x5e6066);
-        cairo_rectangle(cr, 26, 16, 4, 14);
-        cairo_rectangle(cr, 34, 16, 4, 14);
+        rgb(cr, FACE_LINE);
+        cairo_rectangle(cr, 44, 26, 6, 24);
+        cairo_rectangle(cr, 56, 26, 6, 24);
         cairo_fill(cr);
     }
-    arrow_key(cr, HIT_PREV, m != WZ_MODE_OFF);
-    led_key(cr, row_btn[HIT_Z].x, ROW_Y, row_btn[HIT_Z].w, "Z", m == WZ_MODE_ZONES, 0x58d858);
-    led_key(cr, row_btn[HIT_M].x, ROW_Y, row_btn[HIT_M].w, "M", m == WZ_MODE_TILING, 0xf0b030);
-    led_key(cr, row_btn[HIT_R].x, ROW_Y, row_btn[HIT_R].w, "R", m == WZ_MODE_SCROLL, 0x58a8f0);
-    arrow_key(cr, HIT_NEXT, m != WZ_MODE_OFF);
+    led_key(cr, HIT_Z, "Z", m == WZ_MODE_ZONES, FKEY_Z);
+    led_key(cr, HIT_M, "M", m == WZ_MODE_TILING, FKEY_M);
+    led_key(cr, HIT_R, "R", m == WZ_MODE_SCROLL, FKEY_R);
     cairo_restore(cr);
 }
 
@@ -334,7 +321,6 @@ reload(app *a)
     wz_config_free(&a->cfg);
     wz_config_defaults(&a->cfg);
     wz_config_load(&a->cfg, a->cfg_path);
-    wz_theme_load(&a->theme, NULL);
 }
 
 /* Layout em efeito no primeiro monitor, pelo status do wlmaker (sem
@@ -498,25 +484,22 @@ p_motion(void *data, struct wl_pointer *p, uint32_t t, wl_fixed_t x, wl_fixed_t 
     pointer_at(data, x, y);
 }
 
-/* Teclas da fileira de baixo: setas trocam o layout (Zonas), o algoritmo
- * (Mosaico) ou a coluna (Rolagem); Z, M e R escolhem o modo, e a acesa
- * desliga. */
+/* Teclas da fileira de baixo: Z, M e R escolhem o modo, e a acesa desliga. */
 static int
 row_click(app *a)
 {
     int hit = row_hit(a->px, a->py);
     wz_mode m = wz_config_mode(&a->cfg);
-    if (hit == HIT_PREV || hit == HIT_NEXT) {
-        if (m != WZ_MODE_OFF)
-            cycle(a, hit == HIT_PREV ? -1 : 1);
-    } else if (hit == HIT_Z) {
+    if (hit == HIT_Z) {
         command(a, m == WZ_MODE_ZONES ? "mode off" : "mode zones");
     } else if (hit == HIT_M) {
         command(a, m == WZ_MODE_TILING ? "mode off" : "mode tiling");
     } else if (hit == HIT_R) {
         command(a, m == WZ_MODE_SCROLL ? "mode off" : "mode scroll");
     }
-    return hit != HIT_NONE;
+    /* Na fileira das teclas, o vão entre elas não troca o modo. */
+    double y = a->py * U / 64.0;
+    return y >= ROW_Y && y < ROW_Y + ROW_H;
 }
 
 static void

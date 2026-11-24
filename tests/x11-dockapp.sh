@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
 # Dockapp do X11 com o Window Maker de verdade, num Xvfb próprio: o ladrilho
-# mostra o modo do serviço (Zonas, Mosaico, desligado) e as teclas da
+# mostra o modo do serviço (Zonas, Mosaico, Rolagem, desligado) e as teclas da
 # fileira de baixo fazem o que dizem. Saída TAP.
 #
 #   tests/x11-dockapp.sh BUILD_DIR
@@ -95,84 +95,67 @@ fi
 mode() { "$WZ" status | sed -n 's/^mode=//p' | head -1; }
 algo() { "$WZ" status | sed -n 's/^algorithm=//p' | head -1; }
 press() { xdotool mousemove $((tx + $1)) $((ty + $2)) click 1; sleep 0.6; }
-# Pixels do ladrilho (tela LCD): LED Z aceso (verde), LED M aceso (âmbar),
-# ciano aceso (a zona destacada, a janela principal ou a pausa) e ciano meio
-# aceso (as outras zonas e janelas: não há na pausa). Amarelo nunca (era o
-# fundo de teste do pixmap, que aparecia sem a máscara do X Shape).
+# Pixels do ladrilho: tecla Z acesa (verde), M (amarela), R (azul-claro);
+# na tela, o contorno ciano (zonas, janelas, pausa), o preenchimento das
+# zonas e o das janelas/colunas. Amarelo puro nunca (era o fundo de teste do
+# pixmap, que aparecia sem a máscara do X Shape).
 look() {
 	import -window root -crop 64x64+"$tx"+"$ty" +repage "$TMP/t.png"
 	python3 -I -c 'import sys
 from PIL import Image
 px = {c for _n, c in Image.open(sys.argv[1]).convert("RGB").getcolors(64 * 64)}
-print(" ".join(k for k, c in (("Z", (0x58, 0xd8, 0x58)), ("M", (0xf0, 0xb0, 0x30)), ("R", (0x58, 0xa8, 0xf0)),
-                              ("tela", (0x20, 0xb2, 0xac)), ("meia", (0x00, 0x49, 0x41)),
+print(" ".join(k for k, c in (("Z", (0x6f, 0xdc, 0x6f)), ("M", (0xf2, 0xc8, 0x4b)), ("R", (0x8c, 0xd2, 0xf5)),
+                              ("linha", (0x74, 0xe1, 0xe8)), ("zona", (0x1f, 0x50, 0x59)),
+                              ("janela", (0x28, 0x61, 0x6b)),
                               ("amarelo", (0xff, 0xff, 0x00))) if c in px))' "$TMP/t.png"
 }
 
-check "Zonas: LED Z aceso e as zonas na tela ($(look))" '[ "$(look)" = "Z tela meia" ]'
-press 32 51
+# Teclas (coordenadas do quadro de 64; o ladrilho de 60 fica em +2,+2):
+# Z 4..21, M 23..40, R 42..59, y 48..59. Sem setas desde a 0.5.1.
+check "Zonas: tecla Z acesa e as zonas na tela ($(look))" '[ "$(look)" = "Z linha zona" ]'
+press 31 53
 check "tecla M: modo Mosaico ($(mode))" '[ "$(mode)" = tiling ]'
-check "Mosaico: LED M aceso e as janelas na tela ($(look))" '[ "$(look)" = "M tela meia" ]'
-press 55 51
-check "seta ▶ no Mosaico: o algoritmo seguinte ($(algo))" '[ "$(algo)" = grid ]'
-press 8 51
-check "seta ◀: volta ao anterior ($(algo))" '[ "$(algo)" = master ]'
-press 32 51
+check "Mosaico: tecla M acesa e as janelas na tela ($(look))" '[ "$(look)" = "M linha janela" ]'
+press 31 53
 check "M aceso: desliga ($(mode))" '[ "$(mode)" = off ]'
-check "desligado: nenhum LED, só a pausa na tela ($(look))" '[ "$(look)" = "tela" ]'
-a=$(algo)
-press 55 51
-check "seta com tudo desligado não faz nada" '[ "$(mode)" = off ] && [ "$(algo)" = "$a" ]'
-press 20 51
+check "desligado: nenhuma tecla acesa, só a pausa na tela ($(look))" '[ "$(look)" = "linha" ]'
+press 12 53
 check "tecla Z: modo Zonas ($(mode))" '[ "$(mode)" = zones ]'
-l0=$("$WZ" status | sed -n 's/^layout=//p' | head -1)
-press 55 51
-check "seta ▶ nas Zonas: o layout seguinte" '[ "$("$WZ" status | sed -n "s/^layout=//p" | head -1)" != "$l0" ]'
 press 32 20
 check "clique na tela: Zonas -> Mosaico (clique esquerdo padrão) ($(mode))" '[ "$(mode)" = tiling ]'
 press 32 20
 check "clique na tela: Mosaico -> Rolagem ($(mode))" '[ "$(mode)" = scroll ]'
-check "Rolagem: LED R aceso e as colunas na tela ($(look))" '[ "$(look)" = "R tela meia" ]'
-press 44 51
+check "Rolagem: tecla R acesa e as colunas na tela ($(look))" '[ "$(look)" = "R janela" ]'
+press 50 53
 check "R aceso: desliga ($(mode))" '[ "$(mode)" = off ]'
-press 44 51
+press 50 53
 check "tecla R: modo Rolagem ($(mode))" '[ "$(mode)" = scroll ]'
 "$WZ" mode tiling >/dev/null; sleep 0.4
 check "o serviço continua no ar" '"$WZ" status >/dev/null 2>&1'
 
-# As bordas de cada tecla (coordenadas do quadro de 64; o ladrilho de 60 fica
-# em +2,+2): a área clicável é a desenhada, e as teclas que chegam à borda
-# do ladrilho (3 px) são delas, não do Window Maker. Z 14..25, M 26..37,
-# R 38..49, ◀ 4..11, ▶ 52..59; a fileira, y 46..59.
+# As bordas de cada tecla: a área clicável é a desenhada.
 "$WZ" mode zones >/dev/null
 sleep 0.4
 # O Window Maker reacomoda o ícone solto depois de abri-lo (2 px): aqui cada
 # pixel conta, então a posição de agora.
 read -r tx ty < <(find_tile)
 check "quadro do ladrilho, já assentado ($tx,$ty)" '[ -n "${tx:-}" ]'
-press 26 59
-check "M, canto de baixo à esquerda (26,59): Mosaico ($(mode))" '[ "$(mode)" = tiling ]'
-press 37 46
-check "M, canto de cima à direita (37,46): desliga ($(mode))" '[ "$(mode)" = off ]'
-press 25 59
-check "Z, último pixel (25,59; antes era do M): Zonas ($(mode))" '[ "$(mode)" = zones ]'
-press 14 46
-check "Z, primeiro pixel (14,46): desliga ($(mode))" '[ "$(mode)" = off ]'
-press 25 46
-check "Z (25,46): Zonas de novo ($(mode))" '[ "$(mode)" = zones ]'
-l0=$("$WZ" status | sed -n 's/^layout=//p' | head -1)
+press 23 59
+check "M, canto de baixo à esquerda (23,59): Mosaico ($(mode))" '[ "$(mode)" = tiling ]'
+press 40 48
+check "M, canto de cima à direita (40,48): desliga ($(mode))" '[ "$(mode)" = off ]'
+press 22 53
+check "entre Z e M (22,53): nada ($(mode))" '[ "$(mode)" = off ]'
+press 21 59
+check "Z, último pixel (21,59): Zonas ($(mode))" '[ "$(mode)" = zones ]'
+press 4 48
+check "Z, primeiro pixel (4,48): desliga ($(mode))" '[ "$(mode)" = off ]'
 press 59 59
-l1=$("$WZ" status | sed -n 's/^layout=//p' | head -1)
-check "▶ no último pixel (59,59; na borda do ladrilho): o layout seguinte ($l0 -> $l1)" '[ "$l1" != "$l0" ]'
-press 49 59
-check "R, último pixel (49,59): Rolagem ($(mode))" '[ "$(mode)" = scroll ]'
-press 38 46
-check "R, primeiro pixel (38,46): desliga ($(mode))" '[ "$(mode)" = off ]'
-press 25 46
-
-press 4 46
-l2=$("$WZ" status | sed -n 's/^layout=//p' | head -1)
-check "◀ no primeiro pixel (4,46; na borda): volta ($l2)" '[ "$l2" = "$l0" ]'
+check "R, último pixel (59,59): Rolagem ($(mode))" '[ "$(mode)" = scroll ]'
+press 42 48
+check "R, primeiro pixel (42,48): desliga ($(mode))" '[ "$(mode)" = off ]'
+press 31 47
+check "acima da fileira (31,47): é a tela, troca o modo ($(mode))" '[ "$(mode)" != off ]'
 check "nenhum amarelo no ladrilho ($(look))" '! look | grep -qw amarelo'
 "$WZ" mode tiling >/dev/null
 sleep 0.4

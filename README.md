@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="https://github.com/big-windowmaker/wmake-zones/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/big-windowmaker/wmake-zones/actions/workflows/ci.yml/badge.svg"></a>
-  <a href="https://github.com/big-windowmaker/wmake-zones/tags"><img alt="Versão" src="https://img.shields.io/badge/vers%C3%A3o-0.5.0-4a5a8a"></a>
+  <a href="https://github.com/big-windowmaker/wmake-zones/tags"><img alt="Versão" src="https://img.shields.io/badge/vers%C3%A3o-0.5.1-4a5a8a"></a>
   <img alt="Licença" src="https://img.shields.io/badge/licen%C3%A7a-GPL--2.0--or--later-4a5a8a">
   <img alt="X11 e Wayland" src="https://img.shields.io/badge/sess%C3%B5es-X11%20%C2%B7%20Wayland-4a5a8a">
 </p>
@@ -63,7 +63,7 @@ nenhum processo fica rodando no X11).
 | **Regras por aplicativo** | Pelo `app_id` (Wayland) ou pelo WM_CLASS (X11 e XWayland): sempre flutuante, sempre no mosaico, numa zona fixa, num monitor ou numa área de trabalho, ou fora de tudo. |
 | **Quinze layouts prontos** | Metades, quadrantes, terços, principal + pilha, grades, 70/30, ultrawide, desenvolvimento, tela pequena e retrato. O padrão vem do formato do monitor (ultrawide a partir de 21:9, retrato em pé, metades no resto). Um **editor visual** no feitio do WPrefs cria os seus. |
 | **Por monitor e por área de trabalho** | Layout, mosaico e algoritmo próprios. Cada monitor tem a sua área útil, sem cobrir o Dock, o Clip e o Dock com Abas; monitores conectados e desconectados são acompanhados. |
-| **Dockapp** | O ladrilho do Dock mostra o modo de verdade (as zonas, as janelas do mosaico ou as colunas da faixa) e troca layout, algoritmo, coluna e modo com as teclas Z, M e R ([detalhes](#dockapp)). |
+| **Dockapp** | O ladrilho do Dock mostra o modo de verdade (as zonas, as janelas do mosaico ou as colunas da faixa) e troca o modo com as teclas Z, M e R; a roda troca o layout, o algoritmo ou a coluna ([detalhes](#dockapp)). |
 | **Leve** | No X11, um processo de 0,8 a 2,9 MiB que não acorda em repouso; no Wayland, um módulo do próprio wlmaker, sem XWayland. |
 
 ## Capturas
@@ -75,10 +75,8 @@ sessão real), wmake-zones 0.5.0 e wlmaker -10.
 
 | | |
 |---|---|
-| ![Rolagem no X11: a Calculadora e o Thunar como duas colunas inteiras na tela; o AshyTerm e o xterm esperam fora da tela, e o ladrilho do Dock mostra a tecla R acesa com traços nas bordas para as colunas escondidas](docs/screenshots/x11-rolagem.png) | ![Rolagem no Wayland: o xterm (XWayland) e a Calculadora em colunas, o Thunar e o AshyTerm estacionados fora da tela](docs/screenshots/wayland-rolagem.png) |
+| ![Rolagem no X11: o Thunar e a Calculadora como duas colunas inteiras na tela; o AshyTerm e o xterm esperam fora da tela, e o ladrilho do Dock mostra a tecla R acesa, a coluna ativa clara e a seta para as colunas escondidas à direita](docs/screenshots/x11-rolagem.png) | ![Rolagem no Wayland: o xterm (XWayland) e a Calculadora em colunas, o Thunar e o AshyTerm estacionados fora da tela](docs/screenshots/wayland-rolagem.png) |
 | X11: duas colunas na tela, duas esperando ao lado | Wayland: o mesmo dentro do wlmaker, com um xterm do XWayland |
-| ![Ladrilho do wlmaker nos três modos: Zonas com as metades e o Z verde, Mosaico com as janelas e o M âmbar, Rolagem com as colunas e o R azul](docs/screenshots/dockapp-wayland-zmr.png) | ![Ladrilho do X11 no Mosaico (M aceso) e na Rolagem (R aceso, a coluna ativa clara e traços das colunas escondidas)](docs/screenshots/dockapp-x11-mosaico-rolagem.png) |
-| Ladrilho do wlmaker: Z, M e R | Ladrilho do X11: Mosaico e Rolagem |
 
 ![Preferências do wmake-zones na página Rolagem: largura de uma coluna nova, larguras de Aumentar e Diminuir, onde a janela nova abre, alinhamento e espaçamento](docs/screenshots/prefs-rolagem.png)
 
@@ -136,7 +134,7 @@ WindowMaker liga no núcleo e faz tudo dentro do compositor.
 | Regras por aplicativo | WM_CLASS | `app_id`; WM_CLASS no XWayland |
 | Layouts por monitor e por área de trabalho | ✅ (monitores pelo RandR ou pelo Xinerama) | ✅ (com a escala de cada saída) |
 | Atalhos | do serviço; trocam em *Preferências > Atalhos* | ação `Zones` no `Config.plist` do wlmaker |
-| Dockapp | `wmake-zones --dockapp`, estilo LCD ciano | `wmake-zones-wl`, nativo, nas cores do tema |
+| Dockapp | `wmake-zones --dockapp` | `wmake-zones-wl`, nativo, com o mesmo visual |
 | Encaixe nas bordas do próprio WM | o `WindowSnapping` do Window Maker fica desligado enquanto as zonas estão ativas (`--reset` devolve) | — |
 
 Os comandos do terminal são os mesmos nas duas sessões: o cliente fala com
@@ -235,19 +233,18 @@ conflito no `status`.
 ### Dockapp
 
 <p align="center">
-  <img src="docs/screenshots/dockapp.png" width="384" alt="Ladrilho do wmake-zones no X11 nos três modos: Zonas com o layout Principal + pilha e a tecla Z acesa; Mosaico com as janelas e a tecla M acesa; desligado com o sinal de pausa">
-  &nbsp;
-  <img src="docs/screenshots/wayland-dockapp.png" width="384" alt="O ladrilho nativo do wlmaker nos mesmos três modos, nas cores do tema">
+  <img src="docs/screenshots/dockapp.png" width="512" alt="Ladrilho do X11 em cada modo: Zonas com as duas metades numeradas e a tecla Z verde; Mosaico com as janelas e a tecla M amarela; Rolagem com a coluna ativa clara, colunas escondidas dos dois lados e a tecla R azul-claro; desligado com o sinal de pausa">
+  <br>
+  <img src="docs/screenshots/wayland-dockapp.png" width="512" alt="O ladrilho nativo do wlmaker nos mesmos quatro estados, com o mesmo visual">
 </p>
-<p align="center"><sub>À esquerda, o ladrilho do X11 (estilo LCD); à direita, o do wlmaker. Em cada um: Zonas, Mosaico e desligado.</sub></p>
+<p align="center"><sub>Em cima, o ladrilho do X11; embaixo, o do wlmaker. Zonas, Mosaico, Rolagem e desligado.</sub></p>
 
 | Ação | Efeito |
 |---|---|
 | Clique esquerdo na tela | Zonas → Mosaico → Rolagem (`[Dockapp] LeftClick` muda) |
 | Clique do meio | desliga e religa o último modo |
 | Roda | troca o layout (Zonas), o algoritmo (Mosaico) ou a coluna em foco (Rolagem) |
-| Setas ◀ ▶ | layout, algoritmo ou coluna anterior / próxima |
-| Teclas Z, M e R | escolhem o modo; a acesa desliga |
+| Teclas Z, M e R | escolhem o modo (Z verde, M amarelo, R azul-claro quando acesas); a acesa desliga |
 | Clique direito | o menu: modos, layout, algoritmo, desfazer, refazer, restaurar, organizar, configurações |
 
 No modo Mosaico a tela mostra as janelas na disposição do algoritmo do
@@ -343,7 +340,7 @@ próprio, nunca na sua tela, e pulam (SKIP) sem as ferramentas:
 | `engine` | 931 mil | layouts, mosaico, foco espacial, histórico e INI; também com sanitizers no CI |
 | `x11-functional` | 52 | arrasto, Esc, painel de layouts, seletor, mosaico, regras, repouso e PSS |
 | `x11-multimonitor` | 13 | dois heads no Xephyr (`+xinerama`): mosaico por monitor, Dock que aparece e some |
-| `x11-dockapp` (e `-noshape`) | 26 | modos pelos pixels, teclas Z e M, setas, menu e arrasto para o Dock |
+| `x11-dockapp` (e `-noshape`) | 27 | modos pelos pixels, teclas Z, M e R e as bordas delas, menu e arrasto para o Dock |
 | `wayland-functional` | 51 | o mesmo no wlmaker aninhado, com janelas GTK nativas |
 | `metainfo`, `po` | — | AppStream (`appstreamcli`) e catálogos de tradução |
 
