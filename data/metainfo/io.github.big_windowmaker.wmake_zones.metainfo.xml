@@ -86,6 +86,11 @@
   </supports>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="0.5.2" date="2026-11-24">
+      <description>
+        <p>The dock app looks like the other dock apps again, with a border to drag it by.</p>
+      </description>
+    </release>
     <release version="0.5.1" date="2026-11-24">
       <description>
         <p>New look for the dock app, the same on X11 and Wayland: the Z, M and R keys light up green, yellow and light blue.</p>

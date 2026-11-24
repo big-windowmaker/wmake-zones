@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="https://github.com/big-windowmaker/wmake-zones/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/big-windowmaker/wmake-zones/actions/workflows/ci.yml/badge.svg"></a>
-  <a href="https://github.com/big-windowmaker/wmake-zones/tags"><img alt="Versão" src="https://img.shields.io/badge/vers%C3%A3o-0.5.1-4a5a8a"></a>
+  <a href="https://github.com/big-windowmaker/wmake-zones/tags"><img alt="Versão" src="https://img.shields.io/badge/vers%C3%A3o-0.5.2-4a5a8a"></a>
   <img alt="Licença" src="https://img.shields.io/badge/licen%C3%A7a-GPL--2.0--or--later-4a5a8a">
   <img alt="X11 e Wayland" src="https://img.shields.io/badge/sess%C3%B5es-X11%20%C2%B7%20Wayland-4a5a8a">
 </p>
@@ -233,7 +233,7 @@ conflito no `status`.
 ### Dockapp
 
 <p align="center">
-  <img src="docs/screenshots/dockapp.png" width="512" alt="Ladrilho do X11 em cada modo: Zonas com as duas metades numeradas e a tecla Z verde; Mosaico com as janelas e a tecla M amarela; Rolagem com a coluna ativa clara, colunas escondidas dos dois lados e a tecla R azul-claro; desligado com o sinal de pausa">
+  <img src="docs/screenshots/dockapp.png" width="512" alt="Ladrilho do X11 em cada modo, no estilo dos outros dockapps (borda do ladrilho, tela afundada com LED ciano, teclas cinza): Zonas com as duas metades numeradas e a tecla Z verde; Mosaico com as janelas e a tecla M amarela; Rolagem com a coluna ativa acesa, colunas escondidas à esquerda e a tecla R azul-claro; desligado com o sinal de pausa">
   <br>
   <img src="docs/screenshots/wayland-dockapp.png" width="512" alt="O ladrilho nativo do wlmaker nos mesmos quatro estados, com o mesmo visual">
 </p>
@@ -245,6 +245,7 @@ conflito no `status`.
 | Clique do meio | desliga e religa o último modo |
 | Roda | troca o layout (Zonas), o algoritmo (Mosaico) ou a coluna em foco (Rolagem) |
 | Teclas Z, M e R | escolhem o modo (Z verde, M amarelo, R azul-claro quando acesas); a acesa desliga |
+| Borda, vão e moldura das teclas | arrastar o ladrilho (Dock, Clip, gaveteiro), como nos outros dockapps |
 | Clique direito | o menu: modos, layout, algoritmo, desfazer, refazer, restaurar, organizar, configurações |
 
 No modo Mosaico a tela mostra as janelas na disposição do algoritmo do
@@ -340,7 +341,7 @@ próprio, nunca na sua tela, e pulam (SKIP) sem as ferramentas:
 | `engine` | 931 mil | layouts, mosaico, foco espacial, histórico e INI; também com sanitizers no CI |
 | `x11-functional` | 52 | arrasto, Esc, painel de layouts, seletor, mosaico, regras, repouso e PSS |
 | `x11-multimonitor` | 13 | dois heads no Xephyr (`+xinerama`): mosaico por monitor, Dock que aparece e some |
-| `x11-dockapp` (e `-noshape`) | 27 | modos pelos pixels, teclas Z, M e R e as bordas delas, menu e arrasto para o Dock |
+| `x11-dockapp` (e `-noshape`) | 33 | modos pelos pixels, teclas Z, M e R e as bordas delas, a borda de arrastar, menu e arrasto para o Dock |
 | `wayland-functional` | 51 | o mesmo no wlmaker aninhado, com janelas GTK nativas |
 | `metainfo`, `po` | — | AppStream (`appstreamcli`) e catálogos de tradução |
 

@@ -96,36 +96,37 @@ mode() { "$WZ" status | sed -n 's/^mode=//p' | head -1; }
 algo() { "$WZ" status | sed -n 's/^algorithm=//p' | head -1; }
 press() { xdotool mousemove $((tx + $1)) $((ty + $2)) click 1; sleep 0.6; }
 # Pixels do ladrilho: tecla Z acesa (verde), M (amarela), R (azul-claro);
-# na tela, o contorno ciano (zonas, janelas, pausa), o preenchimento das
-# zonas e o das janelas/colunas. Amarelo puro nunca (era o fundo de teste do
-# pixmap, que aparecia sem a máscara do X Shape).
+# na tela, o LED ciano aceso (contornos, pausa), o apagado (zonas, janelas,
+# colunas) e o médio (coluna ativa e colunas escondidas). Amarelo puro nunca
+# (era o fundo de teste do pixmap, que aparecia sem a máscara do X Shape).
 look() {
 	import -window root -crop 64x64+"$tx"+"$ty" +repage "$TMP/t.png"
 	python3 -I -c 'import sys
 from PIL import Image
 px = {c for _n, c in Image.open(sys.argv[1]).convert("RGB").getcolors(64 * 64)}
 print(" ".join(k for k, c in (("Z", (0x6f, 0xdc, 0x6f)), ("M", (0xf2, 0xc8, 0x4b)), ("R", (0x8c, 0xd2, 0xf5)),
-                              ("linha", (0x74, 0xe1, 0xe8)), ("zona", (0x1f, 0x50, 0x59)),
-                              ("janela", (0x28, 0x61, 0x6b)),
+                              ("aceso", (0x20, 0xb2, 0xae)), ("apagado", (0x00, 0x49, 0x41)),
+                              ("medio", (0x18, 0x8a, 0x86)),
                               ("amarelo", (0xff, 0xff, 0x00))) if c in px))' "$TMP/t.png"
 }
 
-# Teclas (coordenadas do quadro de 64; o ladrilho de 60 fica em +2,+2):
-# Z 4..21, M 23..40, R 42..59, y 48..59. Sem setas desde a 0.5.1.
-check "Zonas: tecla Z acesa e as zonas na tela ($(look))" '[ "$(look)" = "Z linha zona" ]'
+# Coordenadas do quadro de 64 (o ladrilho de 60 fica em +2,+2), como o
+# wmpulsemixer: 4 px de borda em volta; a tela em 4..59 x 4..43; as teclas
+# Z 5..22, M 23..40, R 41..58, y 47..58. Sem setas desde a 0.5.1.
+check "Zonas: tecla Z acesa e as zonas na tela ($(look))" '[ "$(look)" = "Z aceso apagado" ]'
 press 31 53
 check "tecla M: modo Mosaico ($(mode))" '[ "$(mode)" = tiling ]'
-check "Mosaico: tecla M acesa e as janelas na tela ($(look))" '[ "$(look)" = "M linha janela" ]'
+check "Mosaico: tecla M acesa e as janelas na tela ($(look))" '[ "$(look)" = "M aceso apagado" ]'
 press 31 53
 check "M aceso: desliga ($(mode))" '[ "$(mode)" = off ]'
-check "desligado: nenhuma tecla acesa, só a pausa na tela ($(look))" '[ "$(look)" = "linha" ]'
-press 12 53
+check "desligado: nenhuma tecla acesa, só a pausa na tela ($(look))" '[ "$(look)" = "aceso" ]'
+press 13 53
 check "tecla Z: modo Zonas ($(mode))" '[ "$(mode)" = zones ]'
 press 32 20
 check "clique na tela: Zonas -> Mosaico (clique esquerdo padrão) ($(mode))" '[ "$(mode)" = tiling ]'
 press 32 20
 check "clique na tela: Mosaico -> Rolagem ($(mode))" '[ "$(mode)" = scroll ]'
-check "Rolagem: tecla R acesa e as colunas na tela ($(look))" '[ "$(look)" = "R janela" ]'
+check "Rolagem: tecla R acesa e as colunas na tela ($(look))" '[ "$(look)" = "R aceso apagado medio" ]'
 press 50 53
 check "R aceso: desliga ($(mode))" '[ "$(mode)" = off ]'
 press 50 53
@@ -133,29 +134,35 @@ check "tecla R: modo Rolagem ($(mode))" '[ "$(mode)" = scroll ]'
 "$WZ" mode tiling >/dev/null; sleep 0.4
 check "o serviço continua no ar" '"$WZ" status >/dev/null 2>&1'
 
-# As bordas de cada tecla: a área clicável é a desenhada.
+# As bordas de cada tecla: a área clicável é a desenhada; fora da tela e das
+# teclas (borda, vão, moldura) o clique é do Window Maker e não muda o modo.
 "$WZ" mode zones >/dev/null
 sleep 0.4
 # O Window Maker reacomoda o ícone solto depois de abri-lo (2 px): aqui cada
 # pixel conta, então a posição de agora.
 read -r tx ty < <(find_tile)
 check "quadro do ladrilho, já assentado ($tx,$ty)" '[ -n "${tx:-}" ]'
-press 23 59
-check "M, canto de baixo à esquerda (23,59): Mosaico ($(mode))" '[ "$(mode)" = tiling ]'
-press 40 48
-check "M, canto de cima à direita (40,48): desliga ($(mode))" '[ "$(mode)" = off ]'
-press 22 53
-check "entre Z e M (22,53): nada ($(mode))" '[ "$(mode)" = off ]'
-press 21 59
-check "Z, último pixel (21,59): Zonas ($(mode))" '[ "$(mode)" = zones ]'
-press 4 48
-check "Z, primeiro pixel (4,48): desliga ($(mode))" '[ "$(mode)" = off ]'
-press 59 59
-check "R, último pixel (59,59): Rolagem ($(mode))" '[ "$(mode)" = scroll ]'
-press 42 48
-check "R, primeiro pixel (42,48): desliga ($(mode))" '[ "$(mode)" = off ]'
-press 31 47
-check "acima da fileira (31,47): é a tela, troca o modo ($(mode))" '[ "$(mode)" != off ]'
+press 23 58
+check "M, canto de baixo à esquerda (23,58): Mosaico ($(mode))" '[ "$(mode)" = tiling ]'
+press 40 47
+check "M, canto de cima à direita (40,47): desliga ($(mode))" '[ "$(mode)" = off ]'
+press 22 58
+check "Z, último pixel (22,58): Zonas ($(mode))" '[ "$(mode)" = zones ]'
+press 5 47
+check "Z, primeiro pixel (5,47): desliga ($(mode))" '[ "$(mode)" = off ]'
+press 58 58
+check "R, último pixel (58,58): Rolagem ($(mode))" '[ "$(mode)" = scroll ]'
+press 41 47
+check "R, primeiro pixel (41,47): desliga ($(mode))" '[ "$(mode)" = off ]'
+for pt in "4 53" "31 46" "31 45" "31 59" "59 20" "3 20"; do
+	read -r px py <<<"$pt"
+	press "$px" "$py"
+	check "borda/vão ($px,$py): do Window Maker, o modo não muda ($(mode))" '[ "$(mode)" = off ]'
+done
+press 31 44
+check "última linha da tela (31,44)? não: é a moldura ($(mode))" '[ "$(mode)" = off ]'
+press 31 42
+check "dentro da tela (31,42): troca o modo ($(mode))" '[ "$(mode)" != off ]'
 check "nenhum amarelo no ladrilho ($(look))" '! look | grep -qw amarelo'
 "$WZ" mode tiling >/dev/null
 sleep 0.4
@@ -187,14 +194,15 @@ sleep 0.8
 around a2
 c2=$(changed a0 a2)
 check "soltar fora do menu o fecha ($c2 pontos diferentes)" '[ "$c2" -lt 2000 ]'
-# Arrastar o ladrilho solto até a coluna do Dock (no canto de cima, à
-# direita, só com o ícone principal): ele entra no Dock.
-xdotool mousemove $((tx + 32)) $((ty + 20))
+# Arrastar o ladrilho solto pela borda (o vão entre a tela e as teclas, que
+# é do Window Maker) até a coluna do Dock (no canto de cima, à direita, só
+# com o ícone principal): ele entra no Dock.
+xdotool mousemove $((tx + 32)) $((ty + 45))
 sleep 0.3
 xdotool mousedown 1
 sleep 0.2
 for i in $(seq 1 30); do
-	xdotool mousemove $((tx + 32 + (992 - tx - 32) * i / 30)) $((ty + 20 + (84 - ty - 20) * i / 30))
+	xdotool mousemove $((tx + 32 + (992 - tx - 32) * i / 30)) $((ty + 45 + (84 - ty - 45) * i / 30))
 	sleep 0.06
 done
 sleep 0.3
@@ -211,7 +219,7 @@ for m in re.finditer(r"(0x[0-9a-f]+) .*?\s(\d+)x(\d+)\+(-?\d+)\+(-?\d+)", out):
             print(x, y)
 PY
 )
-check "arrastar o ladrilho até a coluna do Dock: ele entra no Dock (${docked:-não entrou})" '[ -n "$docked" ]'
+check "arrastar o ladrilho pela borda até a coluna do Dock: ele entra no Dock (${docked:-não entrou})" '[ -n "$docked" ]'
 [ -n "$docked" ] && read -r tx ty <<<"$docked"
 mode_before=$(mode)
 press 32 20
