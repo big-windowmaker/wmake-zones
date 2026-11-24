@@ -39,6 +39,7 @@ typedef enum {
     WZ_CLICK_ZONES,     /* liga/desliga só as zonas */
     WZ_CLICK_AUTOTILE,  /* liga/desliga só o mosaico */
     WZ_CLICK_CYCLE,     /* roda: layout anterior/próximo */
+    WZ_CLICK_NEXT,      /* próxima opção do modo: layout, algoritmo, largura da coluna */
 } wz_click;
 
 typedef enum {

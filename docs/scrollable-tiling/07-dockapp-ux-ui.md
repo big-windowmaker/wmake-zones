@@ -11,8 +11,11 @@
   janelas do mosaico, ou as colunas da faixa na proporção das larguras, a
   ativa clara e, de cada lado com colunas escondidas, um pedaço de coluna
   apagada com a seta.
-* Clique esquerdo na tela: Zonas → Mosaico → Rolagem; roda: layout,
-  algoritmo ou coluna anterior/próxima.
+* 0.5.3: clique esquerdo na tela troca a opção do modo, no lugar das
+  setas antigas: o próximo layout nas Zonas, o próximo algoritmo no
+  Mosaico, a próxima largura da coluna ativa na Rolagem (25, 33, 50, 66,
+  75, 100%); desligado, religa. Os modos ficam nas teclas Z, M e R. Roda:
+  layout, algoritmo ou coluna anterior/próxima.
 * Menu (X11): modo Rolagem e submenu Rolagem; wlmaker: modo Rolagem e
   coluna anterior, próxima e centralizar no `Dockapps.plist`.
 * Wayland: a faixa vem do `status`; o ladrilho atualiza ao mudar a

@@ -4,7 +4,8 @@
  * que o centra) no Dock/Clip,
  * dentro do próprio daemon (um processo só, sem serviço duplicado).
  *
- *   clique esquerdo   Zonas -> Mosaico -> Rolagem ([Dockapp] LeftClick)
+ *   clique esquerdo   próxima opção do modo: layout, algoritmo, largura da
+ *                     coluna ([Dockapp] LeftClick)
  *   clique do meio    desliga / religa o último   ([Dockapp] MiddleClick)
  *   clique direito    menu no estilo do Window Maker, com submenus, e
  *                     "Opções do Window Maker..." (o menu do Dock, do Clip
@@ -1245,6 +1246,16 @@ click(wzx *z, wz_click action, int step)
             wzx_command(z, step < 0 ? "scroll left" : "scroll right", NULL, 0);
         else
             wzx_command(z, step < 0 ? "layout prev" : "layout next", NULL, 0);
+        break;
+    case WZ_CLICK_NEXT:
+        /* A próxima opção do modo: layout das Zonas, algoritmo do Mosaico,
+         * largura da coluna ativa na Rolagem; desligado, religa. */
+        switch (wz_config_mode(&z->cfg)) {
+        case WZ_MODE_ZONES: wzx_command(z, "layout next", NULL, 0); break;
+        case WZ_MODE_TILING: wzx_command(z, "algorithm next", NULL, 0); break;
+        case WZ_MODE_SCROLL: wzx_command(z, "column width +", NULL, 0); break;
+        default: wzx_command(z, "mode enable", NULL, 0); break;
+        }
         break;
     default: return;
     }

@@ -562,7 +562,7 @@ wz_config_defaults(wz_config *c)
     c->history_depth = 20;
     c->focus_edge = WZ_FOCUS_CROSS;
     c->last_mode = WZ_MODE_ZONES;
-    c->click[0] = WZ_CLICK_MODE;
+    c->click[0] = WZ_CLICK_NEXT;
     c->click[1] = WZ_CLICK_ENABLE;
     c->click[2] = WZ_CLICK_MENU;
     c->click[3] = WZ_CLICK_CYCLE;
@@ -771,6 +771,7 @@ load_cb(const char *sec, const char *k, const char *v, void *ud)
                              : !strcmp(v, "zones") ? WZ_CLICK_ZONES
                              : !strcmp(v, "autotile") ? WZ_CLICK_AUTOTILE
                              : !strcmp(v, "layout") || !strcmp(v, "cycle") ? WZ_CLICK_CYCLE
+                             : !strcmp(v, "next")                         ? WZ_CLICK_NEXT
                                                                            : WZ_CLICK_NONE;
                 c->click[i] = a;
             }

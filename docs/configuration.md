@@ -40,7 +40,7 @@ completo fica em `/usr/share/doc/wmake-zones/wmake-zones.conf.example`.
 | | `Insert` | column | janela nova: `column` (coluna nova à direita da ativa) ou `stack` (embaixo, na coluna ativa) |
 | | `Align` | left | colunas que não enchem a tela: `left` ou `center` |
 | | `Gap`, `OuterGap` | 6, 6 | |
-| Dockapp | `LeftClick` | mode | `mode` (Zonas → Mosaico → Rolagem), `enable`, `layouts`, `zones`, `autotile`, `none` |
+| Dockapp | `LeftClick` | next | `next` (próxima opção do modo: layout das Zonas, algoritmo do Mosaico, largura da coluna na Rolagem; desligado, religa), `mode` (Zonas → Mosaico → Rolagem), `enable`, `layouts`, `zones`, `autotile`, `none` |
 | | `MiddleClick` | enable | desliga / religa o último modo |
 | | `Wheel` | layout | `layout` (anterior/próximo; no Mosaico o algoritmo, na Rolagem a coluna) ou `none` |
 | Appearance | `Highlight` | auto | `#rrggbb` ou a cor da barra de título do tema |
@@ -101,8 +101,9 @@ execução de programa.
 `man wmake-zones` descreve todos. Os mesmos comandos valem no X11 e no
 wlmaker.
 
-`mode toggle` é o clique esquerdo do dockapp (Zonas ↔ Mosaico; desligado,
-liga o último modo) e `mode enable` o do meio (desliga ou religa o último).
+`mode toggle` passa por Zonas, Mosaico e Rolagem (desligado, liga o último
+modo; no dockapp, as teclas Z, M e R escolhem o modo) e `mode enable` é o
+clique do meio do dockapp (desliga ou religa o último).
 
 `windows` dá classe, instância e título (o que as regras usam); `windows -d`
 diz por que cada janela está ou não no mosaico (por exemplo "não cabe:

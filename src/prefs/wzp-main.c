@@ -272,7 +272,7 @@ on_edit(GtkButton *b, gpointer d)
 static const char *const focus_edges[] = { "cross", N_("Go on to the next monitor"), "stop",
                                            N_("Stay on the same monitor"), "wrap",
                                            N_("Wrap around on the same monitor"), NULL };
-static const char *const clicks[] = { "mode", N_("Switch between Zones and Tiling"), "enable",
+static const char *const clicks[] = { "next", N_("Next layout of the mode"), "mode", N_("Next mode (Zones, Tiling, Scrolling)"), "enable",
                                       N_("Turn off / back on"), "layouts", N_("Show the layouts"),
                                       "zones", N_("Zones on/off"), "autotile", N_("Auto Tiling on/off"),
                                       "none", N_("Nothing"), NULL };
@@ -288,6 +288,7 @@ click_id(wz_click c)
     case WZ_CLICK_ZONES: return "zones";
     case WZ_CLICK_AUTOTILE: return "autotile";
     case WZ_CLICK_CYCLE: return "layout";
+    case WZ_CLICK_NEXT: return "next";
     case WZ_CLICK_MENU: return "menu";
     default: return "none";
     }

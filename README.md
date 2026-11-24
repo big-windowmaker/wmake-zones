@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="https://github.com/big-windowmaker/wmake-zones/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/big-windowmaker/wmake-zones/actions/workflows/ci.yml/badge.svg"></a>
-  <a href="https://github.com/big-windowmaker/wmake-zones/tags"><img alt="Versão" src="https://img.shields.io/badge/vers%C3%A3o-0.5.2-4a5a8a"></a>
+  <a href="https://github.com/big-windowmaker/wmake-zones/tags"><img alt="Versão" src="https://img.shields.io/badge/vers%C3%A3o-0.5.3-4a5a8a"></a>
   <img alt="Licença" src="https://img.shields.io/badge/licen%C3%A7a-GPL--2.0--or--later-4a5a8a">
   <img alt="X11 e Wayland" src="https://img.shields.io/badge/sess%C3%B5es-X11%20%C2%B7%20Wayland-4a5a8a">
 </p>
@@ -63,7 +63,7 @@ nenhum processo fica rodando no X11).
 | **Regras por aplicativo** | Pelo `app_id` (Wayland) ou pelo WM_CLASS (X11 e XWayland): sempre flutuante, sempre no mosaico, numa zona fixa, num monitor ou numa área de trabalho, ou fora de tudo. |
 | **Quinze layouts prontos** | Metades, quadrantes, terços, principal + pilha, grades, 70/30, ultrawide, desenvolvimento, tela pequena e retrato. O padrão vem do formato do monitor (ultrawide a partir de 21:9, retrato em pé, metades no resto). Um **editor visual** no feitio do WPrefs cria os seus. |
 | **Por monitor e por área de trabalho** | Layout, mosaico e algoritmo próprios. Cada monitor tem a sua área útil, sem cobrir o Dock, o Clip e o Dock com Abas; monitores conectados e desconectados são acompanhados. |
-| **Dockapp** | O ladrilho do Dock mostra o modo de verdade (as zonas, as janelas do mosaico ou as colunas da faixa) e troca o modo com as teclas Z, M e R; a roda troca o layout, o algoritmo ou a coluna ([detalhes](#dockapp)). |
+| **Dockapp** | O ladrilho do Dock mostra o modo de verdade (as zonas, as janelas do mosaico ou as colunas da faixa) e troca o modo com as teclas Z, M e R; um clique na tela passa ao próximo layout, algoritmo ou largura de coluna ([detalhes](#dockapp)). |
 | **Leve** | No X11, um processo de 0,8 a 2,9 MiB que não acorda em repouso; no Wayland, um módulo do próprio wlmaker, sem XWayland. |
 
 ## Capturas
@@ -176,7 +176,7 @@ janelas*, pelas preferências (`wmake-zones-prefs`) ou pelo terminal.
 ### Comandos
 
 ```sh
-wmake-zones mode toggle         # Zonas -> Mosaico -> Rolagem (o clique esquerdo do ladrilho)
+wmake-zones mode toggle         # Zonas -> Mosaico -> Rolagem
 wmake-zones mode scroll         # Rolagem (zones, tiling, off; sobe o serviço no X11)
 wmake-zones mode enable         # desliga / religa o último modo (o clique do meio)
 wmake-zones zones on            # zonas ao arrastar (sobe o serviço no X11)
@@ -241,7 +241,7 @@ conflito no `status`.
 
 | Ação | Efeito |
 |---|---|
-| Clique esquerdo na tela | Zonas → Mosaico → Rolagem (`[Dockapp] LeftClick` muda) |
+| Clique esquerdo na tela | a próxima opção do modo: o layout nas Zonas, o algoritmo no Mosaico, a largura da coluna ativa na Rolagem; desligado, religa (`[Dockapp] LeftClick` muda) |
 | Clique do meio | desliga e religa o último modo |
 | Roda | troca o layout (Zonas), o algoritmo (Mosaico) ou a coluna em foco (Rolagem) |
 | Teclas Z, M e R | escolhem o modo (Z verde, M amarelo, R azul-claro quando acesas); a acesa desliga |
@@ -282,7 +282,7 @@ Tree=H(2"Leitura",1:V(1"Notas",1"Terminal"))
 Class=com.obsproject.Studio
 Action=float
 
-# Ladrilho do Dock: o clique esquerdo mostra os layouts em vez de alternar
+# Ladrilho do Dock: o clique esquerdo mostra os layouts em vez de passar ao próximo
 [Dockapp]
 LeftClick=layouts
 ```
@@ -341,7 +341,7 @@ próprio, nunca na sua tela, e pulam (SKIP) sem as ferramentas:
 | `engine` | 931 mil | layouts, mosaico, foco espacial, histórico e INI; também com sanitizers no CI |
 | `x11-functional` | 52 | arrasto, Esc, painel de layouts, seletor, mosaico, regras, repouso e PSS |
 | `x11-multimonitor` | 13 | dois heads no Xephyr (`+xinerama`): mosaico por monitor, Dock que aparece e some |
-| `x11-dockapp` (e `-noshape`) | 33 | modos pelos pixels, teclas Z, M e R e as bordas delas, a borda de arrastar, menu e arrasto para o Dock |
+| `x11-dockapp` (e `-noshape`) | 35 | modos pelos pixels, teclas Z, M e R e as bordas delas, a borda de arrastar, menu e arrasto para o Dock |
 | `wayland-functional` | 51 | o mesmo no wlmaker aninhado, com janelas GTK nativas |
 | `metainfo`, `po` | — | AppStream (`appstreamcli`) e catálogos de tradução |
 

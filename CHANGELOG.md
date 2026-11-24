@@ -1,5 +1,15 @@
 # Mudanças
 
+## 0.5.3 — 2026-11-24
+
+A troca de layout volta ao ladrilho do Dock, no lugar das setas antigas.
+
+- **Clique na tela do ladrilho**: passa à próxima opção do modo. Nas Zonas,
+  o próximo layout; no Mosaico, o próximo algoritmo; na Rolagem, a próxima
+  largura da coluna ativa (25, 33, 50, 66, 75, 100%); desligado, religa. Os
+  modos ficam nas teclas Z, M e R. Novo valor `next` de
+  `[Dockapp] LeftClick`, o padrão; `mode` continua passando pelos modos.
+
 ## 0.5.2 — 2026-11-24
 
 O ladrilho do Dock volta ao jeito dos outros dockapps (como o wmpulsemixer).

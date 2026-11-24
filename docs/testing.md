@@ -71,12 +71,14 @@ e some refaz o mosaico; uma janela com tamanho mínimo que não cabe fica
 flutuando e entra quando passa a caber; uma janela levada para o outro
 monitor (como pelo teclado do Window Maker) entra no mosaico de lá.
 
-## Dockapp (`tests/x11-dockapp.sh`, 33 verificações; também sem X Shape)
+## Dockapp (`tests/x11-dockapp.sh`, 35 verificações; também sem X Shape)
 
 O ladrilho aberto com `--dockapp` (60x60 no quadro de 64): o modo na tela
 pelos pixels (tecla Z verde, M amarela ou R azul-claro; contorno ciano e o
 preenchimento das zonas ou das janelas e colunas, só o contorno na pausa;
-nunca o amarelo de teste), as teclas Z, M e R e o clique esquerdo na tela.
+nunca o amarelo de teste), as teclas Z, M e R e o clique esquerdo na tela
+(próximo layout nas Zonas, algoritmo no Mosaico e, com um xterm, a largura
+da coluna na Rolagem).
 Cada borda das teclas e, fora da tela e das teclas (borda de 4 px, vão,
 moldura), o clique do Window Maker, sem mudar o modo. O
 `x11-dockapp-noshape` repete tudo com `WZX_NO_SHAPE=1` (como num servidor

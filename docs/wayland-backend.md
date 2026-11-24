@@ -70,8 +70,9 @@ o mesmo núcleo estático e o mesmo arquivo de configuração do X11.
 (`zwlmaker_icon_manager_v1`), sem XWayland, no Dock do wlmaker
 (`Dock.Dockapps` do `State.plist` do Big WindowMaker). Desenho igual ao do
 X11 (miniatura do layout em efeito, as janelas do mosaico ou as colunas da
-faixa, e as teclas Z, M e R); clique esquerdo passa por Zonas, Mosaico e
-Rolagem, o do meio desliga e religa, a roda troca o layout (ou o algoritmo,
+faixa, e as teclas Z, M e R, que escolhem o modo); clique esquerdo na tela
+passa à próxima opção do modo (layout, algoritmo ou largura da coluna), o
+do meio desliga e religa, a roda troca o layout (ou o algoritmo,
 ou a coluna) e pede ao wlmaker uma prévia breve das zonas, o direito abre o menu do
 wlmaker com as ações do `Dockapps.plist` (0105, 0115). O estado vem do
 arquivo de configuração por inotify e o layout em efeito, do `status`.
