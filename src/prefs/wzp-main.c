@@ -231,16 +231,11 @@ draw_preview(GtkWidget *w, cairo_t *cr, gpointer data)
 }
 
 static void
-on_zones(GtkToggleButton *b, gpointer d)
+on_mode(GtkComboBox *c, gpointer d)
 {
-    run_cmd("zones", gtk_toggle_button_get_active(b) ? "on" : "off");
-    wzp_reload_config();
-}
-
-static void
-on_autotile(GtkToggleButton *b, gpointer d)
-{
-    run_cmd("autotile", gtk_toggle_button_get_active(b) ? "on" : "off");
+    const char *id = gtk_combo_box_get_active_id(c);
+    if (id)
+        run_cmd("mode", id);
     wzp_reload_config();
 }
 
@@ -303,14 +298,19 @@ page_general(void)
 {
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
     GtkWidget *g = grid();
-    GtkWidget *z = gtk_check_button_new_with_mnemonic(_("Snap windows to _zones while dragging them"));
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(z), wzp.cfg.zones);
-    g_signal_connect(z, "toggled", G_CALLBACK(on_zones), NULL);
-    gtk_grid_attach(GTK_GRID(g), z, 0, 0, 2, 1);
-    GtkWidget *t = gtk_check_button_new_with_mnemonic(_("_Auto Tiling: arrange windows automatically"));
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(t), wzp.cfg.autotile);
-    g_signal_connect(t, "toggled", G_CALLBACK(on_autotile), NULL);
-    gtk_grid_attach(GTK_GRID(g), t, 0, 1, 2, 1);
+    gtk_grid_attach(GTK_GRID(g), label(_("Mode:")), 0, 0, 1, 1);
+    GtkWidget *mc = gtk_combo_box_text_new();
+    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(mc), "zones", _("Zones: snap windows while dragging them"));
+    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(mc), "tiling", _("Tiling: arrange windows automatically"));
+    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(mc), "scroll", _("Scrolling: columns on a strip wider than the screen"));
+    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(mc), "off", _("Off"));
+    gtk_combo_box_set_active_id(GTK_COMBO_BOX(mc), wz_mode_name(wz_config_mode(&wzp.cfg)));
+    g_signal_connect(mc, "changed", G_CALLBACK(on_mode), NULL);
+    gtk_widget_set_hexpand(mc, TRUE);
+    gtk_grid_attach(GTK_GRID(g), mc, 1, 0, 2, 1);
+    GtkWidget *mem = label(_("Each mode remembers its own arrangement: switching back puts every window where it was."));
+    gtk_label_set_line_wrap(GTK_LABEL(mem), TRUE);
+    gtk_grid_attach(GTK_GRID(g), mem, 0, 1, 3, 1);
     gtk_grid_attach(GTK_GRID(g), label(_("Layout:")), 0, 2, 1, 1);
     GtkWidget *lc = gtk_combo_box_text_new();
     gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(lc), "", _("Automatic (by the monitor's shape)"));
@@ -334,6 +334,15 @@ page_general(void)
                     check(_("Restore the original size when a snapped window is dragged out of the zones"), "General",
                           "RestoreSizeOnUnsnap", wzp.cfg.restore_size_on_unsnap, NULL),
                     0, 0, 2, 1);
+    gtk_grid_attach(GTK_GRID(g2), label(_("Move or resize a window from anywhere in it with:")), 0, 4, 1, 1);
+    static const char *const dmods[] = { "Ctrl+Alt", N_("Ctrl+Alt + left (move) or right (resize) button"),
+                                         "Super+Alt", N_("Super+Alt + left or right button"),
+                                         "Ctrl+Super", N_("Ctrl+Super + left or right button"),
+                                         "", N_("Nothing (only the title bar)"), NULL };
+    GtkWidget *dm = combo("General", "DragModifier", wzp.cfg.drag_modifier ? wzp.cfg.drag_modifier : "", dmods);
+    gtk_widget_set_tooltip_text(dm, _("The click does not reach the application. Without the modifier the mouse works "
+                                      "as usual."));
+    gtk_grid_attach(GTK_GRID(g2), dm, 1, 4, 1, 1);
     gtk_grid_attach(GTK_GRID(g2),
                     check(_("Keep the service running for the keyboard shortcuts even with everything off"), "General",
                           "KeepRunning", wzp.cfg.keep_running,
@@ -488,6 +497,70 @@ page_tiling(void)
     GtkWidget *n = label(_("Dialogs, menus, fixed-size and full-screen windows are never tiled. A window whose minimum "
                            "size does not fit its cell floats. Drag a tiled window onto another to swap them; "
                            "Super+Ctrl+F floats or tiles the active window."));
+    gtk_label_set_line_wrap(GTK_LABEL(n), TRUE);
+    gtk_box_pack_start(GTK_BOX(box), n, FALSE, FALSE, 0);
+    return box;
+}
+
+/* ---- Rolagem ------------------------------------------------------------- */
+
+static void
+on_widths(GtkEntry *e, gpointer d)
+{
+    wzp_set("Scroll", "Widths", gtk_entry_get_text(e));
+    wzp_reload_daemon();
+}
+
+static gboolean
+on_widths_out(GtkWidget *e, GdkEvent *ev, gpointer d)
+{
+    on_widths(GTK_ENTRY(e), d);
+    return FALSE;
+}
+
+static GtkWidget *
+page_scroll(void)
+{
+    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
+    GtkWidget *g = grid();
+    gtk_grid_attach(GTK_GRID(g), label(_("Width of a new column (% of the screen):")), 0, 0, 1, 1);
+    gtk_grid_attach(GTK_GRID(g), spin("Scroll", "Width", wzp.cfg.scroll_p.width_pct, 10, 100), 1, 0, 1, 1);
+    gtk_grid_attach(GTK_GRID(g), label(_("Widths of Grow and Shrink (%):")), 0, 1, 1, 1);
+    GtkWidget *we = gtk_entry_new();
+    char ws[64] = "";
+    for (int i = 0; i < wzp.cfg.scroll_p.nwidths; i++) {
+        char one[8];
+        snprintf(one, sizeof one, "%s%d", i ? ", " : "", wzp.cfg.scroll_p.widths[i]);
+        g_strlcat(ws, one, sizeof ws);
+    }
+    gtk_entry_set_text(GTK_ENTRY(we), ws);
+    gtk_widget_set_tooltip_text(we, _("Increasing percentages separated by commas, up to eight"));
+    g_signal_connect(we, "activate", G_CALLBACK(on_widths), NULL);
+    g_signal_connect(we, "focus-out-event", G_CALLBACK(on_widths_out), NULL);
+    gtk_grid_attach(GTK_GRID(g), we, 1, 1, 1, 1);
+    static const char *const inserts[] = { "column", N_("In a new column next to the active one"), "stack",
+                                           N_("Below the active window, in its column"), NULL };
+    gtk_grid_attach(GTK_GRID(g), label(_("A new window opens:")), 0, 2, 1, 1);
+    gtk_grid_attach(GTK_GRID(g), combo("Scroll", "Insert",
+                                       wzp.cfg.scroll_p.insert == WZ_SCROLL_INSERT_STACK ? "stack" : "column", inserts),
+                    1, 2, 1, 1);
+    static const char *const aligns[] = { "left", N_("From the left edge"), "center", N_("Centered"), NULL };
+    gtk_grid_attach(GTK_GRID(g), label(_("Columns that do not fill the screen:")), 0, 3, 1, 1);
+    gtk_grid_attach(GTK_GRID(g), combo("Scroll", "Align",
+                                       wzp.cfg.scroll_p.align == WZ_SCROLL_ALIGN_CENTER ? "center" : "left", aligns),
+                    1, 3, 1, 1);
+    gtk_box_pack_start(GTK_BOX(box), frame(_("Columns"), g), FALSE, FALSE, 0);
+    GtkWidget *g2 = grid();
+    gtk_grid_attach(GTK_GRID(g2), label(_("Space between windows (px):")), 0, 0, 1, 1);
+    gtk_grid_attach(GTK_GRID(g2), spin("Scroll", "Gap", wzp.cfg.scroll_p.gap_in, 0, 64), 1, 0, 1, 1);
+    gtk_grid_attach(GTK_GRID(g2), label(_("Margin at the screen edges (px):")), 0, 1, 1, 1);
+    gtk_grid_attach(GTK_GRID(g2), spin("Scroll", "OuterGap", wzp.cfg.scroll_p.gap_out, 0, 64), 1, 1, 1, 1);
+    gtk_box_pack_start(GTK_BOX(box), frame(_("Spacing"), g2), FALSE, FALSE, 0);
+    GtkWidget *n = label(_("Windows become columns of a strip wider than the screen; opening one adds a column next to "
+                           "the active one without resizing the others. Only whole columns are shown; the others wait "
+                           "beside the screen, and focusing one scrolls to it. Super+Alt+arrows change the focus, "
+                           "Super+Shift+arrows move the column, Super+Ctrl+= and Super+Ctrl+- change its width, "
+                           "Super+Ctrl+Home/End go to the first or last column."));
     gtk_label_set_line_wrap(GTK_LABEL(n), TRUE);
     gtk_box_pack_start(GTK_BOX(box), n, FALSE, FALSE, 0);
     return box;
@@ -649,14 +722,38 @@ page_appearance(void)
 /* ---- Atalhos -------------------------------------------------------------- */
 
 static const char *const key_labels[WZ_KEY_N] = {
-    N_("Choose a zone with the keyboard"), N_("Turn Zones on or off"), N_("Turn Auto Tiling on or off"),
-    N_("Open the zone editor"), N_("Next layout"), N_("Move window to the zone on the left"),
-    N_("Move window to the zone on the right"), N_("Move window to the zone above"),
-    N_("Move window to the zone below"), N_("Focus the window on the left"), N_("Focus the window on the right"),
-    N_("Focus the window above"), N_("Focus the window below"), N_("Swap with the window on the left"),
-    N_("Swap with the window on the right"), N_("Swap with the window above"), N_("Swap with the window below"),
-    N_("Restore the previous size and position"), N_("Float or tile the window"), N_("Make it the main window"),
-    N_("Grow the main area"), N_("Shrink the main area"), N_("Undo the last arrangement"),
+    [WZ_KEY_PICKER] = N_("Choose a zone with the keyboard"),
+    [WZ_KEY_TOGGLE_ZONES] = N_("Turn Zones on or off"),
+    [WZ_KEY_TOGGLE_AUTOTILE] = N_("Turn Auto Tiling on or off"),
+    [WZ_KEY_EDITOR] = N_("Open the zone editor"),
+    [WZ_KEY_NEXT_LAYOUT] = N_("Next layout"),
+    [WZ_KEY_MOVE_LEFT] = N_("Move window to the zone on the left"),
+    [WZ_KEY_MOVE_RIGHT] = N_("Move window to the zone on the right"),
+    [WZ_KEY_MOVE_UP] = N_("Move window to the zone above"),
+    [WZ_KEY_MOVE_DOWN] = N_("Move window to the zone below"),
+    [WZ_KEY_FOCUS_LEFT] = N_("Focus the window on the left"),
+    [WZ_KEY_FOCUS_RIGHT] = N_("Focus the window on the right"),
+    [WZ_KEY_FOCUS_UP] = N_("Focus the window above"),
+    [WZ_KEY_FOCUS_DOWN] = N_("Focus the window below"),
+    [WZ_KEY_SWAP_LEFT] = N_("Swap with the window on the left"),
+    [WZ_KEY_SWAP_RIGHT] = N_("Swap with the window on the right"),
+    [WZ_KEY_SWAP_UP] = N_("Swap with the window above"),
+    [WZ_KEY_SWAP_DOWN] = N_("Swap with the window below"),
+    [WZ_KEY_RESTORE] = N_("Restore the previous size and position"),
+    [WZ_KEY_TOGGLE_FLOAT] = N_("Float or tile the window"),
+    [WZ_KEY_PROMOTE] = N_("Make it the main window"),
+    [WZ_KEY_GROW] = N_("Grow the main area"),
+    [WZ_KEY_SHRINK] = N_("Shrink the main area"),
+    [WZ_KEY_UNDO] = N_("Undo the last arrangement"),
+    [WZ_KEY_REDO] = N_("Redo the arrangement"),
+    [WZ_KEY_MODE_ZONES] = N_("Switch to Zones"),
+    [WZ_KEY_MODE_TILING] = N_("Switch to Tiling"),
+    [WZ_KEY_MODE_SCROLL] = N_("Switch to Scrolling"),
+    [WZ_KEY_SCROLL_FIRST] = N_("Scrolling: first column"),
+    [WZ_KEY_SCROLL_LAST] = N_("Scrolling: last column"),
+    [WZ_KEY_SCROLL_CENTER] = N_("Scrolling: center the column"),
+    [WZ_KEY_SCROLL_CONSUME] = N_("Scrolling: join the column on the left"),
+    [WZ_KEY_SCROLL_EXPEL] = N_("Scrolling: take the window out of the column"),
 };
 
 static GtkListStore *keys_store;
@@ -716,7 +813,8 @@ keys_fill(void)
         g_snprintf(pat, sizeof pat, "conflict=%s ", wz_key_name(i));
         GtkTreeIter it;
         gtk_list_store_append(keys_store, &it);
-        gtk_list_store_set(keys_store, &it, 0, _(key_labels[i]), 1, wzp.cfg.keys[i], 2, i, 3,
+        gtk_list_store_set(keys_store, &it, 0, key_labels[i] ? _(key_labels[i]) : wz_key_name(i), 1,
+                           wzp.cfg.keys[i], 2, i, 3,
                            strstr(out, pat) ? _("in use by another program") : "", -1);
     }
 }
@@ -1236,7 +1334,8 @@ typedef struct {
 
 static const section sections[] = {
     { "general", N_("General"), 0, page_general },     { "zones", N_("Zones"), 1, page_zones },
-    { "tiling", N_("Tiling"), 2, page_tiling },        { "monitors", N_("Monitors"), 3, page_monitors },
+    { "tiling", N_("Tiling"), 2, page_tiling },        { "scroll", N_("Scrolling"), 8, page_scroll },
+    { "monitors", N_("Monitors"), 3, page_monitors },
     { "appearance", N_("Appearance"), 4, page_appearance }, { "keys", N_("Shortcuts"), 5, page_keys },
     { "rules", N_("Rules"), 6, page_rules },           { "advanced", N_("Advanced"), 7, page_advanced },
 };

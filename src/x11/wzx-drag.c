@@ -275,10 +275,15 @@ finish_move(wzx *z, int px, int py)
         return;
     wzx_refresh_geom(z, w);
     if (z->drag_cancel) {
-        if (w->tiled)
+        if (w->tiled || w->scrolled) {
+            w->expect_valid = 0;
             wzx_tile_mark(z);
-        else
+        } else
             wzx_move_outer(z, w, z->drag_start);
+        return;
+    }
+    if (w->scrolled) {
+        wzx_scroll_drop(z, w, px, py);
         return;
     }
     if (z->ov.shown && z->ov.mode == 1) {
@@ -352,14 +357,18 @@ finish_move(wzx *z, int px, int py)
         }
         return;
     }
-    /* Solta fora das zonas: uma janela encaixada volta ao tamanho de antes,
-     * com o ponteiro no mesmo ponto relativo da barra de título. */
+    /* Solta fora das zonas: a janela sai da zona com o tamanho que tem
+     * (o último dado pelo usuário). Com RestoreSizeOnUnsnap, volta ao
+     * tamanho de antes do encaixe, com o ponteiro no mesmo ponto relativo
+     * da barra de título. */
     wz_rect pre;
     if (z->cfg.restore_size_on_unsnap && wzx_get_restore(z, w, &pre) && wzx_get_zone_prop(z, w) >= 0) {
         double fx = w->outer.w > 0 ? (double)(px - w->outer.x) / w->outer.w : 0.5;
         wz_rect r = { px - (int)(fx * pre.w), w->outer.y, pre.w, pre.h };
         wzx_clear_restore(z, w);
         wzx_move_outer(z, w, r);
+    } else if (wzx_get_zone_prop(z, w) >= 0) {
+        XDeleteProperty(z->dpy, w->client, z->atom[A_WZ_ZONE]);
     }
 }
 
@@ -414,6 +423,8 @@ wzx_drag_raw(wzx *z, XGenericEventCookie *c)
             return; /* soltou outro botão; o 1 continua apertado */
         if (z->drag == DRAG_MOVING)
             finish_move(z, rx, ry);
+        else if (z->drag == DRAG_RESIZING && z->drag_w && z->drag_w->scrolled)
+            wzx_scroll_user_resize(z, z->drag_w);
         else if (z->drag == DRAG_RESIZING && z->drag_w)
             wzx_tile_user_resize(z, z->drag_w);
         reset_drag(z);
@@ -455,7 +466,7 @@ wzx_drag_configure(wzx *z, XConfigureEvent *e)
     w->outer = (wz_rect){ e->x, e->y, e->width + 2 * e->border_width, e->height + 2 * e->border_width };
     if (z->drag == DRAG_ARMED) {
         if (w->outer.w != z->drag_start.w || w->outer.h != z->drag_start.h) {
-            z->drag = w->tiled ? DRAG_RESIZING : DRAG_IDLE;
+            z->drag = w->tiled || w->scrolled ? DRAG_RESIZING : DRAG_IDLE;
             if (z->drag == DRAG_IDLE)
                 z->drag_w = NULL;
             return;
@@ -486,6 +497,11 @@ wzx_drag_flush(wzx *z)
     unsigned mask;
     if (!XQueryPointer(z->dpy, z->root, &r, &child, &px, &py, &wx, &wy, &mask))
         return;
+    if (w->scrolled) {
+        /* Na faixa, soltar só muda a ordem das colunas: sem zonas. */
+        wzx_overlay_hide(z);
+        return;
+    }
     int mon = wzx_monitor_at(z, px, py);
     int tile_mode = w->tiled && wzx_tile_active_for(z, mon);
     int active;

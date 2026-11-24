@@ -4,7 +4,7 @@
  * que o centra) no Dock/Clip,
  * dentro do próprio daemon (um processo só, sem serviço duplicado).
  *
- *   clique esquerdo   Zonas <-> Mosaico          ([Dockapp] LeftClick)
+ *   clique esquerdo   Zonas -> Mosaico -> Rolagem ([Dockapp] LeftClick)
  *   clique do meio    desliga / religa o último   ([Dockapp] MiddleClick)
  *   clique direito    menu no estilo do Window Maker, com submenus, e
  *                     "Opções do Window Maker..." (o menu do Dock, do Clip
@@ -25,8 +25,8 @@
  * move o ícone ou abre o menu (dock.c e appicon.c tratam send_event).
  *
  * O ladrilho mostra a miniatura do layout ativo numa tela LCD (ciano) e,
- * embaixo, as setas e duas teclas com LED: Z (zonas, verde) e M (mosaico,
- * âmbar); nenhuma acesa = desligado. Só a tela e as teclas são desenhadas:
+ * embaixo, as setas e três teclas com LED: Z (zonas, verde), M (mosaico,
+ * âmbar) e R (rolagem, azul); nenhuma acesa = desligado. Só a tela e as teclas são desenhadas:
  * o resto mostra o ladrilho do Dock (X Shape; sem a extensão, o fundo do
  * pai, ParentRelative, e a cópia só das partes desenhadas). Cada troca mostra um balão discreto com o modo
  * e o layout, que some sozinho (a dica ao parar o ponteiro é o balão do
@@ -63,7 +63,7 @@ static const struct {
     char c;
     unsigned char rows[5];
 } glyphs[] = {
-    { 'M', { 5, 7, 7, 5, 5 } }, { 'Z', { 7, 1, 2, 4, 7 } },
+    { 'M', { 5, 7, 7, 5, 5 } }, { 'Z', { 7, 1, 2, 4, 7 } }, { 'R', { 6, 5, 6, 5, 5 } },
 };
 
 static void
@@ -132,7 +132,8 @@ layout_label(const wz_layout_def *l)
 static const char *
 mode_label(wz_mode m)
 {
-    return m == WZ_MODE_TILING ? _("Tiling") : m == WZ_MODE_ZONES ? _("Zones") : _("Off");
+    return m == WZ_MODE_SCROLL ? _("Scrolling") : m == WZ_MODE_TILING ? _("Tiling") : m == WZ_MODE_ZONES ? _("Zones")
+                                                                                                    : _("Off");
 }
 
 static const char *const algo_ids[] = { "master", "columns", "rows", "grid", "bsp", "monocle", "spiral", "dwindle" };
@@ -154,22 +155,23 @@ algo_label(const char *id)
     return id;
 }
 
-/* Fileira de baixo: seta, Z, M, seta (60 px). Z e M dividem a tela LCD
- * (x 14..45, com o chanfro): Z 14..29, M 30..45, a área clicável igual à
- * desenhada. */
+/* Fileira de baixo: seta, Z, M, R, seta (60 px). Z, M e R dividem a tela
+ * LCD (x 12..47, com o chanfro): Z 12..23, M 24..35, R 36..47; as setas,
+ * 2..9 e 50..57. A área clicável é a desenhada. */
 #define ROW_Y 44
 #define ROW_H 14
-enum { HIT_NONE, HIT_PREV, HIT_Z, HIT_M, HIT_NEXT };
+enum { HIT_NONE, HIT_PREV, HIT_Z, HIT_M, HIT_R, HIT_NEXT };
 static const struct {
     int x, w;
-} row_btn[] = { [HIT_PREV] = { 2, 9 }, [HIT_Z] = { 14, 16 }, [HIT_M] = { 30, 16 }, [HIT_NEXT] = { 49, 9 } };
+} row_btn[] = { [HIT_PREV] = { 2, 8 },  [HIT_Z] = { 12, 12 }, [HIT_M] = { 24, 12 },
+                [HIT_R] = { 36, 12 },   [HIT_NEXT] = { 50, 8 } };
 
-/* As partes desenhadas do ladrilho: a tela, as setas e a tela LCD de Z e M. */
+/* As partes desenhadas do ladrilho: a tela, as setas e a tela LCD dos modos. */
 static XRectangle dock_parts[] = {
     { 2, 2, 56, 38 },
-    { 2, ROW_Y, 9, ROW_H },
-    { 14, ROW_Y, 32, ROW_H },
-    { 49, ROW_Y, 9, ROW_H },
+    { 2, ROW_Y, 8, ROW_H },
+    { 12, ROW_Y, 36, ROW_H },
+    { 50, ROW_Y, 8, ROW_H },
 };
 #define DOCK_NPARTS ((int)(sizeof dock_parts / sizeof dock_parts[0]))
 
@@ -248,14 +250,52 @@ draw_pause(wzx *z, wz_rect scr)
     XFillRectangle(z->dpy, face, dgc, cx + 2, cy - 7, 4, 14);
 }
 
+/* Rolagem: as colunas da faixa do monitor, na proporção das larguras; a
+ * ativa acesa, as outras meio acesas, e um traço em cada lado com colunas
+ * escondidas ali. Sem faixa ainda, três colunas de exemplo. */
+static void
+draw_strip(wzx *z, wz_rect box, int mon)
+{
+    int ncol = 3, active = 1, nl = 0, nr = 0, widths[WZ_SCROLL_MAX_COLS] = { 2, 3, 2 };
+    if (!wzx_scroll_info(z, mon, &ncol, &active, &nl, &nr, widths, WZ_SCROLL_MAX_COLS))
+        ncol = 3, active = 1, nl = nr = 0, widths[0] = 2, widths[1] = 3, widths[2] = 2;
+    int first = nl, last = ncol - 1 - nr;
+    if (last - first + 1 > 6) { /* no ladrilho cabem poucas */
+        first = active - 2 < nl ? nl : active - 2;
+        last = first + 5 > ncol - 1 - nr ? ncol - 1 - nr : first + 5;
+    }
+    long tot = 0;
+    for (int c = first; c <= last; c++)
+        tot += widths[c] > 0 ? widths[c] : 1;
+    int margin = 4, gap = 2;
+    int avail = box.w - 2 * margin - gap * (last - first);
+    int x = box.x + margin;
+    for (int c = first; c <= last; c++) {
+        int w = tot > 0 ? (int)((long)avail * (widths[c] > 0 ? widths[c] : 1) / tot) : 4;
+        if (w < 3)
+            w = 3;
+        XSetForeground(z->dpy, dgc, wzx_pixel(z, c == active ? COLOR_CYAN_ON : COLOR_CYAN_HALF));
+        XFillRectangle(z->dpy, face, dgc, x, box.y + 2, (unsigned)w, (unsigned)box.h - 4);
+        XSetForeground(z->dpy, dgc, wzx_pixel(z, COLOR_CYAN_ON));
+        XDrawRectangle(z->dpy, face, dgc, x, box.y + 2, (unsigned)w - 1, (unsigned)box.h - 5);
+        x += w + gap;
+    }
+    /* Escondidas: traços nas bordas, um por coluna (até três). */
+    XSetForeground(z->dpy, dgc, wzx_pixel(z, COLOR_CYAN_ON));
+    for (int i = 0; i < nl && i < 3; i++)
+        XFillRectangle(z->dpy, face, dgc, box.x + i, box.y + box.h / 2 - 3, 1, 6);
+    for (int i = 0; i < nr && i < 3; i++)
+        XFillRectangle(z->dpy, face, dgc, box.x + box.w - 1 - i, box.y + box.h / 2 - 3, 1, 6);
+}
+
 /* Tecla com LED dentro da tela LCD (a área de row_btn[which] sem o chanfro
  * da tela): apagada escura, acesa com a letra escura. */
 static void
 led_key(wzx *z, int which, const char *letter, int lit, unsigned color)
 {
     int x = row_btn[which].x, w = row_btn[which].w;
-    /* Z começa no chanfro esquerdo da tela, M termina no direito. */
-    int x0 = which == HIT_Z ? x + 1 : x, w0 = w - 1;
+    /* Z começa no chanfro esquerdo da tela, R termina no direito. */
+    int x0 = which == HIT_Z ? x + 1 : x, w0 = which == HIT_Z || which == HIT_R ? w - 1 : w - 1;
     XSetForeground(z->dpy, dgc, wzx_pixel(z, lit ? color : 0x2a2e33));
     XFillRectangle(z->dpy, face, dgc, x0, ROW_Y + 1, (unsigned)w0, ROW_H - 2);
     pixtext(z, face, letter, x0 + (w0 - 6) / 2 + 1, ROW_Y + 2, lit ? 0x101010 : 0x7a7e84, 2);
@@ -291,6 +331,8 @@ wzx_dockapp_redraw(wzx *z)
             draw_mini(z, face, dgc, l->tree, inner, 0xc2c0c5, 0, 0x7fb0e0);
     } else if (m == WZ_MODE_TILING) {
         draw_windows(z, inner, pointer_mon(z));
+    } else if (m == WZ_MODE_SCROLL) {
+        draw_strip(z, inner, pointer_mon(z));
     } else {
         draw_pause(z, scr);
     }
@@ -298,13 +340,14 @@ wzx_dockapp_redraw(wzx *z)
      * modo ativo acesa. */
     arrow_key(z, HIT_PREV, m != WZ_MODE_OFF);
     /* Tela LCD para os modos */
-    wz_rect scr2 = { 15, 45, 31, 13 };
+    wz_rect scr2 = { 13, 45, 35, 13 };
     XSetForeground(z->dpy, dgc, wzx_pixel(z, COLOR_CYAN_OFF));
     XFillRectangle(z->dpy, face, dgc, scr2.x, scr2.y, (unsigned)scr2.w, (unsigned)scr2.h);
     wzx_draw_bevel_1px(z, face, dgc, scr2.x - 1, scr2.y - 1, scr2.w + 1, scr2.h + 1, 0);
     /* Desenha modos */
     led_key(z, HIT_Z, "Z", m == WZ_MODE_ZONES, 0x58d858);
     led_key(z, HIT_M, "M", m == WZ_MODE_TILING, 0xf0b030);
+    led_key(z, HIT_R, "R", m == WZ_MODE_SCROLL, 0x58a8f0);
     arrow_key(z, HIT_NEXT, m != WZ_MODE_OFF);
     /* Só as partes desenhadas aparecem; o resto é o ladrilho do Dock. Com o
      * X Shape, a janela tem a forma delas (os cliques fora caem no
@@ -484,10 +527,12 @@ balloon_show(wzx *z, long ms)
  * submenus com a seta à direita e o indicador de rádio dos itens de
  * estado. Dois níveis: o menu e um submenu aberto por vez. */
 enum { K_ACT = 0, K_SUB, K_RADIO };
-enum { M_TOP = 0, M_MODE, M_LAYOUT, M_ALGO, M_SETTINGS, M_HELP };
+enum { M_TOP = 0, M_MODE, M_LAYOUT, M_ALGO, M_SCROLL, M_SETTINGS, M_HELP };
 enum {
     A_NONE = 0, A_WM_MENU, A_UNDO, A_REDO, A_RESTORE, A_RESTORE_ALL, A_ARRANGE, A_FLOAT, A_EDITOR, A_PREFS, A_KEYS, A_RULES,
-    A_MONITORS, A_HELP_KEYS, A_ABOUT, A_MODE_ZONES, A_MODE_TILING, A_MODE_OFF, A_EMERGENCY,
+    A_MONITORS, A_HELP_KEYS, A_ABOUT, A_MODE_ZONES, A_MODE_TILING, A_MODE_OFF, A_EMERGENCY, A_MODE_SCROLL,
+    A_COL_PREV, A_COL_NEXT, A_COL_FIRST, A_COL_LAST, A_COL_CENTER, A_COL_WIDER, A_COL_NARROWER, A_COL_MERGE,
+    A_COL_SPLIT,
     A_LAYOUT0 = 100, A_ALGO0 = 1000,
 };
 
@@ -531,6 +576,7 @@ menu_title(int menu)
     case M_MODE: return _("Mode");
     case M_LAYOUT: return _("Layout");
     case M_ALGO: return _("Tiling algorithm");
+    case M_SCROLL: return _("Scrolling");
     case M_SETTINGS: return _("Settings");
     case M_HELP: return _("Help");
     default: return "wmake-zones";
@@ -607,6 +653,7 @@ fill_menu(wzx *z, mpop *p, int menu)
         add(p, K_SUB, M_MODE, 0, _("Mode"));
         add(p, K_SUB, M_LAYOUT, 0, _("Layout"));
         add(p, K_SUB, M_ALGO, 0, _("Tiling algorithm"));
+        add(p, K_SUB, M_SCROLL, 0, _("Scrolling"));
         add(p, K_ACT, A_UNDO, 0, _("Undo"));
         add(p, K_ACT, A_REDO, 0, _("Redo"));
         add(p, K_ACT, A_RESTORE, 0, _("Restore window"));
@@ -624,6 +671,7 @@ fill_menu(wzx *z, mpop *p, int menu)
     case M_MODE:
         add(p, K_RADIO, A_MODE_ZONES, m == WZ_MODE_ZONES, _("Zones"));
         add(p, K_RADIO, A_MODE_TILING, m == WZ_MODE_TILING, _("Tiling"));
+        add(p, K_RADIO, A_MODE_SCROLL, m == WZ_MODE_SCROLL, _("Scrolling"));
         add(p, K_RADIO, A_MODE_OFF, m == WZ_MODE_OFF, _("Off"));
         add(p, K_ACT, A_EMERGENCY, 0, _("Float everything now"));
         break;
@@ -641,6 +689,19 @@ fill_menu(wzx *z, mpop *p, int menu)
             add(p, K_RADIO, A_ALGO0 + i, !strcmp(cur, algo_ids[i]), algo_label(algo_ids[i]));
         break;
     }
+    case M_SCROLL:
+        if (m != WZ_MODE_SCROLL)
+            add(p, K_ACT, A_MODE_SCROLL, 0, _("Turn on scrolling"));
+        add(p, K_ACT, A_COL_PREV, 0, _("Previous column"));
+        add(p, K_ACT, A_COL_NEXT, 0, _("Next column"));
+        add(p, K_ACT, A_COL_FIRST, 0, _("First column"));
+        add(p, K_ACT, A_COL_LAST, 0, _("Last column"));
+        add(p, K_ACT, A_COL_CENTER, 0, _("Center column"));
+        add(p, K_ACT, A_COL_WIDER, 0, _("Wider column"));
+        add(p, K_ACT, A_COL_NARROWER, 0, _("Narrower column"));
+        add(p, K_ACT, A_COL_MERGE, 0, _("Join the column on the left"));
+        add(p, K_ACT, A_COL_SPLIT, 0, _("Take the window out of the column"));
+        break;
     case M_SETTINGS:
         add(p, K_ACT, A_EDITOR, 0, _("Edit zones..."));
         add(p, K_ACT, A_PREFS, 0, _("Preferences..."));
@@ -981,6 +1042,16 @@ do_action(wzx *z, int id)
     case A_MODE_ZONES: wzx_command(z, "mode zones", NULL, 0); break;
     case A_MODE_TILING: wzx_command(z, "mode tiling", NULL, 0); break;
     case A_MODE_OFF: wzx_command(z, "mode off", NULL, 0); break;
+    case A_MODE_SCROLL: wzx_command(z, "mode scroll", NULL, 0); break;
+    case A_COL_PREV: wzx_command(z, "scroll left", NULL, 0); break;
+    case A_COL_NEXT: wzx_command(z, "scroll right", NULL, 0); break;
+    case A_COL_FIRST: wzx_command(z, "scroll first", NULL, 0); break;
+    case A_COL_LAST: wzx_command(z, "scroll last", NULL, 0); break;
+    case A_COL_CENTER: wzx_command(z, "scroll center", NULL, 0); break;
+    case A_COL_WIDER: wzx_command(z, "column width +", NULL, 0); break;
+    case A_COL_NARROWER: wzx_command(z, "column width -", NULL, 0); break;
+    case A_COL_MERGE: wzx_command(z, "column merge", NULL, 0); break;
+    case A_COL_SPLIT: wzx_command(z, "column split", NULL, 0); break;
     case A_EMERGENCY:
         /* Volta ao Window Maker flutuante agora: desliga e devolve tudo. */
         wzx_command(z, "mode off", NULL, 0);
@@ -1076,6 +1147,8 @@ click(wzx *z, wz_click action, int step)
     case WZ_CLICK_CYCLE:
         if (wz_config_mode(&z->cfg) == WZ_MODE_TILING)
             wzx_command(z, step < 0 ? "algorithm prev" : "algorithm next", NULL, 0);
+        else if (wz_config_mode(&z->cfg) == WZ_MODE_SCROLL)
+            wzx_command(z, step < 0 ? "scroll left" : "scroll right", NULL, 0);
         else
             wzx_command(z, step < 0 ? "layout prev" : "layout next", NULL, 0);
         break;
@@ -1085,8 +1158,9 @@ click(wzx *z, wz_click action, int step)
     balloon_show(z, 1500);
 }
 
-/* Teclas da fileira de baixo: setas trocam o layout (Zonas) ou o algoritmo
- * (Mosaico); Z e M escolhem o modo, e a acesa desliga. */
+/* Teclas da fileira de baixo: setas trocam o layout (Zonas), o algoritmo
+ * (Mosaico) ou a coluna em foco (Rolagem); Z, M e R escolhem o modo, e a
+ * acesa desliga. */
 static void
 row_click(wzx *z, int hit)
 {
@@ -1097,10 +1171,14 @@ row_click(wzx *z, int hit)
             cmd = hit == HIT_PREV ? "layout prev" : "layout next";
         else if (m == WZ_MODE_TILING)
             cmd = hit == HIT_PREV ? "algorithm prev" : "algorithm next";
+        else if (m == WZ_MODE_SCROLL)
+            cmd = hit == HIT_PREV ? "scroll left" : "scroll right";
     } else if (hit == HIT_Z) {
         cmd = m == WZ_MODE_ZONES ? "mode off" : "mode zones";
     } else if (hit == HIT_M) {
         cmd = m == WZ_MODE_TILING ? "mode off" : "mode tiling";
+    } else if (hit == HIT_R) {
+        cmd = m == WZ_MODE_SCROLL ? "mode off" : "mode scroll";
     }
     if (!cmd)
         return;

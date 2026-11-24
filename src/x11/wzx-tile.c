@@ -237,10 +237,16 @@ static void
 untile(wzx *z, wzx_win *w, int restore)
 {
     wz_rect r;
-    if (restore && wzx_get_restore(z, w, &r))
-        wzx_move_outer(z, w, r);
-    if (restore)
+    if (restore && wzx_free_restore(z, w)) {
+        /* Volta para o modo livre como estava (memória por modo). Numa
+         * zona, a geometria de antes do encaixe continua para o "restore". */
+        if (wzx_get_zone_prop(z, w) < 0)
+            XDeleteProperty(z->dpy, w->client, z->atom[A_WZ_RESTORE]);
+    } else if (restore) {
+        if (wzx_get_restore(z, w, &r))
+            wzx_move_outer(z, w, r);
         wzx_clear_restore(z, w);
+    }
     w->tiled = 0;
     w->tile_mon = -1;
     w->expect_valid = 0;
@@ -334,6 +340,18 @@ wzx_tile_run(wzx *z)
          * mosaico até o serviço reiniciar. */
         z->win[i]->fit_prev = z->win[i]->fit_float;
         z->win[i]->fit_float = 0;
+    }
+    if (z->cfg.scroll) {
+        wzx_scroll_run(z);
+        return;
+    }
+    if (wzx_scroll_any(z)) {
+        /* Saindo da Rolagem: para o mosaico, as janelas ficam para ele
+         * organizar; para as Zonas ou desligado, voltam à memória livre. */
+        int any = 0;
+        for (int mon = 0; mon < z->nmon && !any; mon++)
+            any = wzx_tile_active_for(z, mon);
+        wzx_scroll_leave(z, any);
     }
 
     for (int mon = 0; mon < z->nmon; mon++) {
@@ -441,6 +459,9 @@ wzx_tile_run(wzx *z)
             wzx_win *w = ws[i];
             if (!w->tiled) {
                 wz_rect pre;
+                /* Memória do modo livre (Zonas/desligado) ao entrar. */
+                if (!w->scrolled && !wzx_free_has(z, w))
+                    wzx_free_save(z, w);
                 if (!wzx_get_restore(z, w, &pre))
                     wzx_set_restore(z, w, w->outer);
                 w->tiled = 1;

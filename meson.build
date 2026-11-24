@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 project('wmake-zones', 'c',
-  version: '0.4.1',
+  version: '0.5.0',
   license: 'GPL-2.0-or-later',
   meson_version: '>= 0.62',
   default_options: ['c_std=gnu11', 'warning_level=2', 'buildtype=debugoptimized', 'b_ndebug=if-release'])
@@ -29,6 +29,7 @@ engine_src = files(
   'src/engine/wz-theme.c',
   'src/engine/wz-ipc.c',
   'src/engine/wz-history.c',
+  'src/engine/wz-scroll.c',
 )
 engine_inc = include_directories('src/engine')
 engine_lib = static_library('wmake-zones-engine', engine_src,
@@ -37,7 +38,7 @@ engine_lib = static_library('wmake-zones-engine', engine_src,
 engine_dep = declare_dependency(link_with: engine_lib, include_directories: engine_inc, dependencies: [m])
 if get_option('engine_lib')
   install_headers('src/engine/wz-layout.h', 'src/engine/wz-tile.h', 'src/engine/wz-config.h',
-                  'src/engine/wz-theme.h', 'src/engine/wz-ipc.h', 'src/engine/wz-history.h', subdir: 'wmake-zones')
+                  'src/engine/wz-theme.h', 'src/engine/wz-ipc.h', 'src/engine/wz-history.h', 'src/engine/wz-scroll.h', subdir: 'wmake-zones')
   pkg = import('pkgconfig')
   pkg.generate(engine_lib, name: 'wmake-zones-engine',
                description: 'Núcleo de geometria e configuração do wmake-zones',
@@ -64,7 +65,7 @@ have_wl = wl_client.found() and cairo.found() and wl_scanner.found()
 if have_x11
   executable('wmake-zones',
     files('src/x11/wzx-main.c', 'src/x11/wzx-wm.c', 'src/x11/wzx-drag.c', 'src/x11/wzx-overlay.c',
-          'src/x11/wzx-tile.c', 'src/x11/wzx-keys.c', 'src/x11/wzx-ipc.c', 'src/x11/wzx-dockapp.c'),
+          'src/x11/wzx-tile.c', 'src/x11/wzx-scroll.c', 'src/x11/wzx-keys.c', 'src/x11/wzx-ipc.c', 'src/x11/wzx-dockapp.c'),
     dependencies: [engine_dep, x11, xi, xrandr, xext, xft, xrender, fontconfig, xinerama],
     c_args: (have_wl ? ['-DWZ_HAVE_WAYLAND_DOCKAPP'] : []) + (xinerama.found() ? ['-DWZ_HAVE_XINERAMA'] : []),
     install: true)

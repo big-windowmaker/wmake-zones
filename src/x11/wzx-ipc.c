@@ -398,7 +398,8 @@ status(wzx *z, char *out, size_t len)
 {
     outf(out, len, "backend=x11\nversion=%s\n", WZ_VERSION);
     outf(out, len, "mode=%s\n", wz_mode_name(wz_config_mode(&z->cfg)));
-    outf(out, len, "zones=%s\nautotile=%s\n", z->cfg.zones ? "on" : "off", z->cfg.autotile ? "on" : "off");
+    outf(out, len, "zones=%s\nautotile=%s\nscroll=%s\n", z->cfg.zones ? "on" : "off", z->cfg.autotile ? "on" : "off",
+         z->cfg.scroll ? "on" : "off");
     outf(out, len, "layout=%s\nalgorithm=%s\n", z->cfg.layout, wz_algo_name(z->cfg.tile.algo));
     outf(out, len, "desktop=%ld\ncompositor=%s\n", z->current_desktop + 1, wzx_compositing(z) ? "yes" : "no");
     outf(out, len, "xinput2=%s\nrandr=%s\nshape=%s\n", z->has_xi ? "yes" : "no", z->has_randr ? "yes" : "no",
@@ -410,13 +411,19 @@ status(wzx *z, char *out, size_t len)
              z->mon[i].geom.w, z->mon[i].geom.h, z->mon[i].geom.x, z->mon[i].geom.y, z->mon[i].work.w,
              z->mon[i].work.h, z->mon[i].work.x, z->mon[i].work.y, l ? l->id : "?",
              wzx_tile_active_for(z, i) ? "on" : "off");
+        int nc, ac, nl, nr;
+        if (wzx_scroll_info(z, i, &nc, &ac, &nl, &nr, NULL, 0))
+            outf(out, len, "strip=%s columns=%d active=%d left=%d right=%d\n", z->mon[i].name, nc, ac + 1, nl, nr);
     }
-    int tiled = 0, snapped = 0;
+    int tiled = 0, snapped = 0, scrolled = 0, parked = 0;
     for (int i = 0; i < z->nwin; i++) {
         tiled += z->win[i]->tiled;
-        snapped += !z->win[i]->tiled && wzx_get_zone_prop(z, z->win[i]) >= 0;
+        scrolled += z->win[i]->scrolled;
+        parked += z->win[i]->parked;
+        snapped += !z->win[i]->tiled && !z->win[i]->scrolled && wzx_get_zone_prop(z, z->win[i]) >= 0;
     }
-    outf(out, len, "windows=%d tiled=%d snapped=%d\n", z->nwin, tiled, snapped);
+    outf(out, len, "windows=%d tiled=%d snapped=%d scrolled=%d parked=%d\n", z->nwin, tiled, snapped, scrolled,
+         parked);
     wzx_win *aw = wzx_find(z, z->active);
     char at[200] = "";
     if (aw)
@@ -472,7 +479,8 @@ wzx_command(wzx *z, const char *line, char *out, size_t outlen)
                 return;
             }
             if (m != (int)wz_config_mode(&z->cfg))
-                record_cfg(z, 1, "General", "Zones", "General", "Autotile", "General", "LastMode", (char *)NULL);
+                record_cfg(z, 1, "General", "Zones", "General", "Autotile", "General", "Scroll", "General",
+                           "LastMode", (char *)NULL);
             wz_config_set_mode(&z->cfg, z->cfg_path, arg);
             wzx_apply_config(z);
         }
@@ -529,18 +537,50 @@ wzx_command(wzx *z, const char *line, char *out, size_t outlen)
         wzx_tile_toggle_float(z, active_win(z));
     } else if (!strcmp(cmd, "promote")) {
         wzx_tile_promote(z, active_win(z));
+    } else if (!strcmp(cmd, "scroll") || !strcmp(cmd, "column")) {
+        /* Rolagem: scroll left|right|up|down|first|last|center|view-left|
+         * view-right; column move-left|move-right|merge|split|width N%%|+|-. */
+        char op[32] = "", a2[32] = "";
+        if (arg)
+            sscanf(arg, "%31s %31s", op, a2);
+        const char *o = op, *a = a2[0] ? a2 : NULL;
+        if (!strcmp(cmd, "scroll")) {
+            if (!strcmp(op, "left") || !strcmp(op, "right") || !strcmp(op, "up") || !strcmp(op, "down") ||
+                !strcmp(op, "first") || !strcmp(op, "last"))
+                o = "focus", a = op;
+            else if (!strncmp(op, "view-", 5))
+                o = "view", a = op + 5;
+        } else {
+            if (!strcmp(op, "next") || !strcmp(op, "previous"))
+                o = "focus", a = op[0] == 'n' ? "right" : "left";
+            else if (!strcmp(op, "move-left") || !strcmp(op, "move-right"))
+                o = "move", a = op + 5;
+            else if (!strcmp(op, "merge"))
+                o = "consume", a = a2[0] ? a2 : "left";
+            else if (!strcmp(op, "split"))
+                o = "expel";
+        }
+        if (!z->cfg.scroll)
+            outf(out, outlen, "error=a Rolagem está desligada (wmake-zones mode scroll)\n");
+        else if (!wzx_scroll_cmd(z, o, a, out, outlen))
+            outf(out, outlen, "error=a janela ativa não está na faixa ou comando desconhecido: %s\n", arg ? arg : "");
     } else if (!strcmp(cmd, "grow") || !strcmp(cmd, "shrink")) {
-        wzx_tile_ratio(z, active_win(z), !strcmp(cmd, "grow") ? 0.05 : -0.05);
+        if (!wzx_scroll_cmd(z, "width", !strcmp(cmd, "grow") ? "+" : "-", NULL, 0))
+            wzx_tile_ratio(z, active_win(z), !strcmp(cmd, "grow") ? 0.05 : -0.05);
     } else if (!strcmp(cmd, "move") && parse_dir(arg) >= 0) {
-        move_dir(z, active_win(z), parse_dir(arg));
+        if (!wzx_scroll_cmd(z, "move", arg, NULL, 0))
+            move_dir(z, active_win(z), parse_dir(arg));
     } else if (!strcmp(cmd, "swap") && parse_dir(arg) >= 0) {
         wzx_win *w = active_win(z);
-        if (w && w->tiled)
+        if (wzx_scroll_cmd(z, "move", arg, NULL, 0))
+            ;
+        else if (w && w->tiled)
             wzx_tile_swap_dir(z, w, parse_dir(arg));
         else
             move_dir(z, w, parse_dir(arg));
     } else if (!strcmp(cmd, "focus") && parse_dir(arg) >= 0) {
-        focus_dir(z, active_win(z), parse_dir(arg));
+        if (!wzx_scroll_cmd(z, "focus", arg, NULL, 0))
+            focus_dir(z, active_win(z), parse_dir(arg));
     } else if (!strcmp(cmd, "snap") && arg) {
         wzx_win *w = active_win(z);
         if (w && wzx_snappable(z, w))

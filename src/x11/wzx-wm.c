@@ -32,7 +32,7 @@ static const char *const atom_names[A_COUNT] = {
     "_NET_WM_WINDOW_TYPE_SPLASH", "_NET_WM_WINDOW_TYPE_TOOLBAR", "_NET_WM_WINDOW_TYPE_MENU",
     "_NET_WM_WINDOW_TYPE_NOTIFICATION", "_NET_FRAME_EXTENTS", "_NET_WM_STRUT", "_NET_WM_STRUT_PARTIAL",
     "_NET_WM_NAME", "_NET_WM_PID", "_NET_WM_CM_S0", "UTF8_STRING", "WM_STATE", "WM_DELETE_WINDOW",
-    "WM_PROTOCOLS", "_WMAKE_ZONES_RESTORE", "_WMAKE_ZONES_ZONE", "_WMAKE_ZONES_STATE",
+    "WM_PROTOCOLS", "_WMAKE_ZONES_RESTORE", "_WMAKE_ZONES_ZONE", "_WMAKE_ZONES_STATE", "_WMAKE_ZONES_FREE", "_WMAKE_ZONES_SCROLL", "_NET_WM_MOVERESIZE",
 };
 
 static int
@@ -200,7 +200,7 @@ wzx_monitors_changed(wzx *z)
     for (int i = 0; i < z->nwin; i++) {
         wzx_win *w = z->win[i];
         w->resnap_mon = -1;
-        if (!w->mapped || w->special || w->tiled || wzx_get_zone_prop(z, w) < 0)
+        if (!w->mapped || w->special || w->tiled || w->scrolled || wzx_get_zone_prop(z, w) < 0)
             continue;
         wzx_refresh_geom(z, w);
         int cx = w->outer.x + w->outer.w / 2, cy = w->outer.y + w->outer.h / 2, om = -1;
@@ -220,7 +220,7 @@ wzx_monitors_changed(wzx *z)
      * área útil do mais perto, com o tamanho que couber. */
     for (int i = 0; i < z->nwin; i++) {
         wzx_win *w = z->win[i];
-        if (!w->mapped || w->special || w->tiled || w->resnap_mon >= 0)
+        if (!w->mapped || w->special || w->tiled || w->scrolled || w->resnap_mon >= 0)
             continue;
         int cx = w->outer.x + w->outer.w / 2, cy = w->outer.y + w->outer.h / 2, inside = 0;
         for (int m = 0; m < z->nmon && !inside; m++)
@@ -963,4 +963,81 @@ wzx_wm_snapping(wzx *z, int disable)
             wzx_log("WindowSnapping do Window Maker restaurado");
         }
     }
+}
+
+/* ---- memória do modo livre ------------------------------------------- */
+
+void
+wzx_free_save(wzx *z, wzx_win *w)
+{
+    wzx_refresh_geom(z, w);
+    long zone = wzx_get_zone_prop(z, w);
+    long v[6] = { w->outer.x, w->outer.y, w->outer.w, w->outer.h, zone >= 0 ? zone + 1 : 0,
+                  (long)(w->state & (WS_MAXV | WS_MAXH)) };
+    XChangeProperty(z->dpy, w->client, z->atom[A_WZ_FREE], XA_CARDINAL, 32, PropModeReplace, (unsigned char *)v, 6);
+    w->free_state = 1;
+}
+
+int
+wzx_free_has(wzx *z, wzx_win *w)
+{
+    if (!w->free_state) {
+        wz_rect r;
+        w->free_state = wzx_free_get(z, w, &r, NULL, NULL) ? 1 : 2;
+    }
+    return w->free_state == 1;
+}
+
+int
+wzx_free_get(wzx *z, wzx_win *w, wz_rect *r, long *zone, unsigned *state)
+{
+    long v[6];
+    if (get_cardinals(z, w->client, z->atom[A_WZ_FREE], XA_CARDINAL, v, 6) != 6)
+        return 0;
+    *r = (wz_rect){ (int)(int32_t)v[0], (int)(int32_t)v[1], (int)v[2], (int)v[3] };
+    if (zone)
+        *zone = v[4] - 1;
+    if (state)
+        *state = (unsigned)v[5] & (WS_MAXV | WS_MAXH);
+    return r->w > 0 && r->h > 0;
+}
+
+int
+wzx_free_restore(wzx *z, wzx_win *w)
+{
+    wz_rect r;
+    long zone;
+    unsigned st;
+    if (w->free_state == 2 || !wzx_free_get(z, w, &r, &zone, &st)) {
+        w->free_state = 2;
+        return 0;
+    }
+    XDeleteProperty(z->dpy, w->client, z->atom[A_WZ_FREE]);
+    w->free_state = 2;
+    wzx_move_outer(z, w, r);
+    if (zone >= 0)
+        wzx_set_zone_prop(z, w, zone);
+    else
+        XDeleteProperty(z->dpy, w->client, z->atom[A_WZ_ZONE]);
+    if (st)
+        send_state(z, w, 1, st & WS_MAXV ? z->atom[A_NET_WM_STATE_MAXIMIZED_VERT] : None,
+                   st & WS_MAXH ? z->atom[A_NET_WM_STATE_MAXIMIZED_HORZ] : None);
+    return 1;
+}
+
+int
+wzx_wm_supports(wzx *z, Atom a)
+{
+    Atom rt;
+    int fmt;
+    unsigned long n = 0, after;
+    unsigned char *d = NULL;
+    int found = 0;
+    if (XGetWindowProperty(z->dpy, z->root, z->atom[A_NET_SUPPORTED], 0, 4096, False, XA_ATOM, &rt, &fmt, &n, &after,
+                           &d) == Success && d && fmt == 32)
+        for (unsigned long i = 0; i < n && !found; i++)
+            found = ((Atom *)d)[i] == a;
+    if (d)
+        XFree(d);
+    return found;
 }

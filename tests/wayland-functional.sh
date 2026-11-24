@@ -198,6 +198,12 @@ fi
 "$WZ" autotile off >/dev/null
 sleep 1
 check "mosaico desligado: ninguém no mosaico" '"$WZ" status | grep -q "tiled=0"'
+# Memória por modo: a janela encaixada volta para a zona dela, não para o
+# tamanho de antes do encaixe (que continua para o "restore").
+check "Z -> M -> Z: alvo volta para a zona 2 ($(box alvo))" '[ "$(box alvo)" = "512,0,512,704" ] && [ "$(zone alvo)" = 1 ]'
+"$WZ" restore-all >/dev/null
+sleep 0.8
+check "restore-all: alvo volta ao tamanho de antes do encaixe ($(box alvo) vs $B0)" '[ "$(zone alvo)" = -1 ] && [ "$(box alvo | cut -d, -f3,4)" = "$(echo "$B0" | cut -d, -f3,4)" ]'
 "$WZ" preview 'H(1,2,1)' >/dev/null
 check "prévia aceita" 'true'
 

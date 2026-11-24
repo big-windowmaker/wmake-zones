@@ -6,6 +6,13 @@ if have_x11
   test('x11-functional', x11_func, args: [meson.project_build_root()], protocol: 'tap', timeout: 240,
        is_parallel: false)
 endif
+x11_scroll = find_program('x11-scroll.sh')
+if have_x11
+  # Rolagem, memória por modo (Z/M/R/desligado) e arrasto que mantém o
+  # tamanho, com o wmaker de verdade.
+  test('x11-scroll', x11_scroll, args: [meson.project_build_root()], protocol: 'tap', timeout: 240,
+       is_parallel: false)
+endif
 x11_multi = find_program('x11-multimonitor.sh')
 if have_x11
   # Dois heads num Xephyr (pulado sem Xephyr): Xinerama, Dock, janela que
@@ -31,6 +38,10 @@ endif
 if have_x11
   wl_func = find_program('wayland-functional.sh')
   test('wayland-functional', wl_func, args: [meson.project_build_root()], protocol: 'tap', timeout: 300,
+       is_parallel: false, suite: 'wayland')
+  wl_scroll = find_program('wayland-scroll.sh')
+  # Rolagem, memória por modo e Ctrl+Alt dentro do wlmaker.
+  test('wayland-scroll', wl_scroll, args: [meson.project_build_root()], protocol: 'tap', timeout: 300,
        is_parallel: false, suite: 'wayland')
 endif
 # Tradução: POTFILES completo, POT em dia com o código, catálogos válidos.

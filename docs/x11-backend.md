@@ -114,3 +114,35 @@ mudam; uma troca de zonas só redesenha.
 Com as zonas ligadas, o `WindowSnapping` do wmaker (prévia própria nas bordas
 e maximizar pela metade ao soltar) é desligado com `wdwrite`; o valor do
 usuário volta quando as zonas desligam.
+
+## Rolagem e memória por modo (0.5)
+
+* `wzx-scroll.c`: as janelas elegíveis do mosaico viram colunas, uma faixa
+  por monitor (nome) e área de trabalho; ao entrar, na ordem da tela e com
+  a largura que tinham.
+* Colunas fora da visualização ficam estacionadas à direita da raiz
+  (`DisplayWidth + 256`): mapeadas, sem aparecer como minimizadas e fora
+  de todos os monitores. Com monitores lado a lado, nada vaza para o
+  vizinho, com ou sem compositor (não há recorte de janela no X11 sem
+  compositor; por isso só colunas inteiras aparecem).
+* `_NET_ACTIVE_WINDOW` numa janela estacionada (Alt+Tab, lista do Window
+  Maker) rola a faixa até ela.
+* A faixa fica em `_WMAKE_ZONES_SCROLL` na raiz; a memória do modo livre em
+  `_WMAKE_ZONES_FREE` em cada janela (posição, tamanho, zona e
+  maximização). As duas sobrevivem a um reinício do serviço na sessão.
+* Sair da Rolagem, encerrar o serviço (`quit`, SIGTERM) ou desligar tudo
+  devolve cada janela à memória livre; uma janela aberta durante a Rolagem
+  volta para a tela, centralizada.
+* Hotplug: as janelas da faixa não entram na regra "fora de todos os
+  monitores volta para o mais perto"; a faixa se refaz.
+
+## Ctrl+Alt (DragModifier)
+
+Uma grab passiva na raiz para os botões 1 e 3 com o modificador (e as
+variantes de Num/Caps Lock): a grab mais externa vence, então o clique não
+chega ao aplicativo. O serviço solta a grab e pede ao Window Maker
+`_NET_WM_MOVERESIZE` (mover, ou redimensionar pelo canto do terço em que o
+ponteiro está); o movimento é o do próprio Window Maker, e o arrasto das
+zonas o acompanha como num arrasto pela barra de título. Funciona enquanto
+o serviço roda (qualquer modo, ou `KeepRunning`); desligado, vale o
+`ModifierKey` do Window Maker (Alt+arrastar).

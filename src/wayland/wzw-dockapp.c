@@ -60,6 +60,9 @@ typedef struct {
     char *cfg_path;
     wz_theme theme;
     char layout[128];   /* layout em efeito no primeiro monitor (status) */
+    /* Rolagem: faixa do primeiro monitor (status: strip= e widths=). */
+    int ncol, active, nleft, nright;
+    int widths[WZ_SCROLL_MAX_COLS];
     int quit;
 } app;
 
@@ -87,7 +90,7 @@ static const struct {
     char c;
     unsigned char rows[5];
 } glyphs[] = {
-    { 'M', { 5, 7, 7, 5, 5 } }, { 'Z', { 7, 1, 2, 4, 7 } },
+    { 'M', { 5, 7, 7, 5, 5 } }, { 'Z', { 7, 1, 2, 4, 7 } }, { 'R', { 6, 5, 6, 5, 5 } },
 };
 
 static void
@@ -104,13 +107,14 @@ pixtext(cairo_t *cr, const char *s, double x, double y, unsigned c, double sc)
     cairo_fill(cr);
 }
 
-/* Fileira de baixo, como no dockapp do X11: seta, Z, M, seta. */
+/* Fileira de baixo, como no dockapp do X11: seta, Z, M, R, seta. */
 #define ROW_Y 45
 #define ROW_H 14
-enum { HIT_NONE, HIT_PREV, HIT_Z, HIT_M, HIT_NEXT };
+enum { HIT_NONE, HIT_PREV, HIT_Z, HIT_M, HIT_R, HIT_NEXT };
 static const struct {
     int x, w;
-} row_btn[] = { [HIT_PREV] = { 4, 9 }, [HIT_Z] = { 14, 17 }, [HIT_M] = { 33, 17 }, [HIT_NEXT] = { 51, 9 } };
+} row_btn[] = { [HIT_PREV] = { 3, 8 },  [HIT_Z] = { 13, 12 }, [HIT_M] = { 26, 12 },
+                [HIT_R] = { 39, 12 },   [HIT_NEXT] = { 53, 8 } };
 
 static int
 row_hit(double x, double y)
@@ -173,9 +177,9 @@ draw_windows(app *a, cairo_t *cr, wz_rect box)
 
 /* Tecla com LED: afundada e escura apagada, acesa com a letra escura. */
 static void
-led_key(cairo_t *cr, double x, double y, const char *letter, int lit, unsigned color)
+led_key(cairo_t *cr, double x, double y, double w, const char *letter, int lit, unsigned color)
 {
-    const double w = 17, h = 14;
+    const double h = 14;
     rgb(cr, lit ? color : 0x2a2e33);
     cairo_rectangle(cr, x + 1, y + 1, w - 2, h - 2);
     cairo_fill(cr);
@@ -186,6 +190,45 @@ led_key(cairo_t *cr, double x, double y, const char *letter, int lit, unsigned c
         cairo_fill(cr);
     }
     pixtext(cr, letter, x + (w - 6) / 2 + 1, y + 2, lit ? 0x101010 : 0x7a7e84, 2);
+}
+
+/* Rolagem: as colunas na proporção das larguras, a ativa acesa e traços
+ * nas bordas com colunas escondidas ali; sem faixa ainda, três de exemplo. */
+static void
+draw_strip(app *a, cairo_t *cr, wz_rect box)
+{
+    int ncol = a->ncol, active = a->active, nl = a->nleft, nr = a->nright;
+    int ex[3] = { 2, 3, 2 };
+    const int *w = a->widths;
+    if (ncol <= 0) {
+        ncol = 3, active = 1, nl = nr = 0;
+        w = ex;
+    }
+    int first = nl, last = ncol - 1 - nr;
+    if (last - first + 1 > 6) {
+        first = active - 2 < nl ? nl : active - 2;
+        last = first + 5 > ncol - 1 - nr ? ncol - 1 - nr : first + 5;
+    }
+    double tot = 0;
+    for (int c = first; c <= last; c++)
+        tot += w[c] > 0 ? w[c] : 1;
+    double margin = 4, gap = 2, x = box.x + margin;
+    double avail = box.w - 2 * margin - gap * (last - first);
+    for (int c = first; c <= last; c++) {
+        double cw = tot > 0 ? avail * (w[c] > 0 ? w[c] : 1) / tot : 4;
+        rgb(cr, c == active ? 0x7fb0e0 : 0xc2c0c5);
+        cairo_rectangle(cr, x, box.y + 2, cw, box.h - 4);
+        cairo_fill(cr);
+        if (cw >= 4)
+            bevel(cr, x, box.y + 2, cw, box.h - 4, 1);
+        x += cw + gap;
+    }
+    rgb(cr, 0x7fb0e0);
+    for (int i = 0; i < nl && i < 3; i++)
+        cairo_rectangle(cr, box.x + i, box.y + box.h / 2.0 - 3, 1, 6);
+    for (int i = 0; i < nr && i < 3; i++)
+        cairo_rectangle(cr, box.x + box.w - 1 - i, box.y + box.h / 2.0 - 3, 1, 6);
+    cairo_fill(cr);
 }
 
 static void
@@ -226,6 +269,8 @@ draw_face(app *a, cairo_t *cr, int W, int H)
         }
     } else if (m == WZ_MODE_TILING) {
         draw_windows(a, cr, (wz_rect){ 8, 8, 48, 30 });
+    } else if (m == WZ_MODE_SCROLL) {
+        draw_strip(a, cr, (wz_rect){ 8, 8, 48, 30 });
     } else {
         rgb(cr, 0x5e6066);
         cairo_rectangle(cr, 26, 16, 4, 14);
@@ -233,8 +278,9 @@ draw_face(app *a, cairo_t *cr, int W, int H)
         cairo_fill(cr);
     }
     arrow_key(cr, HIT_PREV, m != WZ_MODE_OFF);
-    led_key(cr, row_btn[HIT_Z].x, ROW_Y, "Z", m == WZ_MODE_ZONES, 0x58d858);
-    led_key(cr, row_btn[HIT_M].x, ROW_Y, "M", m == WZ_MODE_TILING, 0xf0b030);
+    led_key(cr, row_btn[HIT_Z].x, ROW_Y, row_btn[HIT_Z].w, "Z", m == WZ_MODE_ZONES, 0x58d858);
+    led_key(cr, row_btn[HIT_M].x, ROW_Y, row_btn[HIT_M].w, "M", m == WZ_MODE_TILING, 0xf0b030);
+    led_key(cr, row_btn[HIT_R].x, ROW_Y, row_btn[HIT_R].w, "R", m == WZ_MODE_SCROLL, 0x58a8f0);
     arrow_key(cr, HIT_NEXT, m != WZ_MODE_OFF);
     cairo_restore(cr);
 }
@@ -298,8 +344,31 @@ query_layout(app *a)
 {
     char out[4096];
     a->layout[0] = 0;
+    a->ncol = 0;
     if (wz_ipc_request_session("status", out, sizeof out) != 0)
         return;
+    const char *sp = strstr(out, "strip=");
+    if (sp) {
+        const char *q = strstr(sp, " columns=");
+        if (q && sscanf(q, " columns=%d active=%d left=%d right=%d", &a->ncol, &a->active, &a->nleft,
+                        &a->nright) == 4) {
+            a->active--;
+            const char *wl = strstr(sp, "widths=");
+            int k = 0;
+            for (const char *c = wl ? wl + 7 : NULL; c && *c && *c != '\n' && k < WZ_SCROLL_MAX_COLS; k++) {
+                a->widths[k] = atoi(c);
+                c = strpbrk(c, ",\n");
+                if (!c || *c == '\n')
+                    break;
+                c++;
+            }
+            /* Sem as larguras de todas as colunas, a prévia não confia nelas. */
+            if (a->ncol > WZ_SCROLL_MAX_COLS || a->ncol > k + 1 || a->active < 0 || a->active >= a->ncol)
+                a->ncol = 0;
+        } else {
+            a->ncol = 0;
+        }
+    }
     const char *p = strstr(out, " layout=");
     if (!p)
         return;
@@ -330,6 +399,11 @@ cycle(app *a, int step)
     if (wz_config_mode(&a->cfg) == WZ_MODE_TILING) {
         /* No Mosaico, a roda e as setas trocam o algoritmo. */
         command(a, step < 0 ? "algorithm prev" : "algorithm next");
+        return;
+    }
+    if (wz_config_mode(&a->cfg) == WZ_MODE_SCROLL) {
+        /* Na Rolagem, andam entre as colunas. */
+        command(a, step < 0 ? "scroll left" : "scroll right");
         return;
     }
     command(a, step < 0 ? "layout prev" : "layout next");
@@ -405,6 +479,11 @@ p_enter(void *data, struct wl_pointer *p, uint32_t serial, struct wl_surface *s,
     app *a = data;
     a->pointer_inside = s == a->surface;
     pointer_at(a, x, y);
+    /* A faixa muda sem mexer no arquivo (janelas, foco): o status de agora. */
+    if (a->pointer_inside && wz_config_mode(&a->cfg) == WZ_MODE_SCROLL) {
+        query_layout(a);
+        redraw(a);
+    }
 }
 
 static void
@@ -419,8 +498,9 @@ p_motion(void *data, struct wl_pointer *p, uint32_t t, wl_fixed_t x, wl_fixed_t 
     pointer_at(data, x, y);
 }
 
-/* Teclas da fileira de baixo: setas trocam o layout (Zonas) ou o algoritmo
- * (Mosaico); Z e M escolhem o modo, e a acesa desliga. */
+/* Teclas da fileira de baixo: setas trocam o layout (Zonas), o algoritmo
+ * (Mosaico) ou a coluna (Rolagem); Z, M e R escolhem o modo, e a acesa
+ * desliga. */
 static int
 row_click(app *a)
 {
@@ -433,6 +513,8 @@ row_click(app *a)
         command(a, m == WZ_MODE_ZONES ? "mode off" : "mode zones");
     } else if (hit == HIT_M) {
         command(a, m == WZ_MODE_TILING ? "mode off" : "mode tiling");
+    } else if (hit == HIT_R) {
+        command(a, m == WZ_MODE_SCROLL ? "mode off" : "mode scroll");
     }
     return hit != HIT_NONE;
 }

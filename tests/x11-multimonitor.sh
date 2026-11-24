@@ -152,6 +152,29 @@ check "segundo monitor com três colunas" '[[ "$(geom B1)" == 426x800+* || "$(ge
 check "primeiro monitor refeito: A3 sozinha agora cabe e entra no mosaico (tela toda)" \
 	'[ "$(tiled A3)" = tiled=1 ] && [[ "$(geom A3)" == 1280x800+0+0 ]]'
 
+# 5. Rolagem nos dois monitores: uma faixa em cada; as colunas fora da
+#    visualização ficam fora dos dois monitores (x >= 2560), nunca no
+#    vizinho; voltar às Zonas traz todas de volta para a tela.
+"$WZ" mode scroll >/dev/null
+open_win A4 400x300+200+200
+open_win A5 400x300+250+250
+open_win B3 400x300+1600+250
+open_win B4 400x300+1650+300
+settle 2
+check "duas faixas, uma por monitor ($("$WZ" status | grep -c '^strip='))" '[ "$("$WZ" status | grep -c "^strip=")" = 2 ]'
+# Visível: dentro do monitor dele; estacionada: x >= 2560.
+leaks=$("$WZ" windows -l | awk -F'\t' '{ split($4, g, /[x+]/); w = g[1]; x = g[3];
+	if (x >= 2560) next;
+	if ($1 == "?" ) { print $6; next }
+	if (x < 1280 && x + w > 1280) print $6 }')
+check "nenhuma janela atravessa a divisa dos monitores nem fica sem monitor (${leaks:-nenhuma})" '[ -z "$leaks" ]'
+parked=$("$WZ" status | sed -n 's/.*parked=\([0-9]*\).*/\1/p')
+check "colunas demais em um monitor ficam estacionadas ($parked)" '[ "${parked:-0}" -ge 1 ]'
+"$WZ" mode zones >/dev/null
+settle 1.5
+off=$("$WZ" windows -l | awk -F'\t' '{ split($4, g, /[x+]/); if (g[3] >= 2560) print $6 }')
+check "Zonas de novo: todas na tela (${off:-nenhuma fora})" '[ -z "$off" ]'
+
 check "o serviço continua no ar" '"$WZ" status >/dev/null 2>&1'
 echo "1..$n"
 [ "$fails" = 0 ]

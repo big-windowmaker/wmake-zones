@@ -104,58 +104,72 @@ look() {
 	python3 -I -c 'import sys
 from PIL import Image
 px = {c for _n, c in Image.open(sys.argv[1]).convert("RGB").getcolors(64 * 64)}
-print(" ".join(k for k, c in (("Z", (0x58, 0xd8, 0x58)), ("M", (0xf0, 0xb0, 0x30)),
+print(" ".join(k for k, c in (("Z", (0x58, 0xd8, 0x58)), ("M", (0xf0, 0xb0, 0x30)), ("R", (0x58, 0xa8, 0xf0)),
                               ("tela", (0x20, 0xb2, 0xac)), ("meia", (0x00, 0x49, 0x41)),
                               ("amarelo", (0xff, 0xff, 0x00))) if c in px))' "$TMP/t.png"
 }
 
 check "Zonas: LED Z aceso e as zonas na tela ($(look))" '[ "$(look)" = "Z tela meia" ]'
-press 41 51
+press 32 51
 check "tecla M: modo Mosaico ($(mode))" '[ "$(mode)" = tiling ]'
 check "Mosaico: LED M aceso e as janelas na tela ($(look))" '[ "$(look)" = "M tela meia" ]'
 press 55 51
 check "seta ▶ no Mosaico: o algoritmo seguinte ($(algo))" '[ "$(algo)" = grid ]'
 press 8 51
 check "seta ◀: volta ao anterior ($(algo))" '[ "$(algo)" = master ]'
-press 41 51
+press 32 51
 check "M aceso: desliga ($(mode))" '[ "$(mode)" = off ]'
 check "desligado: nenhum LED, só a pausa na tela ($(look))" '[ "$(look)" = "tela" ]'
 a=$(algo)
 press 55 51
 check "seta com tudo desligado não faz nada" '[ "$(mode)" = off ] && [ "$(algo)" = "$a" ]'
-press 22 51
+press 20 51
 check "tecla Z: modo Zonas ($(mode))" '[ "$(mode)" = zones ]'
 l0=$("$WZ" status | sed -n 's/^layout=//p' | head -1)
 press 55 51
 check "seta ▶ nas Zonas: o layout seguinte" '[ "$("$WZ" status | sed -n "s/^layout=//p" | head -1)" != "$l0" ]'
 press 32 20
-check "clique na tela: alterna Zonas e Mosaico (clique esquerdo padrão) ($(mode))" '[ "$(mode)" = tiling ]'
+check "clique na tela: Zonas -> Mosaico (clique esquerdo padrão) ($(mode))" '[ "$(mode)" = tiling ]'
+press 32 20
+check "clique na tela: Mosaico -> Rolagem ($(mode))" '[ "$(mode)" = scroll ]'
+check "Rolagem: LED R aceso e as colunas na tela ($(look))" '[ "$(look)" = "R tela meia" ]'
+press 44 51
+check "R aceso: desliga ($(mode))" '[ "$(mode)" = off ]'
+press 44 51
+check "tecla R: modo Rolagem ($(mode))" '[ "$(mode)" = scroll ]'
+"$WZ" mode tiling >/dev/null; sleep 0.4
 check "o serviço continua no ar" '"$WZ" status >/dev/null 2>&1'
 
 # As bordas de cada tecla (coordenadas do quadro de 64; o ladrilho de 60 fica
 # em +2,+2): a área clicável é a desenhada, e as teclas que chegam à borda
-# do ladrilho (3 px) são delas, não do Window Maker. Z 16..31, M 32..47,
-# ◀ 4..12, ▶ 51..59; a fileira, y 46..59.
+# do ladrilho (3 px) são delas, não do Window Maker. Z 14..25, M 26..37,
+# R 38..49, ◀ 4..11, ▶ 52..59; a fileira, y 46..59.
 "$WZ" mode zones >/dev/null
 sleep 0.4
 # O Window Maker reacomoda o ícone solto depois de abri-lo (2 px): aqui cada
 # pixel conta, então a posição de agora.
 read -r tx ty < <(find_tile)
 check "quadro do ladrilho, já assentado ($tx,$ty)" '[ -n "${tx:-}" ]'
-press 32 59
-check "M, canto de baixo à esquerda (32,59): Mosaico ($(mode))" '[ "$(mode)" = tiling ]'
-press 47 46
-check "M, canto de cima à direita (47,46): desliga ($(mode))" '[ "$(mode)" = off ]'
-press 31 59
-check "Z, último pixel (31,59; antes era do M): Zonas ($(mode))" '[ "$(mode)" = zones ]'
-press 16 46
-check "Z, primeiro pixel (16,46): desliga ($(mode))" '[ "$(mode)" = off ]'
-press 31 46
-check "Z (31,46): Zonas de novo ($(mode))" '[ "$(mode)" = zones ]'
+press 26 59
+check "M, canto de baixo à esquerda (26,59): Mosaico ($(mode))" '[ "$(mode)" = tiling ]'
+press 37 46
+check "M, canto de cima à direita (37,46): desliga ($(mode))" '[ "$(mode)" = off ]'
+press 25 59
+check "Z, último pixel (25,59; antes era do M): Zonas ($(mode))" '[ "$(mode)" = zones ]'
+press 14 46
+check "Z, primeiro pixel (14,46): desliga ($(mode))" '[ "$(mode)" = off ]'
+press 25 46
+check "Z (25,46): Zonas de novo ($(mode))" '[ "$(mode)" = zones ]'
 l0=$("$WZ" status | sed -n 's/^layout=//p' | head -1)
 press 59 59
 l1=$("$WZ" status | sed -n 's/^layout=//p' | head -1)
 check "▶ no último pixel (59,59; na borda do ladrilho): o layout seguinte ($l0 -> $l1)" '[ "$l1" != "$l0" ]'
+press 49 59
+check "R, último pixel (49,59): Rolagem ($(mode))" '[ "$(mode)" = scroll ]'
+press 38 46
+check "R, primeiro pixel (38,46): desliga ($(mode))" '[ "$(mode)" = off ]'
+press 25 46
+
 press 4 46
 l2=$("$WZ" status | sed -n 's/^layout=//p' | head -1)
 check "◀ no primeiro pixel (4,46; na borda): volta ($l2)" '[ "$l2" = "$l0" ]'

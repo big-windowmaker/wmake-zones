@@ -69,11 +69,32 @@ o mesmo núcleo estático e o mesmo arquivo de configuração do X11.
 `wmake-zones-wl`: cliente do protocolo de ícones do wlmaker
 (`zwlmaker_icon_manager_v1`), sem XWayland, no Dock do wlmaker
 (`Dock.Dockapps` do `State.plist` do Big WindowMaker). Desenho igual ao do
-X11 (miniatura do layout em efeito e as teclas Z e M); clique esquerdo
-alterna Zonas e Mosaico, o do meio desliga e religa, a roda troca o layout
-e pede ao wlmaker uma prévia breve das zonas, o direito abre o menu do
+X11 (miniatura do layout em efeito, as janelas do mosaico ou as colunas da
+faixa, e as teclas Z, M e R); clique esquerdo passa por Zonas, Mosaico e
+Rolagem, o do meio desliga e religa, a roda troca o layout (ou o algoritmo,
+ou a coluna) e pede ao wlmaker uma prévia breve das zonas, o direito abre o menu do
 wlmaker com as ações do `Dockapps.plist` (0105, 0115). O estado vem do
 arquivo de configuração por inotify e o layout em efeito, do `status`.
+
+## Rolagem e memória por modo (0.5)
+
+* A Rolagem fica no mesmo módulo (`zones.c`): uma faixa (`wz_scroll` do
+  núcleo) por saída e área de trabalho; as janelas elegíveis são as do
+  mosaico. Colunas fora da visualização vão para depois da caixa do
+  `wlr_output_layout` (+256 px): nenhuma saída as mostra.
+* A ativação de uma janela (`wlmtk_window_events_t::set_activated`, um
+  ouvinte por janela, desligado ao desmapear e ao destruir o módulo) rola a
+  faixa até ela.
+* Memória do modo livre em `zones_window_t` (`free_box`, `free_zone`,
+  `free_max`): guardada ao entrar no mosaico ou na Rolagem, devolvida ao
+  voltar às Zonas ou desligar.
+* `wlmtk_window_set_drag_modifier()` no toolkit: com `DragModifier`, o
+  botão esquerdo começa um movimento e o direito um redimensionamento pela
+  borda mais perto; o workspace também encerra o movimento ou o
+  redimensionamento quando o botão direito é solto.
+* Soltar uma janela da faixa a põe entre as colunas sob o ponteiro;
+  redimensioná-la muda a largura da coluna (lida 150 ms depois, como no
+  mosaico).
 
 ## Diferenças em relação ao X11
 

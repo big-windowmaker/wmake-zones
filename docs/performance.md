@@ -5,6 +5,33 @@ Medições da versão 0.3.0, de 2026-11-05, num Xvfb 1920×1080 com o Window Mak
 wlroots com o renderizador pixman (`tests/wayland-functional.sh` e os
 roteiros da mesma pasta). Valores do ambiente de teste, não de hardware real.
 
+## 0.5.0 (2026-11-24): Rolagem e memória por modo
+
+Medido com `tests/perf-x11.sh` na mesma máquina, duas a três execuções de
+cada versão (Xvfb, Window Maker de verdade):
+
+| Medida | 0.4.1 | 0.5.0 |
+|---|---|---|
+| PSS em repouso | 804–809 KiB | 844–869 KiB |
+| PSS depois do overlay e de 20 / 60 ciclos | 3017–3018 KiB, estável | 3056–3064 KiB, estável |
+| Acordadas e tiques em 10 s de repouso | 0 / 0 | 0 / 0 |
+| Ligar o mosaico, 10 / 30 / 50 janelas | 1,4–3,1 / 5,1–5,8 / 7,5–7,6 ms | 5,0–6,6 / 6,7–8,3 / 9,9–12,8 ms |
+| Overlay das zonas / painel de layouts | 12,9–13,5 / 2,8–3,2 ms | 12,1–12,4 / 2,9–3,4 ms |
+| Encaixe | 23–27 µs | 20–22 µs |
+
+* Repouso: +40 a +60 KiB (código da Rolagem e as 64 faixas em memória).
+* Ligar o mosaico: cada janela que entra guarda a memória do modo livre
+  (geometria e zona, idas ao servidor X) uma vez por troca de modo; depois
+  disso a rodada do mosaico custa o mesmo de antes (a presença da memória
+  fica em cache na janela). Abaixo de um quadro de 16 ms com 50 janelas.
+* A faixa (`wz_scroll_layout`) é linear no número de colunas; 3000
+  operações aleatórias com verificação completa rodam em menos de 20 ms no
+  teste do núcleo.
+* ASan + UBSan: núcleo, `x11-functional`, `x11-scroll`, `x11-multimonitor`,
+  `wayland-functional` e `wayland-scroll` sem erro (no wlmaker com ASan, um
+  uso depois de liberar ao sair do compositor foi achado e corrigido antes
+  da versão: os ouvintes de ativação são desligados ao destruir o módulo).
+
 ## X11 (serviço `wmake-zones`)
 
 | Medida | 0.2.0 | 0.3.0 |
