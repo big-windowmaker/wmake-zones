@@ -194,14 +194,15 @@ sleep 0.8
 around a2
 c2=$(changed a0 a2)
 check "soltar fora do menu o fecha ($c2 pontos diferentes)" '[ "$c2" -lt 2000 ]'
-# Arrastar o ladrilho solto até a coluna do Dock (no canto de cima, à
-# direita, só com o ícone principal): ele entra no Dock.
-xdotool mousemove $((tx + 32)) $((ty + 20))
+# Arrastar o ladrilho solto pela borda (o vão entre a tela e as teclas, que
+# é do Window Maker) até a coluna do Dock (no canto de cima, à direita, só
+# com o ícone principal): ele entra no Dock.
+xdotool mousemove $((tx + 32)) $((ty + 45))
 sleep 0.3
 xdotool mousedown 1
 sleep 0.2
 for i in $(seq 1 30); do
-	xdotool mousemove $((tx + 32 + (992 - tx - 32) * i / 30)) $((ty + 20 + (84 - ty - 20) * i / 30))
+	xdotool mousemove $((tx + 32 + (992 - tx - 32) * i / 30)) $((ty + 45 + (84 - ty - 45) * i / 30))
 	sleep 0.06
 done
 sleep 0.3
@@ -218,7 +219,7 @@ for m in re.finditer(r"(0x[0-9a-f]+) .*?\s(\d+)x(\d+)\+(-?\d+)\+(-?\d+)", out):
             print(x, y)
 PY
 )
-check "arrastar o ladrilho até a coluna do Dock: ele entra no Dock (${docked:-não entrou})" '[ -n "$docked" ]'
+check "arrastar o ladrilho pela borda até a coluna do Dock: ele entra no Dock (${docked:-não entrou})" '[ -n "$docked" ]'
 [ -n "$docked" ] && read -r tx ty <<<"$docked"
 mode_before=$(mode)
 press 32 20
