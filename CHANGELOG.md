@@ -1,5 +1,21 @@
 # Mudanças
 
+## 0.5.1 — 2026-11-24
+
+Visual novo do ladrilho do Dock, igual no X11 e no Wayland.
+
+- **Dockapp**: corpo grafite, tela escura e as regiões em ciano: as zonas
+  numeradas com contorno tracejado, as janelas do mosaico, as colunas da
+  Rolagem (a ativa clara, um pedaço de coluna com seta de cada lado quando
+  há colunas escondidas). As teclas Z, M e R acendem na cor do modo: Z
+  verde, M amarelo, R azul-claro. As setas da fileira saíram: a roda e o
+  menu trocam layout, algoritmo e coluna. O do wlmaker não segue mais as
+  cores do tema, para ficar igual ao do X11.
+- Um clique no vão entre as teclas não troca mais o modo.
+- Rolagem no X11: uma janela que abre depois de rolar sem foco
+  (`scroll view-left`/`view-right`) traz a visualização de volta para ela;
+  antes ficava ativa fora da tela.
+
 ## 0.5.0 — 2026-11-24
 
 Um terceiro modo, Rolagem, memória própria em cada modo e mover janelas de
