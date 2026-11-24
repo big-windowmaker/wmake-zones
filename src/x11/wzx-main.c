@@ -133,6 +133,9 @@ wzx_apply_config(wzx *z)
         any_tile = wzx_tile_active_for(z, i);
     if (had_tile && !any_tile)
         wzx_tile_disable_all(z);
+    if (!z->cfg.scroll && wzx_scroll_any(z))
+        wzx_scroll_leave(z, any_tile);
+    any_tile |= z->cfg.scroll;
     wzx_tile_mark(z);
     if (z->ov.shown && z->ov.mode != 3)
         wzx_overlay_hide(z);
@@ -174,6 +177,7 @@ handle_property(wzx *z, XPropertyEvent *e)
                 z->active = (Window)*(long *)d;
             if (d)
                 XFree(d);
+            wzx_scroll_focus_changed(z, z->active);
         }
         return;
     }
@@ -565,7 +569,7 @@ main(int argc, char **argv)
         wzx_dockapp_create(z);
     wzx_apply_config(z);
     z->quit = 0; /* apply_config pode pedir saída; no início vale ficar */
-    if (!z->cfg.zones && !z->cfg.autotile && !z->dockapp && !z->cfg.keep_running && session)
+    if (!z->cfg.zones && !z->cfg.autotile && !z->cfg.scroll && !z->dockapp && !z->cfg.keep_running && session)
         z->quit = 1;
     wzx_log("iniciado (%d monitor(es), XInput2 %s, compositor %s)", z->nmon, z->has_xi ? "sim" : "não",
             wzx_compositing(z) ? "sim" : "não");
@@ -655,7 +659,10 @@ main(int argc, char **argv)
             wzx_drag_timer(z);
     }
 
-    /* Saída limpa: nada de overlay preso, grabs soltos, wmaker como antes. */
+    /* Saída limpa: nada de overlay preso, grabs soltos, wmaker como antes;
+     * nenhuma janela fica estacionada fora da tela. */
+    if (wzx_scroll_any(z))
+        wzx_scroll_leave(z, 0);
     wzx_picker_close(z);
     wzx_overlay_hide(z);
     wzx_keys_ungrab(z);
@@ -676,6 +683,7 @@ main(int argc, char **argv)
     }
     for (int i = 0; i < 64; i++)
         wz_bsp_clear(&z->tset[i].bsp);
+    wzx_scroll_free_all(z);
     for (int i = 0; i < WZX_MAX_ZONES; i++)
         free(z->ov.names[i]);
     wz_config_free(&z->cfg);

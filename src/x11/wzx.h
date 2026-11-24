@@ -12,6 +12,7 @@
 #include "../engine/wz-history.h"
 #include "../engine/wz-layout.h"
 #include "../engine/wz-tile.h"
+#include "../engine/wz-scroll.h"
 #include "../engine/wz-theme.h"
 
 #include <sys/stat.h>
@@ -36,7 +37,7 @@ enum {
     A_NET_WM_WINDOW_TYPE_SPLASH, A_NET_WM_WINDOW_TYPE_TOOLBAR, A_NET_WM_WINDOW_TYPE_MENU,
     A_NET_WM_WINDOW_TYPE_NOTIFICATION, A_NET_FRAME_EXTENTS, A_NET_WM_STRUT, A_NET_WM_STRUT_PARTIAL,
     A_NET_WM_NAME, A_NET_WM_PID, A_NET_WM_CM, A_UTF8_STRING, A_WM_STATE, A_WM_DELETE_WINDOW,
-    A_WM_PROTOCOLS, A_WZ_RESTORE, A_WZ_ZONE, A_WZ_STATE,
+    A_WM_PROTOCOLS, A_WZ_RESTORE, A_WZ_ZONE, A_WZ_STATE, A_WZ_FREE, A_WZ_SCROLL,
     A_COUNT
 };
 
@@ -90,6 +91,10 @@ typedef struct {
     int rule_ignore;      /* regra: fora de tudo (zonas e mosaico) */
     int rule_tile;        /* regra: no mosaico mesmo fixa em todas as áreas, acima... */
     int resnap_mon;       /* monitores mudaram: voltar à zona neste monitor (-1 nada) */
+    /* Rolagem */
+    int scrolled;         /* está numa faixa */
+    int scroll_set;       /* índice em wzx.sset */
+    int parked;           /* fora da visualização (estacionada fora dos monitores) */
 } wzx_win;
 
 typedef enum { DRAG_IDLE = 0, DRAG_ARMED, DRAG_MOVING, DRAG_RESIZING } wzx_drag_state;
@@ -199,6 +204,15 @@ struct wzx {
         double ratio;
     } tset[64];
 
+    /* Rolagem: uma faixa por monitor (nome) e área de trabalho */
+    struct wzx_sset {
+        int used;
+        char mon[64];
+        long desk;
+        wz_scroll s;
+        int keep_view;     /* o usuário rolou sem mudar o foco */
+        int nleft, nright; /* colunas escondidas (dockapp) */
+    } sset[64];
     /* histórico (desfazer e refazer) */
     wz_history history;
 
@@ -338,6 +352,27 @@ void wzx_tile_toggle_float(wzx *z, wzx_win *w);
 double *wzx_tile_ratio_of(wzx *z, wzx_win *w);
 void wzx_tile_forget(wzx *z, wzx_win *w);
 
+/* Memória das janelas fora do mosaico e da Rolagem (_WMAKE_ZONES_FREE):
+ * geometria, zona e maximização de quando o modo livre (Zonas ou
+ * desligado) foi deixado; volta quando ele volta. */
+void wzx_free_save(wzx *z, wzx_win *w);
+int wzx_free_restore(wzx *z, wzx_win *w);
+int wzx_free_get(wzx *z, wzx_win *w, wz_rect *r, long *zone, unsigned *state);
+/* wzx-scroll.c */
+void wzx_scroll_run(wzx *z);
+/* Sai da Rolagem: cada janela volta para a memória do modo livre (a menos
+ * que o mosaico vá organizá-la). */
+void wzx_scroll_leave(wzx *z, int to_tiling);
+int wzx_scroll_any(wzx *z);
+/* A janela ativa mudou: a faixa dela rola para mostrá-la. */
+void wzx_scroll_focus_changed(wzx *z, Window active);
+/* Comandos: focus/move/consume/expel/first/last/center/width/view.
+ * Devolve 1 se a janela ativa está numa faixa (o comando foi da Rolagem). */
+int wzx_scroll_cmd(wzx *z, const char *op, const char *arg, char *out, size_t outlen);
+/* Estado da faixa do monitor (dockapp, status): colunas, ativa e
+ * escondidas de cada lado; 0 se não há faixa. */
+int wzx_scroll_info(wzx *z, int mon, int *ncol, int *active, int *nleft, int *nright, int *widths, int max);
+void wzx_scroll_free_all(wzx *z);
 /* wzx-keys.c */
 void wzx_keys_grab(wzx *z);
 void wzx_keys_ungrab(wzx *z);

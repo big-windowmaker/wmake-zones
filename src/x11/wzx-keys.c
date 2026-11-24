@@ -39,6 +39,14 @@ static const char *const key_cmd[WZ_KEY_N] = {
     [WZ_KEY_SHRINK] = "shrink",
     [WZ_KEY_UNDO] = "undo",
     [WZ_KEY_REDO] = "redo",
+    [WZ_KEY_MODE_ZONES] = "mode zones",
+    [WZ_KEY_MODE_TILING] = "mode tiling",
+    [WZ_KEY_MODE_SCROLL] = "mode scroll",
+    [WZ_KEY_SCROLL_FIRST] = "scroll first",
+    [WZ_KEY_SCROLL_LAST] = "scroll last",
+    [WZ_KEY_SCROLL_CENTER] = "scroll center",
+    [WZ_KEY_SCROLL_CONSUME] = "column merge",
+    [WZ_KEY_SCROLL_EXPEL] = "column split",
 };
 
 int
