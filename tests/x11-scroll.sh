@@ -135,6 +135,7 @@ xdotool mousemove 700 600; sleep 0.4
 xdotool mouseup 1; sleep 0.8
 eval "$(geom "$W1")"
 check "arrastar não muda o tamanho ajustado (${WIDTH}x$HEIGHT vs ${SW}x$SH)" '[ "$WIDTH" = "$SW" ] && [ "$HEIGHT" = "$SH" ]'
+check "solta fora das zonas: sai da zona" '[ -z "$(prop "$W1" _WMAKE_ZONES_ZONE)" ]'
 "$WZ" restore >/dev/null 2>&1; sleep 0.5
 
 # --- Ctrl+Alt: mover e redimensionar de qualquer ponto da janela ------------

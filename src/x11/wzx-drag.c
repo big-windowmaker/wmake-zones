@@ -357,14 +357,18 @@ finish_move(wzx *z, int px, int py)
         }
         return;
     }
-    /* Solta fora das zonas: uma janela encaixada volta ao tamanho de antes,
-     * com o ponteiro no mesmo ponto relativo da barra de título. */
+    /* Solta fora das zonas: a janela sai da zona com o tamanho que tem
+     * (o último dado pelo usuário). Com RestoreSizeOnUnsnap, volta ao
+     * tamanho de antes do encaixe, com o ponteiro no mesmo ponto relativo
+     * da barra de título. */
     wz_rect pre;
     if (z->cfg.restore_size_on_unsnap && wzx_get_restore(z, w, &pre) && wzx_get_zone_prop(z, w) >= 0) {
         double fx = w->outer.w > 0 ? (double)(px - w->outer.x) / w->outer.w : 0.5;
         wz_rect r = { px - (int)(fx * pre.w), w->outer.y, pre.w, pre.h };
         wzx_clear_restore(z, w);
         wzx_move_outer(z, w, r);
+    } else if (wzx_get_zone_prop(z, w) >= 0) {
+        XDeleteProperty(z->dpy, w->client, z->atom[A_WZ_ZONE]);
     }
 }
 

@@ -39,6 +39,10 @@ if have_x11
   wl_func = find_program('wayland-functional.sh')
   test('wayland-functional', wl_func, args: [meson.project_build_root()], protocol: 'tap', timeout: 300,
        is_parallel: false, suite: 'wayland')
+  wl_scroll = find_program('wayland-scroll.sh')
+  # Rolagem, memória por modo e Ctrl+Alt dentro do wlmaker.
+  test('wayland-scroll', wl_scroll, args: [meson.project_build_root()], protocol: 'tap', timeout: 300,
+       is_parallel: false, suite: 'wayland')
 endif
 # Tradução: POTFILES completo, POT em dia com o código, catálogos válidos.
 po_check = find_program('po-check.sh')
