@@ -256,8 +256,8 @@ draw_pause(wzx *z, wz_rect scr)
 static void
 draw_strip(wzx *z, wz_rect box, int mon)
 {
-    int ncol = 3, active = 1, nl = 0, nr = 0, widths[64] = { 2, 3, 2 };
-    if (!wzx_scroll_info(z, mon, &ncol, &active, &nl, &nr, widths, 64))
+    int ncol = 3, active = 1, nl = 0, nr = 0, widths[WZ_SCROLL_MAX_COLS] = { 2, 3, 2 };
+    if (!wzx_scroll_info(z, mon, &ncol, &active, &nl, &nr, widths, WZ_SCROLL_MAX_COLS))
         ncol = 3, active = 1, nl = nr = 0, widths[0] = 2, widths[1] = 3, widths[2] = 2;
     int first = nl, last = ncol - 1 - nr;
     if (last - first + 1 > 6) { /* no ladrilho cabem poucas */

@@ -192,9 +192,16 @@ wzx_scroll_any(wzx *z)
 void
 wzx_scroll_leave(wzx *z, int to_tiling)
 {
-    for (int i = 0; i < z->nwin; i++)
-        if (z->win[i]->scrolled)
-            unscroll(z, z->win[i], !to_tiling);
+    /* Por janela: só fica para o mosaico quem está num monitor com o
+     * mosaico ligado; nos outros, volta à memória livre (senão ficaria
+     * estacionada fora da tela). */
+    for (int i = 0; i < z->nwin; i++) {
+        wzx_win *w = z->win[i];
+        if (!w->scrolled)
+            continue;
+        int tiles = to_tiling && wzx_tile_active_for(z, member_mon(z, w));
+        unscroll(z, w, !tiles);
+    }
     XFlush(z->dpy);
 }
 
@@ -241,6 +248,11 @@ wzx_scroll_run(wzx *z)
                     ids[j - 1] = ti;
                 }
             wz_scroll_sync(&s->s, ids, n, width, p->insert);
+        }
+        if (s->s.ncol == 0) {
+            /* Faixa vazia: o lugar volta a ficar livre (são 64). */
+            s->used = 0;
+            continue;
         }
         wzx_win *aw = wzx_find(z, z->active);
         if (aw && !s->keep_view)

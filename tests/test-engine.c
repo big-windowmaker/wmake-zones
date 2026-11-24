@@ -863,6 +863,59 @@ test_scroll(void)
             scroll_check(&s, &p, (wz_rect){ 0, 0, 800 + (int)rnd(2000), 600 + (int)rnd(800) }, what);
         }
     }
+    /* Casos da revisão (CodeRabbit). Separar da primeira coluna para a
+     * posição 0 fica no começo, não no fim. */
+    wz_scroll_clear(&s);
+    wz_scroll_insert(&s, 101, 400, WZ_SCROLL_INSERT_COLUMN);
+    wz_scroll_insert(&s, 102, 0, WZ_SCROLL_INSERT_STACK);
+    wz_scroll_insert(&s, 103, 400, WZ_SCROLL_INSERT_COLUMN);
+    CHECK(wz_scroll_move_to(&s, 102, 0) && s.col[0].id[0] == 102 && s.col[1].id[0] == 101 && s.col[2].id[0] == 103,
+          "separar para a posição 0 fica no começo");
+    wz_scroll_clear(&s);
+    wz_scroll_insert(&s, 101, 400, WZ_SCROLL_INSERT_COLUMN);
+    wz_scroll_insert(&s, 102, 0, WZ_SCROLL_INSERT_STACK);
+    wz_scroll_insert(&s, 103, 400, WZ_SCROLL_INSERT_COLUMN);
+    wz_scroll_activate(&s, 102);
+    CHECK(wz_scroll_move(&s, WZ_LEFT, 300) && s.col[0].id[0] == 102 && s.ncol == 3, "mover para a esquerda da primeira coluna: coluna 0");
+    /* No limite de colunas, separar não perde a janela. */
+    wz_scroll_clear(&s);
+    for (long i = 1; i <= WZ_SCROLL_MAX_COLS; i++)
+        wz_scroll_insert(&s, i, 100, WZ_SCROLL_INSERT_COLUMN);
+    wz_scroll_activate(&s, 1);
+    wz_scroll_insert(&s, 9999, 0, WZ_SCROLL_INSERT_STACK);
+    int before_n = wz_scroll_count(&s);
+    CHECK(!wz_scroll_expel(&s, 100) && wz_scroll_count(&s) == before_n && wz_scroll_has(&s, 9999),
+          "no limite, expel recusa e a janela fica");
+    CHECK(!wz_scroll_move(&s, WZ_RIGHT, 100) && wz_scroll_has(&s, 9999), "no limite, mover para fora recusa");
+    CHECK(!wz_scroll_move_to(&s, 9999, 10) && wz_scroll_has(&s, 9999), "no limite, move_to recusa");
+    /* Rolar sem foco chega à última coluna mesmo com uma larga no fim. */
+    wz_scroll_clear(&s);
+    wz_scroll_params q = p;
+    q.gap_in = q.gap_out = 0;
+    wz_scroll_insert(&s, 1, 300, WZ_SCROLL_INSERT_COLUMN);
+    wz_scroll_insert(&s, 2, 300, WZ_SCROLL_INSERT_COLUMN);
+    wz_scroll_insert(&s, 3, 700, WZ_SCROLL_INSERT_COLUMN);
+    wz_scroll_activate(&s, 1);
+    wz_rect a900 = { 0, 0, 900, 600 };
+    wz_scroll_layout(&s, &q, a900, 0, ids, r, vis, 16, &nl, &nr);
+    wz_scroll_view(&s, 1);
+    wz_scroll_layout(&s, &q, a900, 1, ids, r, vis, 16, &nl, &nr);
+    CHECK(s.first == 1, "view-right avança mesmo sem caber a larga (first=%d)", s.first);
+    wz_scroll_view(&s, 1);
+    wz_scroll_layout(&s, &q, a900, 1, ids, r, vis, 16, &nl, &nr);
+    CHECK(s.first == 2 && vis[2], "view-right chega à última coluna (first=%d)", s.first);
+    /* Gaps enormes numa coluna cheia: nenhuma altura negativa. */
+    wz_scroll_clear(&s);
+    wz_scroll_insert(&s, 1, 400, WZ_SCROLL_INSERT_COLUMN);
+    for (long i = 2; i <= 5; i++)
+        wz_scroll_insert(&s, i, 0, WZ_SCROLL_INSERT_STACK);
+    q.gap_in = 200;
+    q.gap_out = 6;
+    int k5 = wz_scroll_layout(&s, &q, (wz_rect){ 0, 0, 1280, 768 }, 0, ids, r, vis, 16, &nl, &nr);
+    int okh = k5 == 5;
+    for (int i = 0; i < k5; i++)
+        okh &= r[i].h > 0 && r[i].y + r[i].h <= 768;
+    CHECK(okh, "gap 200 com cinco janelas: alturas positivas dentro da área");
     long keep[3] = { 41, 42, 43 };
     wz_scroll_sync(&s, keep, 3, 500, WZ_SCROLL_INSERT_COLUMN);
     CHECK(wz_scroll_count(&s) == 3 && wz_scroll_has(&s, 41) && wz_scroll_has(&s, 43), "sync deixa só as dadas");

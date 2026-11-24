@@ -368,6 +368,55 @@ wz_ini_set(const char *path, const char *section, const char *key, const char *v
     return r;
 }
 
+/* Várias chaves da mesma seção numa troca só do arquivo: quem lê no meio
+ * (inotify do dockapp, do wlmaker) nunca vê um estado pela metade. As
+ * edições vão para uma cópia, que substitui o arquivo de uma vez. */
+int
+wz_ini_set_many(const char *path, const char *section, const char *const *keys, const char *const *values, int n)
+{
+    char real[PATH_MAX];
+    const char *target = path;
+    if (realpath(path, real))
+        target = real;
+    char dir[PATH_MAX];
+    snprintf(dir, sizeof dir, "%s", target);
+    char *slash = strrchr(dir, '/');
+    if (slash) {
+        *slash = 0;
+        if (mkdir_p(dir) < 0)
+            return -1;
+    }
+    char lock[PATH_MAX], work[PATH_MAX + 32];
+    if (snprintf(lock, sizeof lock, "%s.lock", target) >= (int)sizeof lock)
+        return -1;
+    snprintf(work, sizeof work, "%s.many.%d", target, (int)getpid());
+    int lfd = open(lock, O_RDWR | O_CREAT | O_CLOEXEC, 0600);
+    if (lfd >= 0)
+        flock(lfd, LOCK_EX);
+    int r = 0, err;
+    char *text = read_file(target, &err);
+    if (!text && err != ENOENT)
+        r = -1;
+    if (r == 0) {
+        int fd = open(work, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
+        size_t len = text ? strlen(text) : 0;
+        if (fd < 0 || (len && write(fd, text, len) != (ssize_t)len))
+            r = -1;
+        if (fd >= 0)
+            close(fd);
+    }
+    free(text);
+    for (int i = 0; r == 0 && i < n; i++)
+        r = ini_set_unlocked(work, section, keys[i], values[i]);
+    if (r == 0 && rename(work, target) != 0)
+        r = -1;
+    if (r != 0)
+        unlink(work);
+    if (lfd >= 0)
+        close(lfd);
+    return r;
+}
+
 static int
 ini_set_unlocked(const char *path, const char *section, const char *key, const char *value)
 {
@@ -994,10 +1043,10 @@ wz_config_set_mode(wz_config *c, const char *path, const char *arg)
     c->autotile = m == WZ_MODE_TILING;
     c->scroll = m == WZ_MODE_SCROLL;
     if (path) {
-        wz_ini_set(path, "General", "Zones", c->zones ? "true" : "false");
-        wz_ini_set(path, "General", "Autotile", c->autotile ? "true" : "false");
-        wz_ini_set(path, "General", "Scroll", c->scroll ? "true" : "false");
-        wz_ini_set(path, "General", "LastMode", wz_mode_name(c->last_mode));
+        static const char *const keys[] = { "Zones", "Autotile", "Scroll", "LastMode" };
+        const char *values[] = { c->zones ? "true" : "false", c->autotile ? "true" : "false",
+                                 c->scroll ? "true" : "false", wz_mode_name(c->last_mode) };
+        wz_ini_set_many(path, "General", keys, values, 4);
     }
     return m;
 }

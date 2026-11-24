@@ -62,7 +62,7 @@ typedef struct {
     char layout[128];   /* layout em efeito no primeiro monitor (status) */
     /* Rolagem: faixa do primeiro monitor (status: strip= e widths=). */
     int ncol, active, nleft, nright;
-    int widths[64];
+    int widths[WZ_SCROLL_MAX_COLS];
     int quit;
 } app;
 
@@ -355,15 +355,16 @@ query_layout(app *a)
             a->active--;
             const char *wl = strstr(sp, "widths=");
             int k = 0;
-            for (const char *c = wl ? wl + 7 : NULL; c && *c && *c != '\n' && k < 64; k++) {
+            for (const char *c = wl ? wl + 7 : NULL; c && *c && *c != '\n' && k < WZ_SCROLL_MAX_COLS; k++) {
                 a->widths[k] = atoi(c);
                 c = strpbrk(c, ",\n");
                 if (!c || *c == '\n')
                     break;
                 c++;
             }
-            if (a->ncol > 64)
-                a->ncol = 64;
+            /* Sem as larguras de todas as colunas, a prévia não confia nelas. */
+            if (a->ncol > WZ_SCROLL_MAX_COLS || a->ncol > k + 1 || a->active < 0 || a->active >= a->ncol)
+                a->ncol = 0;
         } else {
             a->ncol = 0;
         }

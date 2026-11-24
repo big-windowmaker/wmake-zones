@@ -420,9 +420,12 @@ client(int argc, char **argv)
             wz_config c;
             wz_config_defaults(&c);
             wz_config_load(&c, cfgp);
-            int m = wz_config_set_mode(&c, NULL, argv[2]);
+            /* Resolve uma vez (toggle e enable dependem do estado) e grava o
+             * modo resolvido. */
+            wz_config tmp = c;
+            int m = wz_config_set_mode(&tmp, NULL, argv[2]);
             if (m > WZ_MODE_OFF) {
-                wz_config_set_mode(&c, cfgp, argv[2]);
+                wz_config_set_mode(&c, cfgp, wz_mode_name((wz_mode)m));
                 wz_config_free(&c);
                 free(cfgp);
                 free(path);

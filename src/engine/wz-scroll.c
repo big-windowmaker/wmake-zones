@@ -126,6 +126,52 @@ col_delete(wz_scroll *s, int at)
         s->first = s->ncol > 0 ? s->ncol - 1 : 0;
 }
 
+/* Garante espaço para mais uma coluna antes de tirar uma janela de onde
+ * está: uma separação que não consegue criar a coluna não pode perder a
+ * janela no meio do caminho. */
+static int
+reserve_column(wz_scroll *s)
+{
+    if (s->ncol >= WZ_SCROLL_MAX_COLS)
+        return 0;
+    if (s->ncol < s->cap)
+        return 1;
+    int cap = s->cap ? s->cap * 2 : 8;
+    wz_scroll_col *n = realloc(s->col, sizeof *n * (size_t)cap);
+    if (!n)
+        return 0;
+    s->col = n;
+    s->cap = cap;
+    return 1;
+}
+
+/* Coluna nova com a janela na posição at (0..ncol), ativa. */
+static void
+column_at(wz_scroll *s, long id, int width, int at)
+{
+    wz_scroll_col *c = col_insert(s, at);
+    if (!c)
+        return;
+    c->id[0] = id;
+    c->weight[0] = 1.0;
+    c->n = 1;
+    c->active = 0;
+    c->width = width > MIN_COL_W ? width : MIN_COL_W;
+    s->active = at < 0 ? 0 : at > s->ncol - 1 ? s->ncol - 1 : at;
+}
+
+/* Tira a janela da linha r da coluna c, que tem outras (a coluna fica). */
+static void
+take_row(wz_scroll *s, int c, int r)
+{
+    wz_scroll_col *col = &s->col[c];
+    memmove(&col->id[r], &col->id[r + 1], sizeof col->id[0] * (size_t)(col->n - r - 1));
+    memmove(&col->weight[r], &col->weight[r + 1], sizeof col->weight[0] * (size_t)(col->n - r - 1));
+    col->n--;
+    if (col->active > r || col->active >= col->n)
+        col->active = col->active > 0 ? col->active - 1 : 0;
+}
+
 void
 wz_scroll_insert(wz_scroll *s, long id, int width, wz_scroll_insert_mode mode)
 {
@@ -263,12 +309,12 @@ wz_scroll_focus_last(wz_scroll *s)
 int
 wz_scroll_expel(wz_scroll *s, int width)
 {
-    if (s->active < 0 || s->col[s->active].n < 2)
+    if (s->active < 0 || s->col[s->active].n < 2 || !reserve_column(s))
         return 0;
-    wz_scroll_col *c = &s->col[s->active];
-    long id = c->id[c->active];
-    wz_scroll_remove(s, id);
-    wz_scroll_insert(s, id, width, WZ_SCROLL_INSERT_COLUMN);
+    int c = s->active;
+    long id = s->col[c].id[s->col[c].active];
+    take_row(s, c, s->col[c].active);
+    column_at(s, id, width, c + 1);
     return 1;
 }
 
@@ -303,12 +349,14 @@ wz_scroll_move(wz_scroll *s, int dir, int width)
         s->active = o;
         return 1;
     }
-    /* Sai da coluna para uma coluna nova daquele lado. */
+    /* Sai da coluna para uma coluna nova daquele lado (a de origem fica:
+     * tinha outras janelas). */
+    if (!reserve_column(s))
+        return 0;
+    int src = s->active;
     long id = c->id[c->active];
-    int at = s->active;
-    wz_scroll_remove(s, id);
-    s->active = dir == WZ_LEFT ? at - 1 : at; /* insert põe em active + 1 */
-    wz_scroll_insert(s, id, width, WZ_SCROLL_INSERT_COLUMN);
+    take_row(s, src, c->active);
+    column_at(s, id, width, dir == WZ_LEFT ? src : src + 1);
     return 1;
 }
 
@@ -336,10 +384,11 @@ wz_scroll_move_to(wz_scroll *s, long id, int at)
         s->active = at;
         return 1;
     }
+    if (!reserve_column(s))
+        return 0;
     int width = s->col[c].width;
-    wz_scroll_remove(s, id); /* a coluna c continua (tinha outras) */
-    s->active = at - 1;      /* insert põe em active + 1 */
-    wz_scroll_insert(s, id, width, WZ_SCROLL_INSERT_COLUMN);
+    take_row(s, c, r); /* a coluna c continua (tinha outras) */
+    column_at(s, id, width, at);
     return 1;
 }
 
@@ -497,8 +546,9 @@ wz_scroll_layout(wz_scroll *s, const wz_scroll_params *p, wz_rect area, int keep
     int last = first;
     while (last + 1 < s->ncol && fits(s, first, last + 1, usable, gap))
         last++;
-    /* No fim da faixa, sobra espaço: puxa colunas da esquerda. */
-    while (first > 0 && fits(s, first - 1, last, usable, gap))
+    /* No fim da faixa, sobra espaço: puxa colunas da esquerda (só no fim:
+     * no meio, isso desfaria um passo de rolagem). */
+    while (last == s->ncol - 1 && first > 0 && fits(s, first - 1, last, usable, gap))
         first--;
     s->first = first;
     long runw = 0;
@@ -534,7 +584,14 @@ wz_scroll_layout(wz_scroll *s, const wz_scroll_params *p, wz_rect area, int keep
         double tot = 0;
         for (int r = 0; r < col->n; r++)
             tot += col->weight[r] > 0 ? col->weight[r] : 1;
-        int avail = usable_h - gap * (col->n - 1);
+        /* Gaps enormes numa coluna cheia: encolhem antes das janelas, que
+         * nunca ficam com altura negativa. */
+        int gapv = gap;
+        if (col->n > 1 && usable_h - gapv * (col->n - 1) < col->n * 16)
+            gapv = usable_h - col->n * 16 > 0 ? (usable_h - col->n * 16) / (col->n - 1) : 0;
+        int avail = usable_h - gapv * (col->n - 1);
+        if (avail < col->n)
+            avail = col->n;
         double acc = 0;
         int y = area.y + p->gap_out, prev = 0;
         for (int r = 0; r < col->n && k < max; r++) {
@@ -543,9 +600,9 @@ wz_scroll_layout(wz_scroll *s, const wz_scroll_params *p, wz_rect area, int keep
             int h = end - prev;
             prev = end;
             ids[k] = col->id[r];
-            out[k] = (wz_rect){ xs[c], y, w, h };
+            out[k] = (wz_rect){ xs[c], y, w, h > 0 ? h : 1 };
             visible[k] = c >= first && c <= last;
-            y += h + gap;
+            y += h + gapv;
             k++;
         }
     }

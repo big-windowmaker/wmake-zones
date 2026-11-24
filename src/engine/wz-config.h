@@ -180,6 +180,8 @@ const wz_rule *wz_config_match_rule(const wz_config *c, const char *wm_class,
 /* Grava uma chave preservando o resto do arquivo (comentários, outras
  * chaves). value NULL apaga a chave. Escrita atômica. 0 = ok. */
 int wz_ini_set(const char *path, const char *section, const char *key, const char *value);
+/* O mesmo para n chaves da seção, numa substituição só do arquivo. */
+int wz_ini_set_many(const char *path, const char *section, const char *const *keys, const char *const *values, int n);
 
 /* Leitura genérica: cb(section, key, value, ud) para cada par. */
 typedef void (*wz_ini_cb)(const char *section, const char *key, const char *value, void *ud);
