@@ -460,7 +460,7 @@ wzx_tile_run(wzx *z)
             if (!w->tiled) {
                 wz_rect pre;
                 /* Memória do modo livre (Zonas/desligado) ao entrar. */
-                if (!w->scrolled && !wzx_free_get(z, w, &pre, NULL, NULL))
+                if (!w->scrolled && !wzx_free_has(z, w))
                     wzx_free_save(z, w);
                 if (!wzx_get_restore(z, w, &pre))
                     wzx_set_restore(z, w, w->outer);

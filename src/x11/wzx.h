@@ -95,6 +95,9 @@ typedef struct {
     int scrolled;         /* está numa faixa */
     int scroll_set;       /* índice em wzx.sset */
     int parked;           /* fora da visualização (estacionada fora dos monitores) */
+    /* Memória do modo livre: 0 = ainda não lida da propriedade, 1 = há,
+     * 2 = não há (evita uma ida ao servidor por janela a cada mosaico). */
+    int free_state;
 } wzx_win;
 
 typedef enum { DRAG_IDLE = 0, DRAG_ARMED, DRAG_MOVING, DRAG_RESIZING } wzx_drag_state;
@@ -358,6 +361,7 @@ void wzx_tile_forget(wzx *z, wzx_win *w);
 void wzx_free_save(wzx *z, wzx_win *w);
 int wzx_free_restore(wzx *z, wzx_win *w);
 int wzx_free_get(wzx *z, wzx_win *w, wz_rect *r, long *zone, unsigned *state);
+int wzx_free_has(wzx *z, wzx_win *w); /* sem ida ao servidor depois da primeira */
 /* wzx-scroll.c */
 void wzx_scroll_run(wzx *z);
 /* Sai da Rolagem: cada janela volta para a memória do modo livre (a menos

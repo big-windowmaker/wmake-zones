@@ -975,6 +975,17 @@ wzx_free_save(wzx *z, wzx_win *w)
     long v[6] = { w->outer.x, w->outer.y, w->outer.w, w->outer.h, zone >= 0 ? zone + 1 : 0,
                   (long)(w->state & (WS_MAXV | WS_MAXH)) };
     XChangeProperty(z->dpy, w->client, z->atom[A_WZ_FREE], XA_CARDINAL, 32, PropModeReplace, (unsigned char *)v, 6);
+    w->free_state = 1;
+}
+
+int
+wzx_free_has(wzx *z, wzx_win *w)
+{
+    if (!w->free_state) {
+        wz_rect r;
+        w->free_state = wzx_free_get(z, w, &r, NULL, NULL) ? 1 : 2;
+    }
+    return w->free_state == 1;
 }
 
 int
@@ -997,9 +1008,12 @@ wzx_free_restore(wzx *z, wzx_win *w)
     wz_rect r;
     long zone;
     unsigned st;
-    if (!wzx_free_get(z, w, &r, &zone, &st))
+    if (w->free_state == 2 || !wzx_free_get(z, w, &r, &zone, &st)) {
+        w->free_state = 2;
         return 0;
+    }
     XDeleteProperty(z->dpy, w->client, z->atom[A_WZ_FREE]);
+    w->free_state = 2;
     wzx_move_outer(z, w, r);
     if (zone >= 0)
         wzx_set_zone_prop(z, w, zone);
