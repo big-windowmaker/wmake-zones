@@ -1,10 +1,12 @@
 # Dockapp Z/M/R
 
-* 0.5.1: visual novo, igual nos dois (ladrilho de 60 px no X11, 64 no
-  wlmaker, desenhado em 104 e reduzido): corpo grafite, tela escura, as
-  regiões em ciano e três teclas embaixo, sem setas. A tecla do modo acende
-  na cor dele: Z verde, M amarelo, R azul-claro. A acesa desliga; o vão
-  entre as teclas não faz nada.
+* 0.5.2: no estilo dos outros dockapps (o wmpulsemixer), igual nos dois:
+  o ladrilho do Window Maker ou do tema em volta (4 px no quadro de 64), a
+  tela afundada (preto em cima e à esquerda, cinza embaixo e à direita,
+  #282828 dentro) com o LED ciano (#20b2ae, #188a86, #004941) e três
+  teclas cinza em relevo embaixo, sem setas. A do modo acende na cor dele:
+  Z verde, M amarelo, R azul-claro. A acesa desliga. Fora da tela e das
+  teclas, o clique é do WM: por ali se arrasta.
 * Tela de cima: as zonas do layout numeradas (contorno tracejado), as
   janelas do mosaico, ou as colunas da faixa na proporção das larguras, a
   ativa clara e, de cada lado com colunas escondidas, um pedaço de coluna

@@ -1,5 +1,18 @@
 # Mudanças
 
+## 0.5.2 — 2026-11-24
+
+O ladrilho do Dock volta ao jeito dos outros dockapps (como o wmpulsemixer).
+
+- **Dockapp**: o ladrilho do Window Maker (ou do tema, no wlmaker) aparece
+  em volta, a tela é afundada e escura com o LED ciano, e as teclas Z, M e
+  R são cinza em relevo; a do modo aceso fica na cor dele (Z verde, M
+  amarelo, R azul-claro). O conteúdo da tela continua o da 0.5.1.
+- **Arrastar pela borda**: fora da tela e das teclas (a borda de 4 px, o
+  vão entre a tela e as teclas, a moldura delas) o clique é do Window
+  Maker ou do wlmaker, que arrastam o ladrilho para o Dock, o Clip ou um
+  gaveteiro, como nos outros dockapps.
+
 ## 0.5.1 — 2026-11-24
 
 Visual novo do ladrilho do Dock, igual no X11 e no Wayland.

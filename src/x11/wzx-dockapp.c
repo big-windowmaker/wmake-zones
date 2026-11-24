@@ -52,22 +52,19 @@
 #define COLOR_CYAN_HALF 0x004941
 #define COLOR_CYAN_OFF 0x1f1f1f
 
-/* Visual do ladrilho (0.5.1): corpo grafite, tela escura, regiões em ciano;
- * a tecla do modo aceso na cor dele (Z verde, M amarelo, R azul-claro). */
-#define FACE_BODY 0x353a40
-#define FACE_BODY_EDGE 0x777f88
-#define FACE_SCREEN 0x111b20
-#define FACE_SCREEN_EDGE 0x87949b
-#define FACE_ZONE 0x1f5059
-#define FACE_CELL 0x28616b
-#define FACE_LINE 0x74e1e8
-#define FACE_LIGHT 0x9eeef0
-#define FACE_DIM 0x204047
-#define FACE_DIM_LINE 0x47858c
-#define FKEY_OFF 0x252b30
-#define FKEY_EDGE 0x68747c
-#define FKEY_TEXT 0xa1b2b9
-#define FKEY_TEXT_LIT 0x14292c
+/* Visual dos outros dockapps do Dock (o wmpulsemixer): o ladrilho do
+ * Window Maker aparece em volta (4 px no quadro de 64, por onde se arrasta),
+ * a tela afundada e escura com o LED ciano, as teclas cinza em relevo. A
+ * tecla do modo aceso fica na cor dele (Z verde, M amarelo, R azul-claro). */
+#define LED_HIGH 0x20b2ae
+#define LED_MED 0x188a86
+#define LED_LOW 0x004941
+#define PANEL 0x282828
+#define BEVEL_DARK 0x000000
+#define BEVEL_LIGHT 0xaeaaae
+#define BTN_FACE 0xaeaaae
+#define BTN_HILITE 0xf7f3ff
+#define BTN_TEXT 0x000000
 #define FKEY_Z 0x6fdc6f
 #define FKEY_M 0xf2c84b
 #define FKEY_R 0x8cd2f5
@@ -178,19 +175,25 @@ algo_label(const char *id)
     return id;
 }
 
-/* Fileira de baixo (60 px): as teclas Z, M e R, 18 px cada (2..19, 21..38,
- * 40..57, alinhadas com a tela), y 46..57. A área clicável é a desenhada.
- * Sem setas desde a 0.5.1: layout, algoritmo e coluna ficam no menu. */
-#define ROW_Y 46
+/* Ladrilho de 60 (no quadro de 64, em +2,+2): a tela afundada em 2..57 x
+ * 2..41 e, embaixo, o poço das teclas em 2..57 x 44..57 com Z, M e R de
+ * 18 px cada (3..20, 21..38, 39..56), y 45..56. A área clicável é a
+ * desenhada. Sem setas desde a 0.5.1: layout, algoritmo e coluna ficam na
+ * roda e no menu. */
+#define SCR_Y 2
+#define SCR_H 40
+#define WELL_Y 44
+#define ROW_Y 45
 #define ROW_H 12
 enum { HIT_NONE, HIT_Z, HIT_M, HIT_R };
 static const struct {
     int x, w;
-} row_btn[] = { [HIT_Z] = { 2, 18 }, [HIT_M] = { 21, 18 }, [HIT_R] = { 40, 18 } };
+} row_btn[] = { [HIT_Z] = { 3, 18 }, [HIT_M] = { 21, 18 }, [HIT_R] = { 39, 18 } };
 
-/* O ladrilho inteiro é desenhado (corpo, tela e teclas). */
+/* As partes desenhadas; em volta, o ladrilho do Window Maker. */
 static XRectangle dock_parts[] = {
-    { 0, 0, TILE, TILE },
+    { 2, SCR_Y, 56, SCR_H },
+    { 2, WELL_Y, 56, 14 },
 };
 #define DOCK_NPARTS ((int)(sizeof dock_parts / sizeof dock_parts[0]))
 
@@ -268,14 +271,14 @@ draw_windows(wzx *z, wz_rect box, int mon)
         r[i] = (wz_rect){ x1, y1, x2 - x1 > 3 ? x2 - x1 : 3, y2 - y1 > 4 ? y2 - y1 : 4 };
     }
     for (int i = n - 1; i >= 0; i--)
-        box_fill(z, r[i], FACE_CELL, FACE_LINE, 0);
+        box_fill(z, r[i], LED_LOW, LED_HIGH, 0);
 }
 
 /* Desligado: a tela apagada com o sinal de pausa. */
 static void
 draw_pause(wzx *z, wz_rect scr)
 {
-    XSetForeground(z->dpy, dgc, wzx_pixel(z, FACE_LINE));
+    XSetForeground(z->dpy, dgc, wzx_pixel(z, LED_HIGH));
     int cx = scr.x + scr.w / 2, cy = scr.y + scr.h / 2;
     XFillRectangle(z->dpy, face, dgc, cx - 6, cy - 7, 4, 14);
     XFillRectangle(z->dpy, face, dgc, cx + 2, cy - 7, 4, 14);
@@ -287,7 +290,7 @@ draw_pause(wzx *z, wz_rect scr)
 static void
 chevron(wzx *z, int x, int cy, int dir)
 {
-    XSetForeground(z->dpy, dgc, wzx_pixel(z, FACE_LIGHT));
+    XSetForeground(z->dpy, dgc, wzx_pixel(z, LED_HIGH));
     for (int i = 0; i < 3; i++) {
         int px = dir < 0 ? x + i : x - i;
         XDrawPoint(z->dpy, face, dgc, px, cy - i);
@@ -316,11 +319,11 @@ draw_strip(wzx *z, wz_rect box, int mon)
     int stub = 7, gap = 2;
     int x0 = box.x + (nl > 0 ? stub + gap : 0), x1 = box.x + box.w - (nr > 0 ? stub + gap : 0);
     if (nl > 0) {
-        box_fill(z, (wz_rect){ box.x, box.y + 3, stub, box.h - 6 }, FACE_DIM, FACE_DIM_LINE, 0);
+        box_fill(z, (wz_rect){ box.x, box.y + 3, stub, box.h - 6 }, LED_LOW, LED_MED, 0);
         chevron(z, box.x + 2, box.y + box.h / 2, -1);
     }
     if (nr > 0) {
-        box_fill(z, (wz_rect){ box.x + box.w - stub, box.y + 3, stub, box.h - 6 }, FACE_DIM, FACE_DIM_LINE, 0);
+        box_fill(z, (wz_rect){ box.x + box.w - stub, box.y + 3, stub, box.h - 6 }, LED_LOW, LED_MED, 0);
         chevron(z, box.x + box.w - 3, box.y + box.h / 2, 1);
     }
     long tot = 0;
@@ -332,9 +335,9 @@ draw_strip(wzx *z, wz_rect box, int mon)
         if (w < 4)
             w = 4;
         if (c == active)
-            box_fill(z, (wz_rect){ x, box.y, w, box.h }, FACE_CELL, FACE_LIGHT, 0);
+            box_fill(z, (wz_rect){ x, box.y, w, box.h }, LED_MED, LED_HIGH, 0);
         else
-            box_fill(z, (wz_rect){ x, box.y + 3, w, box.h - 6 }, FACE_DIM, FACE_DIM_LINE, 0);
+            box_fill(z, (wz_rect){ x, box.y + 3, w, box.h - 6 }, LED_LOW, LED_MED, 0);
         x += w + gap;
     }
 }
@@ -351,11 +354,11 @@ draw_zones(wzx *z, const char *tree, wz_rect box)
     int n = wz_compute(t, box, 2, 0, zr, 64);
     wz_free(t);
     for (int i = 0; i < n && i < 64; i++) {
-        box_fill(z, zr[i], FACE_ZONE, FACE_LINE, 1);
+        box_fill(z, zr[i], LED_LOW, LED_HIGH, 1);
         char num[4];
         snprintf(num, sizeof num, "%d", i + 1);
         if (zr[i].w >= (int)strlen(num) * 4 + 3 && zr[i].h >= 8)
-            pixtext_center(z, num, zr[i], FACE_LIGHT, 1);
+            pixtext_center(z, num, zr[i], LED_HIGH, 1);
     }
 }
 
@@ -366,13 +369,38 @@ static const unsigned char key_glyph[][7] = {
     { 0x1e, 0x11, 0x11, 0x1e, 0x14, 0x12, 0x11 }, /* R */
 };
 
-/* Tecla do modo: escura e apagada, ou acesa na cor do modo. */
+static void
+fill(wzx *z, int x, int y, int w, int h, unsigned rgb)
+{
+    XSetForeground(z->dpy, dgc, wzx_pixel(z, rgb));
+    XFillRectangle(z->dpy, face, dgc, x, y, (unsigned)w, (unsigned)h);
+}
+
+/* Afundado como os painéis do wmpulsemixer: preto em cima e à esquerda,
+ * cinza claro embaixo e à direita, o miolo na cor dada. */
+static void
+sunken(wzx *z, int x, int y, int w, int h, unsigned inside)
+{
+    fill(z, x, y, w, h, inside);
+    fill(z, x, y, w - 1, 1, BEVEL_DARK);
+    fill(z, x, y, 1, h - 1, BEVEL_DARK);
+    fill(z, x + 1, y + h - 1, w - 1, 1, BEVEL_LIGHT);
+    fill(z, x + w - 1, y, 1, h, BEVEL_LIGHT);
+}
+
+/* Tecla do modo, em relevo como os botões do wmpulsemixer: cinza apagada,
+ * acesa na cor do modo. */
 static void
 led_key(wzx *z, int which, int glyph, int lit, unsigned color)
 {
     wz_rect r = { row_btn[which].x, ROW_Y, row_btn[which].w, ROW_H };
-    box_fill(z, r, lit ? color : FKEY_OFF, FKEY_EDGE, 0);
-    XSetForeground(z->dpy, dgc, wzx_pixel(z, lit ? FKEY_TEXT_LIT : FKEY_TEXT));
+    unsigned f = lit ? color : BTN_FACE;
+    fill(z, r.x, r.y, r.w, r.h, f);
+    fill(z, r.x, r.y, r.w - 1, 1, lit ? wz_rgb_mix(color, 0xffffff, 140) : BTN_HILITE);
+    fill(z, r.x, r.y, 1, r.h - 1, lit ? wz_rgb_mix(color, 0xffffff, 140) : BTN_HILITE);
+    fill(z, r.x + r.w - 1, r.y, 1, r.h, BEVEL_DARK);
+    fill(z, r.x, r.y + r.h - 1, r.w, 1, BEVEL_DARK);
+    XSetForeground(z->dpy, dgc, wzx_pixel(z, BTN_TEXT));
     int x0 = r.x + (r.w - 5) / 2, y0 = r.y + (r.h - 7) / 2;
     for (int y = 0; y < 7; y++)
         for (int x = 0; x < 5; x++)
@@ -390,18 +418,17 @@ wzx_dockapp_redraw(wzx *z)
         face = XCreatePixmap(z->dpy, z->dock_icon, TILE, TILE, (unsigned)DefaultDepth(z->dpy, z->screen));
     if (!dgc)
         dgc = XCreateGC(z->dpy, face, 0, NULL);
-    /* Corpo grafite com borda; a tela escura em cima e as teclas embaixo. */
-    XSetForeground(z->dpy, dgc, wzx_pixel(z, FACE_BODY));
-    XFillRectangle(z->dpy, face, dgc, 0, 0, TILE, TILE);
-    XSetForeground(z->dpy, dgc, wzx_pixel(z, FACE_BODY_EDGE));
-    XDrawRectangle(z->dpy, face, dgc, 0, 0, TILE - 1, TILE - 1);
-    wz_rect scr = { 2, 2, 56, 42 };
-    box_fill(z, scr, FACE_SCREEN, FACE_SCREEN_EDGE, 0);
+    /* Só as partes ficam visíveis (fora delas, o ladrilho do Dock): a
+     * tela afundada em cima, o poço das teclas embaixo. */
+    fill(z, 0, 0, TILE, TILE, PANEL);
+    wz_rect scr = { 2, SCR_Y, 56, SCR_H };
+    sunken(z, scr.x, scr.y, scr.w, scr.h, PANEL);
+    sunken(z, 2, WELL_Y, 56, 14, PANEL);
     /* A tela mostra o modo de verdade (o estado do serviço, que é este
      * processo): Zonas, as regiões do layout numeradas; Mosaico, as janelas
      * organizadas pelo algoritmo; Rolagem, as colunas; desligado, a pausa. */
     wz_mode m = wz_config_mode(&z->cfg);
-    wz_rect inner = { scr.x + 3, scr.y + 3, scr.w - 6, scr.h - 6 };
+    wz_rect inner = { scr.x + 3, scr.y + 3, scr.w - 5, scr.h - 5 };
     if (m == WZ_MODE_ZONES) {
         const wz_layout_def *l = current_layout(z);
         if (l)
@@ -699,7 +726,6 @@ wm_forward(wzx *z, unsigned button, int x, int y, int xr, int yr, unsigned state
  * é um arrastar e vai para o Window Maker. Último clique direito: onde o
  * menu do Window Maker abre. */
 #define DRAG_THRESHOLD 4
-#define EDGE 3
 static struct {
     int pending, x, y, xr, yr;
     unsigned state;
@@ -1348,10 +1374,11 @@ wzx_dockapp_event(wzx *z, XEvent *e)
     case ButtonPress: {
         tip_at = 0;
         XButtonEvent *b = &e->xbutton;
-        /* As teclas vão até a borda (x 2..57, y até 57): nelas o clique é
-         * da tecla, não do Window Maker. */
-        int edge = (b->x < EDGE || b->y < EDGE || b->x >= TILE - EDGE || b->y >= TILE - EDGE) &&
-                   row_hit(b->x, b->y) == HIT_NONE;
+        /* Fora da tela e das teclas (a borda, o vão entre a tela e as
+         * teclas, a moldura delas) o clique é do Window Maker: por ali se
+         * arrasta, como nos outros dockapps. */
+        int in_screen = b->x >= 3 && b->x < 57 && b->y >= SCR_Y + 1 && b->y < SCR_Y + SCR_H - 1;
+        int edge = !in_screen && row_hit(b->x, b->y) == HIT_NONE;
         /* A borda é do Window Maker, como nos outros dockapps. */
         if (edge && (b->button == 1 || b->button == 3) &&
             wm_forward(z, b->button, b->x, b->y, b->x_root, b->y_root, b->state)) {
@@ -1384,8 +1411,7 @@ wzx_dockapp_event(wzx *z, XEvent *e)
     case ButtonRelease:
         if (e->xbutton.button == 1 && press.pending) {
             press.pending = 0;
-            /* Na fileira das teclas, o vão entre elas não troca o modo. */
-            if (press.y >= ROW_Y && press.y < ROW_Y + ROW_H)
+            if (row_hit(press.x, press.y) != HIT_NONE)
                 row_click(z, row_hit(press.x, press.y));
             else
                 click(z, z->cfg.click[0], 0);
