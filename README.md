@@ -75,7 +75,7 @@ sessão real), wmake-zones 0.5.0 e wlmaker -10.
 
 | | |
 |---|---|
-| ![Rolagem no X11: a Calculadora e o Thunar como duas colunas inteiras na tela; o AshyTerm e o xterm esperam fora da tela, e o ladrilho do Dock mostra a tecla R acesa com traços nas bordas para as colunas escondidas](docs/screenshots/x11-rolagem.png) | ![Rolagem no Wayland: o xterm (XWayland) e a Calculadora em colunas, o Thunar e o AshyTerm estacionados fora da tela](docs/screenshots/wayland-rolagem.png) |
+| ![Rolagem no X11: o Thunar e a Calculadora como duas colunas inteiras na tela; o AshyTerm e o xterm esperam fora da tela, e o ladrilho do Dock mostra a tecla R acesa, a coluna ativa clara e a seta para as colunas escondidas à direita](docs/screenshots/x11-rolagem.png) | ![Rolagem no Wayland: o xterm (XWayland) e a Calculadora em colunas, o Thunar e o AshyTerm estacionados fora da tela](docs/screenshots/wayland-rolagem.png) |
 | X11: duas colunas na tela, duas esperando ao lado | Wayland: o mesmo dentro do wlmaker, com um xterm do XWayland |
 
 ![Preferências do wmake-zones na página Rolagem: largura de uma coluna nova, larguras de Aumentar e Diminuir, onde a janela nova abre, alinhamento e espaçamento](docs/screenshots/prefs-rolagem.png)
