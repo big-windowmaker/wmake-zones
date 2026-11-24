@@ -37,7 +37,7 @@ enum {
     A_NET_WM_WINDOW_TYPE_SPLASH, A_NET_WM_WINDOW_TYPE_TOOLBAR, A_NET_WM_WINDOW_TYPE_MENU,
     A_NET_WM_WINDOW_TYPE_NOTIFICATION, A_NET_FRAME_EXTENTS, A_NET_WM_STRUT, A_NET_WM_STRUT_PARTIAL,
     A_NET_WM_NAME, A_NET_WM_PID, A_NET_WM_CM, A_UTF8_STRING, A_WM_STATE, A_WM_DELETE_WINDOW,
-    A_WM_PROTOCOLS, A_WZ_RESTORE, A_WZ_ZONE, A_WZ_STATE, A_WZ_FREE, A_WZ_SCROLL,
+    A_WM_PROTOCOLS, A_WZ_RESTORE, A_WZ_ZONE, A_WZ_STATE, A_WZ_FREE, A_WZ_SCROLL, A_NET_WM_MOVERESIZE,
     A_COUNT
 };
 
@@ -373,11 +373,20 @@ int wzx_scroll_cmd(wzx *z, const char *op, const char *arg, char *out, size_t ou
  * escondidas de cada lado; 0 se não há faixa. */
 int wzx_scroll_info(wzx *z, int mon, int *ncol, int *active, int *nleft, int *nright, int *widths, int max);
 void wzx_scroll_free_all(wzx *z);
+/* Arrasto de uma janela da faixa: soltar a põe entre as colunas sob o
+ * ponteiro; redimensionar muda a largura da coluna. */
+void wzx_scroll_drop(wzx *z, wzx_win *w, int px, int py);
+void wzx_scroll_user_resize(wzx *z, wzx_win *w);
 /* wzx-keys.c */
 void wzx_keys_grab(wzx *z);
 void wzx_keys_ungrab(wzx *z);
 int wzx_keys_event(wzx *z, XKeyEvent *e);
 int wzx_parse_key(Display *dpy, const char *spec, unsigned *mods, KeyCode *code);
+/* DragModifier (Ctrl+Alt): botão esquerdo move, direito redimensiona pelo
+ * canto mais perto, de qualquer ponto da janela, pelo Window Maker. */
+void wzx_moddrag_grab(wzx *z);
+void wzx_moddrag_ungrab(wzx *z);
+int wzx_moddrag_event(wzx *z, XEvent *e);
 
 /* wzx-ipc.c */
 int wzx_ipc_listen(wzx *z);

@@ -313,6 +313,37 @@ wz_scroll_move(wz_scroll *s, int dir, int width)
 }
 
 int
+wz_scroll_move_to(wz_scroll *s, long id, int at)
+{
+    int r, c = wz_scroll_find(s, id, &r);
+    if (c < 0)
+        return 0;
+    if (at < 0)
+        at = 0;
+    if (at > s->ncol)
+        at = s->ncol;
+    if (s->col[c].n == 1) {
+        if (at == c || at == c + 1) {
+            s->active = c;
+            return 0;
+        }
+        wz_scroll_col tmp = s->col[c];
+        memmove(&s->col[c], &s->col[c + 1], sizeof *s->col * (size_t)(s->ncol - c - 1));
+        if (at > c)
+            at--;
+        memmove(&s->col[at + 1], &s->col[at], sizeof *s->col * (size_t)(s->ncol - 1 - at));
+        s->col[at] = tmp;
+        s->active = at;
+        return 1;
+    }
+    int width = s->col[c].width;
+    wz_scroll_remove(s, id); /* a coluna c continua (tinha outras) */
+    s->active = at - 1;      /* insert põe em active + 1 */
+    wz_scroll_insert(s, id, width, WZ_SCROLL_INSERT_COLUMN);
+    return 1;
+}
+
+int
 wz_scroll_consume(wz_scroll *s, int dir)
 {
     if (s->active < 0 || (dir != WZ_LEFT && dir != WZ_RIGHT))

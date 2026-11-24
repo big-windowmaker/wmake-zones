@@ -127,6 +127,7 @@ wzx_apply_config(wzx *z)
     wzx_wm_snapping(z, z->cfg.zones);
     wzx_xi_select(z);
     wzx_keys_grab(z);
+    wzx_moddrag_grab(z);
     z->work_dirty = 1;
     int any_tile = z->cfg.autotile;
     for (int i = 0; i < z->nmon && !any_tile; i++)
@@ -270,7 +271,11 @@ handle_event(wzx *z, XEvent *e)
             wzx_keys_event(z, &e->xkey);
         break;
     case ButtonPress:
-        wzx_picker_button(z, &e->xbutton);
+    case ButtonRelease:
+        if (wzx_moddrag_event(z, e))
+            break;
+        if (e->type == ButtonPress)
+            wzx_picker_button(z, &e->xbutton);
         break;
     case MappingNotify:
         /* setxkbmap, troca de layout de teclado: os keycodes dos atalhos e
@@ -666,6 +671,7 @@ main(int argc, char **argv)
     wzx_picker_close(z);
     wzx_overlay_hide(z);
     wzx_keys_ungrab(z);
+    wzx_moddrag_ungrab(z);
     if (!z->cfg.zones)
         wzx_wm_snapping(z, 0);
     wzx_ipc_close(z);

@@ -160,3 +160,120 @@ wzx_keys_event(wzx *z, XKeyEvent *e)
         }
     return 0;
 }
+
+/* ---- mover e redimensionar com o modificador (Ctrl+Alt) -------------- */
+
+static unsigned
+parse_mods(const char *spec)
+{
+    unsigned m = 0;
+    if (!spec)
+        return 0;
+    char buf[64];
+    snprintf(buf, sizeof buf, "%s", spec);
+    for (char *t = strtok(buf, "+ "); t; t = strtok(NULL, "+ ")) {
+        if (!strcasecmp(t, "Ctrl") || !strcasecmp(t, "Control"))
+            m |= ControlMask;
+        else if (!strcasecmp(t, "Alt") || !strcasecmp(t, "Mod1"))
+            m |= Mod1Mask;
+        else if (!strcasecmp(t, "Super") || !strcasecmp(t, "Mod4") || !strcasecmp(t, "Win"))
+            m |= Mod4Mask;
+        else if (!strcasecmp(t, "Shift"))
+            m |= ShiftMask;
+        else
+            return 0; /* desconhecido: não pega nada por engano */
+    }
+    return m;
+}
+
+static unsigned drag_mods;
+
+void
+wzx_moddrag_ungrab(wzx *z)
+{
+    if (!drag_mods)
+        return;
+    for (size_t k = 0; k < sizeof ignore / sizeof *ignore; k++) {
+        XUngrabButton(z->dpy, Button1, drag_mods | ignore[k], z->root);
+        XUngrabButton(z->dpy, Button3, drag_mods | ignore[k], z->root);
+    }
+    drag_mods = 0;
+}
+
+void
+wzx_moddrag_grab(wzx *z)
+{
+    wzx_moddrag_ungrab(z);
+    unsigned m = parse_mods(z->cfg.drag_modifier);
+    if (!m)
+        return;
+    /* Na raiz: a grab passiva mais externa vence, então o clique nunca chega
+     * ao aplicativo (não seleciona texto, não aperta botões). Sem o
+     * modificador, nada muda. */
+    XSync(z->dpy, False);
+    int (*old)(Display *, XErrorEvent *) = XSetErrorHandler(grab_handler);
+    grab_error = 0;
+    for (size_t k = 0; k < sizeof ignore / sizeof *ignore; k++) {
+        XGrabButton(z->dpy, Button1, m | ignore[k], z->root, False, ButtonPressMask | ButtonReleaseMask,
+                    GrabModeAsync, GrabModeAsync, None, None);
+        XGrabButton(z->dpy, Button3, m | ignore[k], z->root, False, ButtonPressMask | ButtonReleaseMask,
+                    GrabModeAsync, GrabModeAsync, None, None);
+    }
+    XSync(z->dpy, False);
+    XSetErrorHandler(old);
+    if (grab_error) {
+        wzx_log("%s+clique já está em uso por outro programa", z->cfg.drag_modifier);
+        for (size_t k = 0; k < sizeof ignore / sizeof *ignore; k++) {
+            XUngrabButton(z->dpy, Button1, m | ignore[k], z->root);
+            XUngrabButton(z->dpy, Button3, m | ignore[k], z->root);
+        }
+        return;
+    }
+    drag_mods = m;
+}
+
+/* _NET_WM_MOVERESIZE */
+enum { MR_TOPLEFT = 0, MR_TOP, MR_TOPRIGHT, MR_RIGHT, MR_BOTTOMRIGHT, MR_BOTTOM, MR_BOTTOMLEFT, MR_LEFT, MR_MOVE };
+
+int
+wzx_moddrag_event(wzx *z, XEvent *e)
+{
+    if (!drag_mods || (e->type != ButtonPress && e->type != ButtonRelease) || e->xbutton.window != z->root)
+        return 0;
+    XButtonEvent *b = &e->xbutton;
+    if ((b->state & (ShiftMask | ControlMask | Mod1Mask | Mod4Mask)) != drag_mods ||
+        (b->button != Button1 && b->button != Button3))
+        return 0;
+    if (e->type == ButtonRelease)
+        return 1;
+    /* Solta a grab antes: o Window Maker pega o ponteiro para o movimento. */
+    XUngrabPointer(z->dpy, b->time);
+    wzx_win *w = b->subwindow ? wzx_find_frame(z, b->subwindow) : NULL;
+    if (!w || w->special || (w->state & WS_FULLSCREEN))
+        return 1;
+    long dir = MR_MOVE;
+    if (b->button == Button3) {
+        if (w->fixed)
+            return 1;
+        wzx_refresh_geom(z, w);
+        int fx = (b->x_root - w->outer.x) * 3 / (w->outer.w > 0 ? w->outer.w : 1);
+        int fy = (b->y_root - w->outer.y) * 3 / (w->outer.h > 0 ? w->outer.h : 1);
+        static const long map[3][3] = { { MR_TOPLEFT, MR_TOP, MR_TOPRIGHT },
+                                        { MR_LEFT, MR_BOTTOMRIGHT, MR_RIGHT },
+                                        { MR_BOTTOMLEFT, MR_BOTTOM, MR_BOTTOMRIGHT } };
+        dir = map[fy < 0 ? 0 : fy > 2 ? 2 : fy][fx < 0 ? 0 : fx > 2 ? 2 : fx];
+    }
+    XEvent ev = { 0 };
+    ev.xclient.type = ClientMessage;
+    ev.xclient.window = w->client;
+    ev.xclient.message_type = z->atom[A_NET_WM_MOVERESIZE];
+    ev.xclient.format = 32;
+    ev.xclient.data.l[0] = b->x_root;
+    ev.xclient.data.l[1] = b->y_root;
+    ev.xclient.data.l[2] = dir;
+    ev.xclient.data.l[3] = (long)b->button;
+    ev.xclient.data.l[4] = 1;
+    XSendEvent(z->dpy, z->root, False, SubstructureRedirectMask | SubstructureNotifyMask, &ev);
+    XFlush(z->dpy);
+    return 1;
+}

@@ -275,10 +275,15 @@ finish_move(wzx *z, int px, int py)
         return;
     wzx_refresh_geom(z, w);
     if (z->drag_cancel) {
-        if (w->tiled)
+        if (w->tiled || w->scrolled) {
+            w->expect_valid = 0;
             wzx_tile_mark(z);
-        else
+        } else
             wzx_move_outer(z, w, z->drag_start);
+        return;
+    }
+    if (w->scrolled) {
+        wzx_scroll_drop(z, w, px, py);
         return;
     }
     if (z->ov.shown && z->ov.mode == 1) {
@@ -414,6 +419,8 @@ wzx_drag_raw(wzx *z, XGenericEventCookie *c)
             return; /* soltou outro botão; o 1 continua apertado */
         if (z->drag == DRAG_MOVING)
             finish_move(z, rx, ry);
+        else if (z->drag == DRAG_RESIZING && z->drag_w && z->drag_w->scrolled)
+            wzx_scroll_user_resize(z, z->drag_w);
         else if (z->drag == DRAG_RESIZING && z->drag_w)
             wzx_tile_user_resize(z, z->drag_w);
         reset_drag(z);
@@ -455,7 +462,7 @@ wzx_drag_configure(wzx *z, XConfigureEvent *e)
     w->outer = (wz_rect){ e->x, e->y, e->width + 2 * e->border_width, e->height + 2 * e->border_width };
     if (z->drag == DRAG_ARMED) {
         if (w->outer.w != z->drag_start.w || w->outer.h != z->drag_start.h) {
-            z->drag = w->tiled ? DRAG_RESIZING : DRAG_IDLE;
+            z->drag = w->tiled || w->scrolled ? DRAG_RESIZING : DRAG_IDLE;
             if (z->drag == DRAG_IDLE)
                 z->drag_w = NULL;
             return;
@@ -486,6 +493,11 @@ wzx_drag_flush(wzx *z)
     unsigned mask;
     if (!XQueryPointer(z->dpy, z->root, &r, &child, &px, &py, &wx, &wy, &mask))
         return;
+    if (w->scrolled) {
+        /* Na faixa, soltar só muda a ordem das colunas: sem zonas. */
+        wzx_overlay_hide(z);
+        return;
+    }
     int mon = wzx_monitor_at(z, px, py);
     int tile_mode = w->tiled && wzx_tile_active_for(z, mon);
     int active;

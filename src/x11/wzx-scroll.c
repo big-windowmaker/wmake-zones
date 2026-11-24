@@ -412,3 +412,53 @@ wzx_scroll_free_all(wzx *z)
     for (int i = 0; i < 64; i++)
         wz_scroll_free(&z->sset[i].s);
 }
+
+void
+wzx_scroll_drop(wzx *z, wzx_win *w, int px, int py)
+{
+    (void)py;
+    if (!w->scrolled || w->scroll_set < 0 || !z->sset[w->scroll_set].used) {
+        wzx_tile_mark(z);
+        return;
+    }
+    sset *s = &z->sset[w->scroll_set];
+    int mon = member_mon(z, w);
+    long ids[WZX_MAX_WIN];
+    wz_rect rects[WZX_MAX_WIN];
+    int vis[WZX_MAX_WIN];
+    wz_scroll tmp;
+    wz_scroll_init(&tmp);
+    wz_scroll_copy(&tmp, &s->s);
+    int k = wz_scroll_layout(&tmp, &z->cfg.scroll_p, z->mon[mon].work, 1, ids, rects, vis, WZX_MAX_WIN, NULL, NULL);
+    wz_scroll_free(&tmp);
+    /* Antes da primeira coluna visível cuja metade fica à direita do
+     * ponteiro; depois de todas, no fim da sequência visível. */
+    int at = -1, last = -1;
+    for (int i = 0; i < k && at < 0; i++) {
+        if (!vis[i] || ids[i] == (long)w->client)
+            continue;
+        int c = wz_scroll_find(&s->s, ids[i], NULL);
+        last = c;
+        if (px < rects[i].x + rects[i].w / 2)
+            at = c;
+    }
+    if (at < 0)
+        at = last >= 0 ? last + 1 : s->s.ncol;
+    s->keep_view = 0;
+    wz_scroll_move_to(&s->s, (long)w->client, at);
+    w->expect_valid = 0; /* volta para a coluna mesmo sem mudar de lugar */
+    wzx_tile_mark(z);
+}
+
+void
+wzx_scroll_user_resize(wzx *z, wzx_win *w)
+{
+    if (!w->scrolled || w->scroll_set < 0 || !z->sset[w->scroll_set].used)
+        return;
+    sset *s = &z->sset[w->scroll_set];
+    wzx_refresh_geom(z, w);
+    if (wz_scroll_activate(&s->s, (long)w->client))
+        wz_scroll_set_width(&s->s, w->outer.w);
+    w->expect_valid = 0;
+    wzx_tile_mark(z);
+}

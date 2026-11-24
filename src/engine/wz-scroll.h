@@ -85,6 +85,10 @@ int wz_scroll_focus_last(wz_scroll *s);
  * janela está sozinha nela; numa coluna com outras, a janela sai para uma
  * coluna nova daquele lado. UP/DOWN troca de lugar dentro da coluna. */
 int wz_scroll_move(wz_scroll *s, int dir, int width);
+/* Leva a janela para a posição at (0..ncol) entre as colunas: sozinha na
+ * coluna, a coluna inteira muda de lugar; com outras, sai para uma coluna
+ * nova ali, com a mesma largura. A janela fica ativa. 1 se mudou. */
+int wz_scroll_move_to(wz_scroll *s, long id, int at);
 /* A janela ativa entra na coluna vizinha (dir LEFT/RIGHT), embaixo. */
 int wz_scroll_consume(wz_scroll *s, int dir);
 /* A janela ativa sai da coluna para uma coluna nova à direita. */

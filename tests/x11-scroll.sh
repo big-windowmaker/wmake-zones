@@ -49,6 +49,7 @@ cat >"$GNUSTEP_USER_ROOT/Defaults/WindowMaker" <<'EOF'
   WindowSnapping = YES;
   WindowPlacement = manual;
   OpaqueMove = YES;
+  OpaqueResize = YES;
 }
 EOF
 CONF=$XDG_CONFIG_HOME/wmake-zones/wmake-zones.conf
@@ -135,6 +136,46 @@ xdotool mouseup 1; sleep 0.8
 eval "$(geom "$W1")"
 check "arrastar não muda o tamanho ajustado (${WIDTH}x$HEIGHT vs ${SW}x$SH)" '[ "$WIDTH" = "$SW" ] && [ "$HEIGHT" = "$SH" ]'
 "$WZ" restore >/dev/null 2>&1; sleep 0.5
+
+# --- Ctrl+Alt: mover e redimensionar de qualquer ponto da janela ------------
+eval "$(geom "$W3")"; X0=$X Y0=$Y W0=$WIDTH H0=$HEIGHT
+xdotool mousemove $((X + WIDTH / 2)) $((Y + HEIGHT / 2)); sleep 0.2
+xdotool keydown ctrl+alt; sleep 0.1; xdotool mousedown 1; sleep 0.2
+for _ in $(seq 1 10); do xdotool mousemove_relative -- 12 8; sleep 0.05; done
+xdotool mouseup 1; sleep 0.1; xdotool keyup ctrl+alt; sleep 0.6
+eval "$(geom "$W3")"
+check "Ctrl+Alt+arrastar move pelo meio da janela ($X0,$Y0 -> $X,$Y)" '[ $((X - X0)) -ge 80 ] && [ $((Y - Y0)) -ge 50 ]'
+check "Ctrl+Alt+arrastar mantém o tamanho" '[ "$WIDTH" = "$W0" ] && [ "$HEIGHT" = "$H0" ]'
+# O clique com o modificador não chega ao aplicativo (o xev registra cada
+# ButtonPress que recebe); um clique comum chega.
+BLOG=$(dirname "$0")/tools/button-log.py
+if python3 -c 'import Xlib' 2>/dev/null; then
+	before=$(clients | sort)
+	python3 "$BLOG" wz-xev 300x200+1100+500 >"$TMP/xev.log" 2>&1 &
+	PIDS="$PIDS $!"
+	for _ in $(seq 1 40); do [ "$before" != "$(clients | sort)" ] && break; sleep 0.1; done
+	sleep 0.6
+	XV=$(xdotool search --name '^wz-xev$' | head -1)
+	eval "$(geom "$XV")"
+	xdotool mousemove $((X + 150)) $((Y + 100)); sleep 0.2
+	xdotool keydown ctrl+alt; sleep 0.1; xdotool mousedown 1; sleep 0.2
+	for _ in $(seq 1 5); do xdotool mousemove_relative -- -10 -6; sleep 0.05; done
+	xdotool mouseup 1; sleep 0.1; xdotool keyup ctrl+alt; sleep 0.5
+	check "Ctrl+Alt+arrastar: nenhum ButtonPress chegou ao aplicativo" '! grep -q ButtonPress "$TMP/xev.log"'
+	eval "$(geom "$XV")"
+	xdotool mousemove $((X + 150)) $((Y + 100)) click 1; sleep 0.5
+	check "clique comum chega ao aplicativo (controle)" 'grep -q ButtonPress "$TMP/xev.log"'
+	xdotool windowkill "$XV" 2>/dev/null; sleep 0.5
+else
+	n=$((n + 1)); echo "ok $n # SKIP sem python-xlib: clique com o modificador não chega ao aplicativo"
+fi
+eval "$(geom "$W3")"; W0=$WIDTH H0=$HEIGHT
+xdotool mousemove $((X + WIDTH - 10)) $((Y + HEIGHT - 10)); sleep 0.2
+xdotool keydown ctrl+alt; sleep 0.1; xdotool mousedown 3; sleep 0.2
+for _ in $(seq 1 8); do xdotool mousemove_relative -- 10 6; sleep 0.05; done
+xdotool mouseup 3; sleep 0.1; xdotool keyup ctrl+alt; sleep 0.6
+eval "$(geom "$W3")"
+check "Ctrl+Alt+botão direito redimensiona pelo canto (${W0}x$H0 -> ${WIDTH}x$HEIGHT)" '[ "$WIDTH" -gt "$W0" ] && [ "$HEIGHT" -gt "$H0" ]'
 G1=$(G "$W1") G2=$(G "$W2") G3=$(G "$W3")
 
 # --- Mosaico e volta: cada janela no lugar de antes -----------------------
@@ -184,6 +225,22 @@ check "separar: seis colunas" 'status | grep -q "columns=6"'
 for w in "$W1" "$W2" "$W3" "$W4" "$W5" "$W6"; do onscreen "$w" || HID=$w; done
 xdotool windowactivate "$HID" 2>/dev/null; sleep 1
 check "focar uma estacionada a traz para a tela" 'onscreen "$HID"'
+# Arrastar uma coluna visível para antes da outra troca a ordem.
+VIS=""; for w in "$W1" "$W2" "$W3" "$W4" "$W5" "$W6"; do onscreen "$w" && VIS="$VIS $w"; done
+set -- $VIS
+if [ $# -ge 2 ]; then
+	A=$1 B=$2
+	[ "$(xpos "$A")" -gt "$(xpos "$B")" ] && { A=$2; B=$1; }
+	eval "$(geom "$B")"; BX=$X
+	xdotool mousemove $((X + WIDTH / 2)) $((Y + HEIGHT / 2)); sleep 0.2
+	xdotool keydown ctrl+alt; sleep 0.1; xdotool mousedown 1; sleep 0.2
+	eval "$(geom "$A")"
+	for _ in $(seq 1 12); do xdotool mousemove_relative -- -60 0; sleep 0.05; done
+	xdotool mousemove $((X + 20)) $((Y + 100)); sleep 0.3
+	xdotool mouseup 1; sleep 0.1; xdotool keyup ctrl+alt; sleep 1
+	check "arrastar a coluna para antes da outra troca a ordem" '[ "$(xpos "$B")" -lt "$(xpos "$A")" ]'
+	check "depois do arrasto, as duas na tela e alinhadas à faixa" 'onscreen "$A" && onscreen "$B" && [ "$(xpos "$B")" -le 2 ]'
+fi
 STRIP2=$(xprop -root _WMAKE_ZONES_SCROLL | sed 's/.*= //')
 
 # --- Rolagem -> Zonas: tudo de volta; as novas, na tela ----------------------
