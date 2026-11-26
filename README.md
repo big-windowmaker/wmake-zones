@@ -145,7 +145,8 @@ da tabela tem teste funcional com o Window Maker e o wlmaker de verdade
 ## Instalar
 
 No Big WindowMaker o pacote já vem na ISO e é dependência da sessão
-(`big-wm-session`). Em outra instalação Arch/Manjaro, pelo PKGBUILD de
+(`big-wm-session`). Em outra instalação Arch/Manjaro, pelo repositório
+assinado [`[big-wm]`](https://github.com/big-windowmaker/repo) (`sudo pacman -S wmake-zones`) ou pelo PKGBUILD de
 [big-windowmaker/packages](https://github.com/big-windowmaker/packages/tree/main/wmake-zones):
 
 ```sh
@@ -421,8 +422,9 @@ Window Maker and on Wayland with wlmaker, without replacing the window
 manager: windows keep floating until you drop them on a zone, and tiling is
 one click away on the Dock tile. Each mode remembers its own arrangement,
 and Ctrl+Alt + left or right button moves or resizes a window from anywhere
-in it. Install from
-[big-windowmaker/packages](https://github.com/big-windowmaker/packages)
+in it. Install from the signed
+[`[big-wm]`](https://github.com/big-windowmaker/repo) pacman repository,
+from [big-windowmaker/packages](https://github.com/big-windowmaker/packages)
 (`makepkg -si` in `wmake-zones/`) or build with Meson; `wmake-zones help`
 lists every command. Maintainers: Rafael Ruscher and Barnabé Di Kartola.
 Special thanks to Alfredo Kojima (Window Maker), Philipp Kaeser (wlmaker),
